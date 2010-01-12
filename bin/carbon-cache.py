@@ -156,9 +156,8 @@ startListener(settings.PICKLE_RECEIVER_INTERFACE, settings.PICKLE_RECEIVER_PORT,
 startListener(settings.CACHE_QUERY_INTERFACE, settings.CACHE_QUERY_PORT, CacheQueryHandler)
 
 if use_amqp:
-  amqp_listener.startReceiver(amqp_host, amqp_port,
-                              amqp_user, amqp_password, verbose=amqp_verbose)
-#
+  amqp_listener.startReceiver(amqp_host, amqp_port, amqp_user, amqp_password, verbose=amqp_verbose)
+
 startWriter()
 startRecordingCacheMetrics()
 

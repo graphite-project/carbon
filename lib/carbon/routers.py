@@ -19,9 +19,8 @@ class DatapointRouter:
 
 
 class RelayRulesRouter(DatapointRouter):
-  def __init__(self, rules_path):
-    self.rules_path = rules_path
-    self.rules = loadRelayRules(rules_path)
+  def __init__(self, config_file='relay-rules.conf'):
+    self.rules = loadRelayRules(config_file)
     self.destinations = set()
 
   def addDestination(self, destination):

@@ -1,7 +1,7 @@
 import sys
 import os
 import pwd
-
+from optparse import OptionParser
 from os.path import abspath, basename, dirname, join
 try:
   from cStringIO import StringIO
@@ -31,27 +31,49 @@ def dropprivs(user):
 
 
 def run_twistd_plugin(filename):
-    from carbon.conf import get_parser
     from twisted.scripts.twistd import ServerOptions
 
     bin_dir = dirname(abspath(filename))
     root_dir = dirname(bin_dir)
     os.environ.setdefault('GRAPHITE_ROOT', root_dir)
 
-    program = basename(filename).split('.')[0]
-
     # First, parse command line options as the legacy carbon scripts used to
     # do.
-    parser = get_parser(program)
+    parser = OptionParser(usage="%prog [options] <instance> <start|stop|status>")
+    parser.add_option(
+        "--debug", action="store_true",
+        help="Run in the foreground, log to stdout")
+    parser.add_option(
+        "--profile",
+        help="Record performance profile data to the given file")
+    parser.add_option(
+        "--pidfile", default=None,
+        help="Write pid to the given file")
+    parser.add_option(
+        "--config",
+        default=None,
+        help="Use the given instance configuration directory")
+    parser.add_option(
+        "--logdir",
+        default=None,
+        help="Write logs in the given directory")
+
     (options, args) = parser.parse_args()
 
-    if not args:
-      parser.print_usage()
-      return
+    if len(args) != 2:
+        print "Exactly 2 arguments required, %d given" % len(args)
+        parser.print_usage()
+        raise SystemExit(1)
+
+    instance, action = args
+
+    if action not in ("start", "stop", "status"):
+        print "Invalid action '%s'" % action
+        parser.print_usage()
+        raise SystemExit(1)
 
     # This isn't as evil as you might think
-    __builtins__["instance"] = options.instance
-    __builtins__["program"] = program
+    #__builtins__["instance"] = instance #XXX is this truly necessary?
 
     # Then forward applicable options to either twistd or to the plugin itself.
     twistd_options = ["--no_save"]
@@ -72,7 +94,7 @@ def run_twistd_plugin(filename):
         twistd_options.extend(["--pidfile", options.pidfile])
 
     # Now for the plugin-specific options.
-    twistd_options.append(program)
+    twistd_options.append('carbon-daemon')
 
     if options.debug:
         twistd_options.append("--debug")

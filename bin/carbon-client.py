@@ -15,7 +15,7 @@ limitations under the License."""
 
 import sys
 import imp
-from os.path import dirname, join, abspath, exists
+from os.path import dirname, join, abspath, exists, split
 from optparse import OptionParser
 
 # Figure out where we're installed
@@ -39,6 +39,7 @@ from twisted.internet import stdio, reactor, defer
 from twisted.protocols.basic import LineReceiver
 from carbon.routers import ConsistentHashingRouter, RelayRulesRouter
 from carbon.client import CarbonClientManager
+from carbon.conf import settings
 from carbon import log, events
 
 
@@ -84,7 +85,9 @@ if options.routing == 'consistent-hashing':
   router = ConsistentHashingRouter(options.replication)
 elif options.routing == 'relay':
   if exists(options.relayrules):
-    router = RelayRulesRouter(options.relayrules)
+    config_dir, relayrules = split(abspath(options.relayrules))
+    settings.use_config_directory(config_dir)
+    router = RelayRulesRouter(relayrules)
   else:
     print "relay rules file %s does not exist" % options.relayrules
     raise SystemExit(1)

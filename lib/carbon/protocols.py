@@ -1,8 +1,9 @@
+import traceback
 from twisted.internet import reactor
 from twisted.internet.protocol import DatagramProtocol
 from twisted.internet.error import ConnectionDone
 from twisted.protocols.basic import LineOnlyReceiver, Int32StringReceiver
-from carbon import log, events, state, management
+from carbon import log, events, state
 from carbon.conf import settings
 from carbon.util import pickle, get_unpickler
 
@@ -122,11 +123,22 @@ class CacheManagementHandler(Int32StringReceiver):
       instrumentation.increment('cacheQueries')
 
     elif request['type'] == 'get-metadata':
-      result = management.getMetadata(request['metric'], request['key'])
+      try:
+        value = state.database.get_metadata(request['metric'], request['key'])
+        result = dict(value=value)
+      except:
+        log.err()
+        result = dict(error=traceback.format_exc())
 
     elif request['type'] == 'set-metadata':
-      result = management.setMetadata(request['metric'], request['key'], request['value'])
-
+      try:
+        old_value = state.database.set_metadata(request['metric'],
+                                                request['key'],
+                                                request['value'])
+        result = dict(old_value=old_value, new_value=request['value'])
+      except:
+        log.err()
+        result = dict(error=traceback.format_exc())
     else:
       result = dict(error="Invalid request type \"%s\"" % request['type'])
 

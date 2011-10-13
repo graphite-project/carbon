@@ -1,5 +1,5 @@
 import re
-from carbon.conf import OrderedConfigParser
+from carbon.conf import settings, ConfigError
 from carbon.util import parseDestinations
 
 
@@ -12,43 +12,40 @@ class RelayRule:
     return bool( self.condition(metric) )
 
 
-def loadRelayRules(path):
+def loadRelayRules(config_file):
   rules = []
-  parser = OrderedConfigParser()
+  rule_definitions = config.read_file(config_file)
 
-  if not parser.read(path):
-    raise Exception("Could not read rules file %s" % path)
+  default_rule = None
+  for rule_name, definition in rule_definitions.items():
+    if 'destinations' not in definition:
+      raise ConfigError("Relay rule [" + rule_name + "] missing required "
+                        "\"destinations\" key")
 
-  defaultRule = None
-  for section in parser.sections():
-    if not parser.has_option(section, 'destinations'):
-      raise ValueError("Rules file %s section %s does not define a "
-                       "'destinations' list" % (path, section))
-
-    destination_strings = parser.get(section, 'destinations').split(',')
+    destination_strings = definition['destinations'].split(',')
     destinations = parseDestinations(destination_strings)
 
-    if parser.has_option(section, 'pattern'):
-      if parser.has_option(section, 'default'):
-        raise Exception("Section %s contains both 'pattern' and "
-                        "'default'. You must use one or the other." % section)
-      pattern = parser.get(section, 'pattern')
-      regex = re.compile(pattern, re.I)
+    if 'pattern' in definition:
+      if 'default' in definition:
+        raise ConfigError("Rule " + rule_name + " contains both 'pattern' "
+                          "and 'default' keys. You must use one or the other.")
+
+      regex = re.compile(definition['pattern'], re.I)
       rule = RelayRule(condition=regex.search, destinations=destinations)
       rules.append(rule)
       continue
 
-    if parser.has_option(section, 'default'):
-      if not parser.getboolean(section, 'default'):
+    elif 'default' in definition:
+      if not definition['default']:
         continue # just ignore default = false
-      if defaultRule:
-        raise Exception("Two default rules? Seriously?")
-      defaultRule = RelayRule(condition=lambda metric: True,
-                              destinations=destinations)
+      if default_rule:
+        raise ConfigError("Default rule already defined.")
+      default_rule = RelayRule(condition=lambda metric: True,
+                               destinations=destinations)
 
-  if not defaultRule:
+  if not default_rule:
     raise Exception("No default rule defined. You must specify exactly one "
                     "rule with 'default = true' instead of a pattern.")
 
-  rules.append(defaultRule)
+  rules.append(default_rule)
   return rules

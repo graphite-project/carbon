@@ -16,17 +16,8 @@ import os, re
 import whisper
 
 from os.path import join, exists
-from carbon.conf import OrderedConfigParser, settings
 from carbon.util import pickle
 from carbon import log
-
-
-STORAGE_SCHEMAS_CONFIG = join(settings.CONF_DIR, 'storage-schemas.conf')
-STORAGE_AGGREGATION_CONFIG = join(settings.CONF_DIR, 'storage-aggregation.conf')
-STORAGE_LISTS_DIR = join(settings.CONF_DIR, 'lists')
-
-def getFilesystemPath(metric):
-  return join(settings.LOCAL_DATA_DIR, metric.replace('.','/')) + '.wsp'
 
 
 class Schema:
@@ -65,7 +56,7 @@ class ListSchema(Schema):
     self.name = name
     self.listName = listName
     self.archives = archives
-    self.path = join(settings.WHITELISTS_DIR, listName)
+    self.path = join(settings.WHITELISTS_DIR, listName) #XXX
 
     if exists(self.path):
       self.mtime = os.stat(self.path).st_mtime
@@ -107,8 +98,31 @@ class Archive:
     (secondsPerPoint, points) = whisper.parseRetentionDef(retentionDef)
     return Archive(secondsPerPoint, points)
 
+'''
+Don't start gutting this file til the new writer is done.
+It's gonna have to work with storage rules.
+'''
+class StorageRule(object):
+  def __init__(self, definition):
+    self.definition = dict(definition) # original definition
 
-def loadStorageSchemas():
+    match_all = definition.pop('match-all', None)
+    pattern = definition.pop('pattern', None)
+    metric_list = definition.pop('list', None)
+    if (match_all, pattern, metric_list).count(None) != 2:
+      raise Exception("Exactly one condition key must be provided: match-all"
+                        " | pattern | list")
+
+    self.context = definition # only remains
+
+  def set_defaults(self, context):
+    for key, value in self.context.items():
+      context.setdefault(key, value)
+
+#XXX wtf does it need to do? i gotta parse retentions, split on the comma, Archive's yo.
+
+
+def loadStorageSchemas(): #XXX this whole function CAN GO TO HELL!!!
   schemaList = []
   config = OrderedConfigParser()
   config.read(STORAGE_SCHEMAS_CONFIG)

@@ -17,22 +17,58 @@ import os
 import time
 from os.path import join, exists, dirname, basename
 
-import whisper
 from carbon import state
 from carbon.cache import MetricCache
-from carbon.storage import getFilesystemPath, loadStorageSchemas, loadAggregationSchemas
 from carbon.conf import settings
 from carbon import log, events, instrumentation
 
 from twisted.internet import reactor
 from twisted.internet.task import LoopingCall
 from twisted.application.service import Service
+'''
+How to make this database agnostic...
+look at 1.1 version, what is the common API they use/provide?
+
+MAX_UPDATES_PER_SECOND
+MAX_CREATES_PER_MINUTE
+MAX_CACHE_SIZE
+LOG_UPDATES
+
+
+
+optimal drain logic (in Cache.drain in 1.1)
+
+ratelimit creates
+ratelimit writes
+
+ceres needs a muthafuckin node cache
+
+directory creation and chmoding goes in the db plugin
+so i just need to generalize writeCachedDatapoints.
+'''
+
+def writeCachedDatapoints():
+  for (metric, datapoints) in MetricCache.drain(): #XXX
+
+    if not database.exists(metric):
+      if over_create_ratelimit:
+        break
+
+      metadata = {}
+      for rule in settings.STORAGE_RULES:
+        if rule.matches(metric):
+          rule.set_defaults(metadata)
+      metadata = #XXX get result of applying settings.STORAGE_RULES to (metric)
+      database.create(metric, **metadata)
+      if over_create_ratelimit:
+        break
+
+
+
 
 
 lastCreateInterval = 0
 createCount = 0
-schemas = loadStorageSchemas()
-agg_schemas = loadAggregationSchemas()
 CACHE_SIZE_LOW_WATERMARK = settings.MAX_CACHE_SIZE * 0.95
 
 
@@ -95,13 +131,13 @@ def writeCachedDataPoints():
         archiveConfig = None
         xFilesFactor, aggregationMethod = None, None
 
-        for schema in schemas:
+        for schema in schemas: #XXX
           if schema.matches(metric):
             log.creates('new metric %s matched schema %s' % (metric, schema.name))
             archiveConfig = [archive.getTuple() for archive in schema.archives]
             break
 
-        for schema in agg_schemas:
+        for schema in agg_schemas: #XXX
           if schema.matches(metric):
             log.creates('new metric %s matched aggregation schema %s' % (metric, schema.name))
             xFilesFactor, aggregationMethod = schema.archives
@@ -161,7 +197,7 @@ def writeForever():
     time.sleep(1) # The writer thread only sleeps when the cache is empty or an error occurs
 
 
-def reloadStorageSchemas():
+def reloadStorageSchemas(): #XXX how the fuck does... conf.read_listeners() { settings['LISTENERS'] = CarbonConfiguration.read_file('listeners.conf') }
   global schemas
   try:
     schemas = loadStorageSchemas()
@@ -171,7 +207,6 @@ def reloadStorageSchemas():
 
 
 class WriterService(Service):
-
     def __init__(self):
         self.reload_task = LoopingCall(reloadStorageSchemas)
 

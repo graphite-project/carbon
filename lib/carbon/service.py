@@ -101,7 +101,7 @@ def setupRelayComponent(root_service, settings):
     events.metricGenerated.addHandler(client_manager.sendDatapoint)
 
 
-def setupWriteComponent(root_service, settings): #XXX
+def setupWriteComponent(root_service, settings): #XXX haven't done anything to this yet. make sense of it.
     from carbon.cache import MetricCache
     from carbon.protocols import CacheManagementHandler
     from carbon import events

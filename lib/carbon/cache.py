@@ -50,17 +50,25 @@ class MetricCache(dict):
     finally:
       self.lock.release()
 
-  def counts(self):
+  def drain(self):
+    "Removes and generates metrics in order of most cached values to least"
     try:
       self.lock.acquire()
-      return [ (metric, len(datapoints)) for (metric, datapoints) in self.items() ]
+      metric_queue_sizes = [ (metric, len(datapoints)) for metric,datapoints in self.items() ]
     finally:
       self.lock.release()
+
+    metric_queue_sizes.sort(key=lambda item: item[1], reverse=True)
+
+    for metric, queue_size in metrics:
+      yield (metric, self.pop(metric))
+
+      if state.cacheTooFull and self.size < settings.CACHE_SIZE_LOW_WATERMARK:
+        state.events.cacheSpaceAvailable()
 
 
 # Ghetto singleton
 MetricCache = MetricCache()
-
 
 # Avoid import circularities
 from carbon import log, state

@@ -58,8 +58,10 @@ def writeCachedDatapoints():
       for rule in settings.STORAGE_RULES:
         if rule.matches(metric):
           rule.set_defaults(metadata)
-      metadata = #XXX get result of applying settings.STORAGE_RULES to (metric)
+
+      log.creates("creating" % (metric, metadata))
       database.create(metric, **metadata)
+
       if over_create_ratelimit:
         break
 

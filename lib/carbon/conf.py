@@ -374,13 +374,13 @@ def read_configs(instance, options):
       raise ConfigError("Exactly one 'write' or 'relay' must exist "
                         "in WORKFLOW", filename='daemon.conf')
 
-    settings['LISTENERS'] = settings.read_file('listeners.conf')
+    settings['LISTENERS'] = settings.read_file('listeners.conf').values()
     if not settings['LISTENERS']:
       raise ConfigError("At least one listener must be defined "
                         "in listeners.conf")
 
     # Apply listener defaults
-    for listener in settings['LISTENERS'].values():
+    for listener in settings['LISTENERS']:
         listener['port'] = int(listener['port'])
         listener.setdefault('interface', '0.0.0.0')
         listener.setdefault('protocol', 'tcp')

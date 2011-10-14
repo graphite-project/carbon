@@ -70,7 +70,7 @@ def creates(message, **context):
   context['type'] = 'creates'
   msg(message, **context)
 
-def updates(message, **context):
+def writes(message, **context):
   context['type'] = 'updates'
   msg(message, **context)
 

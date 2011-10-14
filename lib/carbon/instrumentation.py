@@ -59,7 +59,11 @@ def getMemUsage():
   rss_pages = int( open('/proc/self/statm').read().split()[1] )
   return rss_pages * PAGESIZE
 
-
+'''
+Might need to inspect state.* to find some of these.
+That would be better than having to expose it in the code explicitly.
+ I think.
+'''
 def recordMetrics():
   global lastUsage
   myStats = stats.copy()

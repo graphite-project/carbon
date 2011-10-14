@@ -39,14 +39,14 @@ defaults = dict(
 
   # amqp.conf
   ENABLE_AMQP=False,
-  AMQP_VERBOSE=False,
   AMQP_HOST='localhost',
   AMQP_PORT=5672,
-  AMQP_VHOST='/',
   AMQP_USER='guest',
   AMQP_PASSWORD='guest',
+  AMQP_VHOST='/',
   AMQP_EXCHANGE='graphite',
   AMQP_METRIC_NAME_IN_BODY=False,
+  AMQP_VERBOSE=False,
   BIND_PATTERNS='#',
 
   # daemon.conf
@@ -78,9 +78,9 @@ defaults = dict(
 
   # writer.conf
   MAX_CACHE_SIZE=2000000,
-  MAX_UPDATES_PER_SECOND=600,
+  MAX_WRITES_PER_SECOND=600,
   MAX_CREATES_PER_MINUTE=50,
-  LOG_UPDATES=False,
+  LOG_WRITES=False,
   CACHE_QUERY_PORT=7002,
   CACHE_QUERY_INTERFACE='0.0.0.0',
 )
@@ -446,17 +446,6 @@ def read_writer_configs():
 
   DatabasePlugin = TimeSeriesDatabase.plugins[db]
   state.database = DatabasePlugin(settings)
-
-  #XXX should this move to the plugins' __init__? i think so.
-  if db == 'whisper' and 'whisper' in db_settings:
-    import whisper
-    whisper.AUTOFLUSH = db_settings['whisper'].get('AUTOFLUSH', False)
-
-  elif db == 'ceres':
-    import ceres
-    behavior = db_settings['ceres'].get('DEFAULT_SLICE_CACHING_BEHAVIOR')
-    if behavior:
-      ceres.setDefaultSliceCachingBehavior(behavior)
 
 
 def read_relay_configs():

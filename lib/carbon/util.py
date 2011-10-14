@@ -72,10 +72,7 @@ def run_twistd_plugin(filename):
         parser.print_usage()
         raise SystemExit(1)
 
-    # This isn't as evil as you might think
-    #__builtins__["instance"] = instance #XXX is this truly necessary?
-
-    # Then forward applicable options to either twistd or to the plugin itself.
+    # Now forward applicable options to either twistd or to the plugin itself.
     twistd_options = ["--no_save"]
 
     # If no reactor was selected yet, try to use the epoll reactor if

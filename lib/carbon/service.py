@@ -13,7 +13,8 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License."""
 
-from os.path import exists
+from os.path import exists, join
+from errno import ENOENT
 
 from twisted.application.service import MultiService
 from twisted.application.internet import TCPServer, TCPClient, UDPServer
@@ -55,31 +56,37 @@ def setupWorkflow(root_service, settings):
     # get configured, which determines the order in which they get executed.
     for component in settings.WORKFLOW:
         if component == 'aggregate':
-          setupAggregateComponent(root_service, settings)
+          setupAggregatorComponent(root_service, settings)
         elif component == 'rewrite':
-          setupRewriteComponent(root_service, settings)
+          setupRewriterComponent(root_service, settings)
         elif component == 'relay':
           setupRelayComponent(root_service, settings)
         elif component == 'write':
-          setupWriteComponent(root_service, settings)
+          setupWriterComponent(root_service, settings)
         else:
           raise ValueError("Invalid workflow component '%s'" % component)
 
 
-def setupAggregateComponent(root_service, settings):
+def setupAggregatorComponent(root_service, settings):
     from carbon.aggregator import receiver
     from carbon.aggregator.rules import RuleManager
     from carbon import events
 
     events.metricReceived.addHandler(receiver.process)
-    RuleManager.read_from(settings["aggregation-rules"]) #XXX
+
+    aggregation_rules_path = join(settings.config_dir, "aggregation-rules.conf")
+    if not exists(aggregation_rules_path):
+        raise IOError(ENOENT, "%s file does not exist")
+    RuleManager.read_from(aggregation_rules_path)
 
 
-def setupRewriteComponent(root_service, settings):
+def setupRewriterComponent(root_service, settings):
     from carbon.rewrite import RewriteRuleManager
 
-    if exists(settings["rewrite-rules"]): #XXX maybe. dunno.
-        RewriteRuleManager.read_from(settings["rewrite-rules"]) #XXX rewrite rewrite
+    rewrite_rules_path = join(settings.config_dir, "rewrite-rules.conf")
+    if not exists(rewrite_rules_path):
+        raise IOError(ENOENT, "%s file does not exist")
+    RewriteRuleManager.read_from(rewrite_rules_path)
 
 
 def setupRelayComponent(root_service, settings):
@@ -101,12 +108,14 @@ def setupRelayComponent(root_service, settings):
     events.metricGenerated.addHandler(client_manager.sendDatapoint)
 
 
-def setupWriteComponent(root_service, settings): #XXX haven't done anything to this yet. make sense of it.
+def setupWriterComponent(root_service, settings):
     from carbon.cache import MetricCache
     from carbon.protocols import CacheManagementHandler
+    from carbon.writer import WriterService
     from carbon import events
 
     events.metricReceived.addHandler(MetricCache.store)
+    events.metricGenerated.addHandler(MetricCache.store)
 
     factory = ServerFactory()
     factory.protocol = CacheManagementHandler
@@ -114,21 +123,22 @@ def setupWriteComponent(root_service, settings): #XXX haven't done anything to t
                         interface=settings.CACHE_QUERY_INTERFACE)
     service.setServiceParent(root_service)
 
-    # have to import this *after* settings are defined
-    from carbon.writer import WriterService
-
-    service = WriterService()
-    service.setServiceParent(root_service)
+    writer_service = WriterService()
+    writer_service.setServiceParent(root_service)
 
     if settings.USE_FLOW_CONTROL:
       events.cacheFull.addHandler(events.pauseReceivingMetrics)
       events.cacheSpaceAvailable.addHandler(events.resumeReceivingMetrics)
 
 
-
 def setupReceivers(root_service, settings):
     from carbon.protocols import (MetricLineReceiver, MetricPickleReceiver,
                                   MetricDatagramReceiver)
+
+    receiver_protocols = {
+      'plaintext-receiver' : MetricLineReceiver,
+      'pickle-receiver' : MetricPickleReceiver,
+    }
 
     if settings.ENABLE_AMQP:
         from carbon import amqp_listener
@@ -149,30 +159,25 @@ def setupReceivers(root_service, settings):
         service = TCPClient(amqp_host, int(amqp_port), factory)
         service.setServiceParent(root_service)
 
-    for listener in settings.LISTENERS: #XXX clean this up.
+    for listener in settings.LISTENERS:
+        port = listener['port']
+        interface = listener['interface']
         if listener['protocol'] == 'tcp':
-            Server = TCPServer
-            handler = ServerFactory()
-            handler.protocol = {
-              'plaintext-receiver' : MetricLineReceiver,
-              'pickle-receiver' : MetricPickleReceiver,
-            }[listener['type']]
+            factory = ServerFactory()
+            factory.protocol = receiver_protocols[listener['type']]
+            service = TCPServer(port, factory, interface=interface)
         elif listener['protocol'] == 'udp':
-            Server = UDPServer
-            handler = MetricDatagramReceiver()
+            service = UDPServer(port, MetricDatagramReceiver(), interface=interface)
 
-        service = Server(listener['port'], handler, interface=listener['interface'])
         service.setServiceParent(root_service)
 
-    if settings.ENABLE_MANHOLE: #XXX pretty much how it works now, just verify.
+    if settings.ENABLE_MANHOLE:
         from carbon import manhole
 
         factory = manhole.createManholeListener()
-        service = TCPServer(int(settings.MANHOLE_PORT), factory,
+        service = TCPServer(settings.MANHOLE_PORT, factory,
                             interface=settings.MANHOLE_INTERFACE)
         service.setServiceParent(root_service)
-
-        #XXX
 
 
 def setupInstrumentation(root_service, settings):

@@ -53,6 +53,7 @@ else:
     def __init__(self, settings):
       self.settings = settings
       self.data_dir = settings['LOCAL_DATA_DIR']
+      whisper.AUTOFLUSH = settings['whisper'].get('AUTOFLUSH', False)
 
     def _get_filesystem_path(self, metric):
       return join(self.data_dir, *metric.split('.')) + '.wsp'
@@ -66,14 +67,16 @@ else:
 
     def create(self, metric, **options):
       path = self._get_filesystem_path(metric)
-      assert False, "finnish hymn!"
-      #XXX mkdir -p
+      directory = dirname(path)
+      os.system("mkdir -p -m 755 '%s'" % directory)
+
       # convert argument naming convention
       options['archiveList'] = options.pop('retentions')
       options['xFilesFactor'] = options.pop('xfilesfactor')
       options['aggregationMethod'] = options.pop('aggregation-method')
+
       whisper.create(path, **options)
-      #XXX chmod, settings.whisper['POST_CREATE_CHMOD']
+      os.chmod(path, 0755)
 
     def get_metadata(self, metric, key):
       if key != 'aggregationMethod':
@@ -88,3 +91,47 @@ else:
                          " invalid key: " + key)
       path = self._get_filesystem_path(metric)
       return whisper.setAggregationMethod(path, value)
+
+
+
+try:
+  import ceres
+except ImportError:
+  pass
+else:
+  class CeresDatabase(TimeSeriesDatabase):
+    plugin_name = 'ceres'
+
+    def __init__(self, settings):
+      self.settings = settings
+      self.data_dir = settings['LOCAL_DATA_DIR']
+      self.tree = ceres.CeresTree(self.data_dir)
+      ceres_settings = settings['ceres']
+      behavior = ceres_settings.get('DEFAULT_SLICE_CACHING_BEHAVIOR')
+      if behavior:
+        ceres.setDefaultSliceCachingBehavior(behavior)
+      if 'MAX_SLICE_GAP' in ceres_settings:
+        ceres.MAX_SLICE_GAP = int(ceres_settings['MAX_SLICE_GAP'])
+
+    def write(self, metric, datapoints):
+      self.tree.store(metric, datapoints)
+
+    def exists(self, metric):
+      return self.tree.hasNode(metric)
+
+    def create(self, metric, **options):
+      # convert argument naming convention
+      options['retentions'] = options.pop('retentions')
+      options['timeStep'] = options['retentions'][0][0]
+      options['xFilesFactor'] = options.pop('xfilesfactor')
+      options['aggregationMethod'] = options.pop('aggregation-method')
+      self.tree.createNode(metric, **options)
+
+    def get_metadata(self, metric, key):
+      return self.tree.getNode(metric).readMetadata()[key]
+
+    def set_metadata(self, metric, key, value):
+      node = self.tree.getNode(metric)
+      metadata = node.readMetadata()
+      metadata[key] = value
+      node.writeMetadata(metadata)

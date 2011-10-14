@@ -26,167 +26,88 @@ from twisted.internet import reactor
 from twisted.internet.task import LoopingCall
 from twisted.application.service import Service
 '''
-How to make this database agnostic...
-look at 1.1 version, what is the common API they use/provide?
-
-MAX_UPDATES_PER_SECOND
-MAX_CREATES_PER_MINUTE
-MAX_CACHE_SIZE
-LOG_UPDATES
-
-
-
-optimal drain logic (in Cache.drain in 1.1)
-
-ratelimit creates
-ratelimit writes
-
-ceres needs a muthafuckin node cache
-
-directory creation and chmoding goes in the db plugin
-so i just need to generalize writeCachedDatapoints.
+ceres needs a muthafuckin node cache 
 '''
+#XXX
+ONE_MILLION = 1000000 # I hate counting zeroes
+
+
+class RateLimit(object):
+  def __init__(self, limit, seconds):
+    self.limit = limit
+    self.seconds = seconds
+    self.counter = 0
+    self.last_reset = self._current_interval()
+
+  def _current_interval(self):
+    now = int(time.time())
+    return now - (now % self.seconds)
+
+  def _maybe_reset(self):
+    now = time.time()
+    if now - self.last_reset >= self.seconds:
+      self.last_reset = self._current_interval() + self.seconds
+
+  def increment(self, value=1):
+    self._maybe_reset()
+    self.counter += value
+    .
+
+  def exceeded(self):
+    self._maybe_reset()
+    return self.counter >= self.limit
+
+  def wait(self):
+    ...
+
+
+write_ratelimit = RateLimit(settings.MAX_WRITES_PER_SECOND, 1)
+create_ratelimit = RateLimit(settings.MAX_CREATES_PER_MINUTE, 60)
+
 
 def writeCachedDatapoints():
-  for (metric, datapoints) in MetricCache.drain(): #XXX
+  for (metric, datapoints) in MetricCache.drain():
+    if write_ratelimit.exceeded():
+      write_ratelimit.wait()
 
     if not database.exists(metric):
-      if over_create_ratelimit:
-        break
+      if create_ratelimit.exceeded():
+        continue # we *do* want to drop the datapoint here.
 
       metadata = {}
       for rule in settings.STORAGE_RULES:
         if rule.matches(metric):
           rule.set_defaults(metadata)
 
-      log.creates("creating" % (metric, metadata))
-      database.create(metric, **metadata)
-
-      if over_create_ratelimit:
-        break
-
-
-
-
-
-lastCreateInterval = 0
-createCount = 0
-CACHE_SIZE_LOW_WATERMARK = settings.MAX_CACHE_SIZE * 0.95
-
-
-def optimalWriteOrder():
-  "Generates metrics with the most cached values first and applies a soft rate limit on new metrics"
-  global lastCreateInterval
-  global createCount
-  metrics = MetricCache.counts()
-
-  t = time.time()
-  metrics.sort(key=lambda item: item[1], reverse=True) # by queue size, descending
-  log.msg("Sorted %d cache queues in %.6f seconds" % (len(metrics), time.time() - t))
-
-  if state.cacheTooFull and MetricCache.size < CACHE_SIZE_LOW_WATERMARK:
-    events.cacheSpaceAvailable()
-
-  for metric, queueSize in metrics:
-    dbFilePath = getFilesystemPath(metric)
-    dbFileExists = exists(dbFilePath)
-
-    if not dbFileExists:
-      createCount += 1
-      now = time.time()
-
-      if now - lastCreateInterval >= 60:
-        lastCreateInterval = now
-        createCount = 1
-
-      elif createCount >= settings.MAX_CREATES_PER_MINUTE:
-        # dropping queued up datapoints for new metrics prevents filling up the entire cache
-        # when a bunch of new metrics are received.
-        try:
-          MetricCache.pop(metric)
-        except KeyError:
-          pass
-
-        continue
-
-    try: # metrics can momentarily disappear from the MetricCache due to the implementation of MetricCache.store()
-      datapoints = MetricCache.pop(metric)
-    except KeyError:
-      log.msg("MetricCache contention, skipping %s update for now" % metric)
-      continue # we simply move on to the next metric when this race condition occurs
-
-    yield (metric, datapoints, dbFilePath, dbFileExists)
-
-
-def writeCachedDataPoints():
-  "Write datapoints until the MetricCache is completely empty"
-  updates = 0
-  lastSecond = 0
-
-  while MetricCache:
-    dataWritten = False
-
-    for (metric, datapoints, dbFilePath, dbFileExists) in optimalWriteOrder():
-      dataWritten = True
-
-      if not dbFileExists:
-        archiveConfig = None
-        xFilesFactor, aggregationMethod = None, None
-
-        for schema in schemas: #XXX
-          if schema.matches(metric):
-            log.creates('new metric %s matched schema %s' % (metric, schema.name))
-            archiveConfig = [archive.getTuple() for archive in schema.archives]
-            break
-
-        for schema in agg_schemas: #XXX
-          if schema.matches(metric):
-            log.creates('new metric %s matched aggregation schema %s' % (metric, schema.name))
-            xFilesFactor, aggregationMethod = schema.archives
-            break
-
-        if not archiveConfig:
-          raise Exception("No storage schema matched the metric '%s', check your storage-schemas.conf file." % metric)
-
-        dbDir = dirname(dbFilePath)
-        os.system("mkdir -p -m 755 '%s'" % dbDir)
-
-        log.creates("creating database file %s (archive=%s xff=%s agg=%s)" % 
-                    (dbFilePath, archiveConfig, xFilesFactor, aggregationMethod))
-        whisper.create(dbFilePath, archiveConfig, xFilesFactor, aggregationMethod)
-        os.chmod(dbFilePath, 0755)
-        instrumentation.increment('creates')
-
+      metadata_string = ' '.join(['%s=%s' % item for item in sorted(metadata.items())])
       try:
-        t1 = time.time()
-        whisper.update_many(dbFilePath, datapoints)
-        t2 = time.time()
-        updateTime = t2 - t1
+        t = time.time()
+        database.create(metric, **metadata)
+        create_micros = (time.time() - t) / ONE_MILLION
       except:
-        log.err()
-        instrumentation.increment('errors')
+        log.creates("database create operation failed: %s" % metric)
+        instrumentation.increment('writer.create_errors')
+        raise
       else:
-        pointCount = len(datapoints)
-        instrumentation.increment('committedPoints', pointCount)
-        instrumentation.append('updateTimes', updateTime)
+        create_ratelimit.increment()
+        instrumentation.increment('writer.metrics_created')
+        instrumentation.append("writer.create_microseconds", create_micros) #XXX total/min/max/avg
 
-        if settings.LOG_UPDATES:
-          log.updates("wrote %d datapoints for %s in %.5f seconds" % (pointCount, metric, updateTime))
+    try:
+      t = time.time()
+      database.write(metric, datapoints)
+      write_micros = (time.time() - t) / ONE_MILLION
+    except:
+      log.err("database write operation failed")
+      instrumentation.increment('writer.write_errors')
+    else:
+      write_ratelimit.increment()
+      instrumentation.increment('writer.datapoints_written', len(datapoints))
+      instrumentation.append('writer.write_microseconds', write_micros) #XXX total/min/max/avg
 
-        # Rate limit update operations
-        thisSecond = int(t2)
-
-        if thisSecond != lastSecond:
-          lastSecond = thisSecond
-          updates = 0
-        else:
-          updates += 1
-          if updates >= settings.MAX_UPDATES_PER_SECOND:
-            time.sleep( int(t2 + 1) - t2 )
-
-    # Avoid churning CPU when only new metrics are in the cache
-    if not dataWritten:
-      time.sleep(0.1)
+      if settings.LOG_WRITES:
+        log.writes("wrote %d datapoints to %s in %d microseconds" %
+                   (len(datapoints), metric, write_micros))
 
 
 def writeForever():

@@ -12,8 +12,10 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License."""
 
+import time
 from threading import Lock
 from carbon.conf import settings
+from carbon import log
 
 
 class MetricCache(dict):
@@ -28,7 +30,7 @@ class MetricCache(dict):
     if self.isFull():
       log.msg("MetricCache is full: self.size=%d" % self.size)
       state.events.cacheFull()
-      return
+      return # perhaps remove this...
 
     metric = '.'.join(part for part in metric.split('.') if part) # normalize the path
     try:
@@ -58,12 +60,16 @@ class MetricCache(dict):
     finally:
       self.lock.release()
 
+    t = time.time()
     metric_queue_sizes.sort(key=lambda item: item[1], reverse=True)
+    log.msg("Sorted %d cache queues in %.3f seconds" %
+            (len(metric_queue_sizes), time.time() - t))
 
     for metric, queue_size in metrics:
       yield (metric, self.pop(metric))
 
       if state.cacheTooFull and self.size < settings.CACHE_SIZE_LOW_WATERMARK:
+        log.msg("cache size below watermark")
         state.events.cacheSpaceAvailable()
 
 

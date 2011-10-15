@@ -83,6 +83,7 @@ defaults = dict(
   LOG_WRITES=False,
   CACHE_QUERY_PORT=7002,
   CACHE_QUERY_INTERFACE='0.0.0.0',
+  WHITELISTS_DIR='/opt/graphite/storage/lists',
 )
 
 
@@ -450,7 +451,7 @@ def load_storage_rules(settings): # handled separately to be easily reloadable
   if [k for (k,v) in storage_rules if not isinstance(v, dict)]:
     raise ConfigError("Global settings not allowed in storage-rules.conf")
 
-  return [StorageRule(values) for name, values in storage_rules]
+  return [StorageRule(values) for name, values in storage_rules] + [default_storage_rule] #XXX default... db-specific or no???
 
 
 def read_relay_configs():

@@ -38,11 +38,12 @@ class CarbonRootService(MultiService):
 
 
 
-def createDaemonService(config):
+def createDaemonService(options):
     from carbon.conf import settings
 
     root_service = CarbonRootService()
-    root_service.setName(config['instance'])
+    root_service.setName(options['instance'])
+    settings['INSTANCE'] = options['instance']
 
     setupWorkflow(root_service, settings)
     setupReceivers(root_service, settings)
@@ -104,7 +105,7 @@ def setupRelayComponent(root_service, settings):
     for destination in settings.DESTINATIONS:
       client_manager.startClient(destination)
 
-    events.metricReceived.addHandler(client_manager.sendDatapoint)
+    events.metricReceived.addHandler(client_manager.sendDatapoint) #XXX Nope. It's gotta process the datapoints *before* forwarding it.
     events.metricGenerated.addHandler(client_manager.sendDatapoint)
 
 

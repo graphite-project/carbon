@@ -12,13 +12,21 @@ else:
   setup_kwargs = dict()
 
 
-storage_dirs = [ ('storage/whisper',[]), ('storage/lists',[]),
-                 ('storage/log',[]), ('storage/rrd',[]) ]
-conf_files = [ ('conf', glob('conf/*.example')) ]
+storage_dirs = [
+  ('storage/ceres', []),
+  ('storage/whisper', []),
+  ('storage/rrd', []),
+  ('storage/log', []),
+  ('storage/lists', []),
+]
+conf_files = [
+  ('conf', glob('conf/*.example')),
+  ('conf/carbon-daemons/example', glob('conf/carbon-daemons/example/*.conf')),
+]
 
 setup(
   name='carbon',
-  version='0.9.9',
+  version='0.9.10-pre0',
   url='https://launchpad.net/graphite',
   author='Chris Davis',
   author_email='chrismd@gmail.com',

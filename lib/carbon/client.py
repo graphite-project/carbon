@@ -9,6 +9,7 @@ from carbon import log, state, events, instrumentation
 
 
 SEND_QUEUE_LOW_WATERMARK = settings.MAX_QUEUE_SIZE * 0.8
+#XXX audit this file, probably just instrumentation names...
 
 
 class CarbonClientProtocol(Int32StringReceiver):

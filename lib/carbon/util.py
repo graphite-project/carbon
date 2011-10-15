@@ -129,6 +129,51 @@ def parseDestinations(destination_strings):
   return destinations
 
 
+# Yes this is duplicated in whisper. Yes, duplication is bad.
+# But the code is needed in both places and we do not want to create
+# a dependency on whisper especiaily as carbon moves toward being a more
+# generic storage service that can use various backends.
+UnitMultipliers = {
+  's' : 1,
+  'm' : 60,
+  'h' : 60 * 60,
+  'd' : 60 * 60 * 24,
+  'y' : 60 * 60 * 24 * 365,
+}
+
+def parseRetentionDefs(retentionDefs):
+  return [parseRetentionDef(d.strip()) for d in retentionDefs.split(',')]
+
+def parseRetentionDef(retentionDef):
+  (precision, points) = retentionDef.strip().split(':')
+
+  if precision.isdigit():
+    precisionUnit = 's'
+    precision = int(precision)
+  else:
+    precisionUnit = precision[-1]
+    precision = int( precision[:-1] )
+
+  if points.isdigit():
+    pointsUnit = None
+    points = int(points)
+  else:
+    pointsUnit = points[-1]
+    points = int( points[:-1] )
+
+  if precisionUnit not in UnitMultipliers:
+    raise ValueError("Invalid unit: '%s'" % precisionUnit)
+
+  if pointsUnit not in UnitMultipliers and pointsUnit is not None:
+    raise ValueError("Invalid unit: '%s'" % pointsUnit)
+
+  precision = precision * UnitMultipliers[precisionUnit]
+
+  if pointsUnit:
+    points = points * UnitMultipliers[pointsUnit] / precision
+
+  return (precision, points)
+
 
 # This whole song & dance is due to pickle being insecure
 # yet performance critical for carbon. We leave the insecure

@@ -85,6 +85,8 @@ create_ratelimit = RateLimit(settings.MAX_CREATES_PER_MINUTE, 60)
 
 
 def write_cached_datapoints():
+  database = state.database
+
   for (metric, datapoints) in MetricCache.drain():
     if write_ratelimit.exceeded:
       write_ratelimit.wait()
@@ -93,16 +95,12 @@ def write_cached_datapoints():
       if create_ratelimit.exceeded:
         continue # we *do* want to drop the datapoint here.
 
-      metadata = {}
-      for rule in settings.STORAGE_RULES:
-        if rule.matches(metric):
-          rule.set_defaults(metadata)
-
+      metadata = determine_metadata(metric)
       metadata_string = ' '.join(['%s=%s' % item for item in sorted(metadata.items())])
       try:
         t = time.time()
         database.create(metric, **metadata)
-        create_micros = (time.time() - t) / ONE_MILLION
+        create_micros = (time.time() - t) * ONE_MILLION
       except:
         log.creates("database create operation failed: %s" % metric)
         instrumentation.increment('writer.create_errors')
@@ -115,7 +113,7 @@ def write_cached_datapoints():
     try:
       t = time.time()
       database.write(metric, datapoints)
-      write_micros = (time.time() - t) / ONE_MILLION
+      write_micros = (time.time() - t) * ONE_MILLION
     except:
       log.err("database write operation failed")
       instrumentation.increment('writer.write_errors')
@@ -129,6 +127,16 @@ def write_cached_datapoints():
       if settings.LOG_WRITES:
         log.writes("wrote %d datapoints to %s in %d microseconds" %
                    (len(datapoints), metric, write_micros))
+
+
+def determine_metadata(metric):
+  # Determine metadata from storage rules
+  metadata = {}
+  for rule in settings.STORAGE_RULES:
+    if rule.matches(metric):
+      rule.set_defaults(metadata)
+
+  return metadata
 
 
 def write_forever():

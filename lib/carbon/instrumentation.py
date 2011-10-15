@@ -80,8 +80,8 @@ def append(metric, value):
 
 class InstrumentationService(Service):
   def __init__(self):
-    self.record_task = LoopingCall(record_metrics)
-    self.metric_prefix = "Graphite.carbon-daemons.%s.%s." % (HOSTNAME, state.settings.instance)
+    self.record_task = LoopingCall(self.record_metrics)
+    self.metric_prefix = "Graphite.carbon-daemons.%s.%s." % (HOSTNAME, state.settings.INSTANCE)
 
   def startService(self):
     self.record_task.start(60, False)
@@ -99,7 +99,7 @@ class InstrumentationService(Service):
     try:
       for metric, data in metric_data.items():
         if isinstance(data, list):
-          for stat_metric, value in self._compute_stats(metric, data)
+          for stat_metric, value in self._compute_stats(metric, data):
             metric_path = self.metric_prefix + stat_metric
             datapoint = (now, value)
             events.metricGenerated(metric_path, datapoint)
@@ -115,7 +115,7 @@ class InstrumentationService(Service):
         metric_data[metric] = 0
       metric_data_lock.release()
 
-    # measurement functions
+    # metric functions
     for metric, func in metric_functions.items():
       try:
         value = func()
@@ -129,7 +129,7 @@ class InstrumentationService(Service):
       yield (metric + '.' + stat, func(data))
 
 
-# data gathering stuff below
+# Toss in a few system metrics for good measure
 rusage = getrusage(RUSAGE_SELF)
 last_usage = rusage.ru_utime + rusage.ru_stime
 last_usage_time = time.time()

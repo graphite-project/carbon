@@ -13,50 +13,48 @@ See the License for the specific language governing permissions and
 limitations under the License."""
 
 import os, re
-import whisper
 
 from os.path import join, exists
-from carbon.util import pickle
-from carbon import log
+from carbon.util import pickle, parseRetentionDefs
 
 
-class Schema:
-  def test(self, metric):
-    raise NotImplementedError()
+class StorageRule(object):
+  def __init__(self, definition):
+    self.definition = dict(definition) # preserve original definition
+    # separate out any condition keys
+    match_all = definition.pop('match-all', None)
+    pattern = definition.pop('pattern', None)
+    metric_list = definition.pop('list', None)
+    if (match_all, pattern, metric_list).count(None) != 2:
+      raise Exception("Exactly one condition key must be provided: match-all"
+                        " | pattern | list")
+
+    if match_all:
+      self.test = lambda metric: True
+    elif pattern:
+      regex = re.compile(pattern)
+      self.test = lambda metric: self.regex.search(metric)
+    elif metric_list:
+      list_checker = ListChecker(metric_list)
+      self.test = lambda metric: list_checker.check(metric)
+
+    if 'retentions' in definition:
+      definition['retentions'] = parseRetentionDefs(definition['retentions'])
+
+    self.context = definition # only context remains
+
+  def set_defaults(self, context):
+    for key, value in self.context.items():
+      context.setdefault(key, value)
 
   def matches(self, metric):
-    return bool( self.test(metric) )
+    return bool(self.test(metric))
 
 
-class DefaultSchema(Schema):
-
-  def __init__(self, name, archives):
-    self.name = name
-    self.archives = archives
-
-  def test(self, metric):
-    return True
-
-
-class PatternSchema(Schema):
-
-  def __init__(self, name, pattern, archives):
-    self.name = name
-    self.pattern = pattern
-    self.regex = re.compile(pattern)
-    self.archives = archives
-
-  def test(self, metric):
-    return self.regex.search(metric)
-
-
-class ListSchema(Schema):
-
-  def __init__(self, name, listName, archives):
-    self.name = name
-    self.listName = listName
-    self.archives = archives
-    self.path = join(settings.WHITELISTS_DIR, listName) #XXX
+class ListChecker(object):
+  def __init__(self, list_name):
+    self.list_name = list_name
+    self.path = join(settings.WHITELISTS_DIR, list_name)
 
     if exists(self.path):
       self.mtime = os.stat(self.path).st_mtime
@@ -68,7 +66,7 @@ class ListSchema(Schema):
       self.mtime = 0
       self.members = frozenset()
 
-  def test(self, metric):
+  def check(self, metric):
     if exists(self.path):
       current_mtime = os.stat(self.path).st_mtime
 
@@ -79,130 +77,3 @@ class ListSchema(Schema):
         fh.close()
 
     return metric in self.members
-
-
-class Archive:
-
-  def __init__(self,secondsPerPoint,points):
-    self.secondsPerPoint = int(secondsPerPoint)
-    self.points = int(points)
-
-  def __str__(self):
-    return "Archive = (Seconds per point: %d, Datapoints to save: %d)" % (self.secondsPerPoint, self.points) 
-
-  def getTuple(self):
-    return (self.secondsPerPoint,self.points)
-
-  @staticmethod
-  def fromString(retentionDef):
-    (secondsPerPoint, points) = whisper.parseRetentionDef(retentionDef)
-    return Archive(secondsPerPoint, points)
-
-'''
-Don't start gutting this file til the new writer is done.
-It's gonna have to work with storage rules.
-'''
-class StorageRule(object):
-  def __init__(self, definition):
-    self.definition = dict(definition) # original definition
-
-    match_all = definition.pop('match-all', None)
-    pattern = definition.pop('pattern', None)
-    metric_list = definition.pop('list', None)
-    if (match_all, pattern, metric_list).count(None) != 2:
-      raise Exception("Exactly one condition key must be provided: match-all"
-                        " | pattern | list")
-
-    self.context = definition # only remains
-
-  def set_defaults(self, context):
-    for key, value in self.context.items():
-      context.setdefault(key, value)
-
-#XXX wtf does it need to do? i gotta parse retentions, split on the comma, Archive's yo.
-
-
-def loadStorageSchemas(): #XXX this whole function CAN GO TO HELL!!!
-  schemaList = []
-  config = OrderedConfigParser()
-  config.read(STORAGE_SCHEMAS_CONFIG)
-
-  for section in config.sections():
-    options = dict( config.items(section) )
-    matchAll = options.get('match-all')
-    pattern = options.get('pattern')
-    listName = options.get('list')
-
-    retentions = options['retentions'].split(',')
-    archives = [ Archive.fromString(s) for s in retentions ]
-    
-    if matchAll:
-      mySchema = DefaultSchema(section, archives)
-
-    elif pattern:
-      mySchema = PatternSchema(section, pattern, archives)
-
-    elif listName:
-      mySchema = ListSchema(section, listName, archives)
-    
-    archiveList = [a.getTuple() for a in archives]
-
-    validSchema = whisper.validateArchiveList(archiveList)
-    
-    if validSchema:
-      schemaList.append(mySchema)
-    else:
-      log.msg("Invalid schemas found in %s." % section )
-  
-  schemaList.append(defaultSchema)
-  return schemaList
-
-
-def loadAggregationSchemas():
-  # NOTE: This abuses the Schema classes above, and should probably be refactored.
-  schemaList = []
-  config = OrderedConfigParser()
-
-  try:
-    config.read(STORAGE_AGGREGATION_CONFIG)
-  except IOError:
-    log.msg("%s not found, ignoring." % STORAGE_AGGREGATION_CONFIG)
-
-  for section in config.sections():
-    options = dict( config.items(section) )
-    matchAll = options.get('match-all')
-    pattern = options.get('pattern')
-    listName = options.get('list')
-
-    xFilesFactor = options.get('xfilesfactor')
-    aggregationMethod = options.get('aggregationmethod')
-
-    try:
-      if xFilesFactor is not None:
-        xFilesFactor = float(xFilesFactor)
-        assert 0 <= xFilesFactor <= 1
-      if aggregationMethod is not None:
-        assert aggregationMethod in whisper.aggregationMethods
-    except:
-      log.msg("Invalid schemas found in %s." % section )
-      continue
-
-    archives = (xFilesFactor, aggregationMethod)
-
-    if matchAll:
-      mySchema = DefaultSchema(section, archives)
-
-    elif pattern:
-      mySchema = PatternSchema(section, pattern, archives)
-
-    elif listName:
-      mySchema = ListSchema(section, listName, archives)
-
-    schemaList.append(mySchema)
-
-  schemaList.append(defaultAggregation)
-  return schemaList
-
-defaultArchive = Archive(60, 60 * 24 * 7) #default retention for unclassified data (7 days of minutely data)
-defaultSchema = DefaultSchema('default', [defaultArchive])
-defaultAggregation = DefaultSchema('default', (None, None))

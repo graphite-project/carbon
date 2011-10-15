@@ -54,6 +54,9 @@ class MetricCache(dict):
 
   def drain(self):
     "Removes and generates metrics in order of most cached values to least"
+    if not self:
+      return
+
     try:
       self.lock.acquire()
       metric_queue_sizes = [ (metric, len(datapoints)) for metric,datapoints in self.items() ]
@@ -62,10 +65,11 @@ class MetricCache(dict):
 
     t = time.time()
     metric_queue_sizes.sort(key=lambda item: item[1], reverse=True)
-    log.msg("Sorted %d cache queues in %.3f seconds" %
-            (len(metric_queue_sizes), time.time() - t))
+    micros = int((time.time() - t) * 1000000)
+    log.msg("Sorted %d cache queues in %d microseconds" %
+            (len(metric_queue_sizes), micros))
 
-    for metric, queue_size in metrics:
+    for metric, queue_size in metric_queue_sizes:
       yield (metric, self.pop(metric))
 
       if state.cacheTooFull and self.size < settings.CACHE_SIZE_LOW_WATERMARK:

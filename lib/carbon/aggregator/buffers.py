@@ -1,7 +1,7 @@
 import time
 from twisted.internet.task import LoopingCall
 from carbon.conf import settings
-from carbon import log
+from carbon import log, instrumentation
 
 
 class BufferManager:
@@ -64,7 +64,7 @@ class MetricBuffer:
         value = self.aggregation_func(buffer.values)
         datapoint = (buffer.interval, value)
         state.events.metricGenerated(self.metric_path, datapoint)
-        state.instrumentation.increment('aggregateDatapointsSent')
+        instrumentation.increment('aggregation.datapoints_generated')
         buffer.mark_inactive()
 
       if buffer.interval < age_threshold:
@@ -97,6 +97,15 @@ class IntervalBuffer:
 
 # Shared importable singleton
 BufferManager = BufferManager()
+
+instrumentation.configure_metric_function(
+  'aggregation.allocated_buffers',
+  lambda: len(BufferManager)
+)
+instrumentation.configure_metric_function(
+  'aggregation.buffered_datapoints',
+  lambda: sum([b.size for b in BufferManager.buffers.values()])
+)
 
 # Avoid import circularity
 from carbon import state

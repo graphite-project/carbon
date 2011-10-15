@@ -2,155 +2,163 @@ import os
 import time
 import socket
 from resource import getrusage, RUSAGE_SELF
+from threading import Lock
 
 from twisted.application.service import Service
 from twisted.internet.task import LoopingCall
-from carbon.conf import settings
 
+from carbon import state, events
 
-stats = {}
 HOSTNAME = socket.gethostname().replace('.','_')
 PAGESIZE = os.sysconf('SC_PAGESIZE')
-rusage = getrusage(RUSAGE_SELF)
-lastUsage = rusage.ru_utime + rusage.ru_stime
-lastUsageTime = time.time()
 
-# TODO(chrismd) refactor the graphite metrics hierarchy to be cleaner,
-# more consistent, and make room for frontend metrics.
-#metric_prefix = "Graphite.backend.%(program)s.%(instance)s." % settings
+# Module state
+metric_data = {}
+metric_data_lock = Lock()
+custom_stats = {}
+counter_metrics = set([
+  'metrics_received',
+])
+
+def avg(*values):#
+  if values:
+    return sum(values) / len(values)
+
+def latest(*values):
+  if values:
+    return values[-1]
+
+stat_functions = {
+  'total' : sum,
+  'min' : min,
+  'max' : max,
+  'avg' : avg,
+  'latest' : latest,
+}
+
+metric_functions = {}
+
+def get_stat_functions(metric):
+  stat_names = custom_stats.get(metric, stat_functions.keys())
+  return dict(zip(stat_names, stat_functions))
+
+# API
+def configure_stats(metric, stats):
+  custom_stats[metric] = stats
 
 
-def increment(stat, increase=1):
+def configure_counters(metrics):
+  global counter_metrics
+  counter_metrics |= set(metrics)
+
+
+def configure_metric_function(metric, func):
+  metric_functions[metric] = func
+
+
+def increment(metric, value=1):
+  metric_data_lock.acquire()
   try:
-    stats[stat] += increase
-  except KeyError:
-    stats[stat] = increase
+    if metric not in metric_data:
+      metric_data[metric] = 0
+    metric_data[metric] += value
+  finally:
+    metric_data_lock.release()
 
 
-def append(stat, value):
+def append(metric, value):
+  metric_data_lock.acquire()
   try:
-    stats[stat].append(value)
-  except KeyError:
-    stats[stat] = [value]
+    if metric not in metric_data:
+      metric_data[metric] = []
+    metric_data[metric].append(value)
+  finally:
+    metric_data_lock.release()
 
-
-def getCpuUsage():
-  global lastUsage, lastUsageTime
-
-  rusage = getrusage(RUSAGE_SELF)
-  currentUsage = rusage.ru_utime + rusage.ru_stime
-  currentTime = time.time()
-
-  usageDiff = currentUsage - lastUsage
-  timeDiff = currentTime - lastUsageTime
-
-  if timeDiff == 0: #shouldn't be possible, but I've actually seen a ZeroDivisionError from this
-    timeDiff = 0.000001
-
-  cpuUsagePercent = (usageDiff / timeDiff) * 100.0
-
-  lastUsage = currentUsage
-  lastUsageTime = currentTime
-
-  return cpuUsagePercent
-
-
-def getMemUsage():
-  rss_pages = int( open('/proc/self/statm').read().split()[1] )
-  return rss_pages * PAGESIZE
-
-'''
-Might need to inspect state.* to find some of these.
-That would be better than having to expose it in the code explicitly.
- I think.
-'''
-def recordMetrics():
-  global lastUsage
-  myStats = stats.copy()
-  stats.clear()
-
-  # cache metrics
-  if settings.program == 'carbon-cache':
-    record = cache_record
-    updateTimes = myStats.get('updateTimes', [])
-    committedPoints = myStats.get('committedPoints', 0)
-    creates = myStats.get('creates', 0)
-    errors = myStats.get('errors', 0)
-    cacheQueries = myStats.get('cacheQueries', 0)
-    cacheOverflow = myStats.get('cache.overflow', 0)
-
-    if updateTimes:
-      avgUpdateTime = sum(updateTimes) / len(updateTimes)
-      record('avgUpdateTime', avgUpdateTime)
-
-    if committedPoints:
-      pointsPerUpdate = float(committedPoints) / len(updateTimes)
-      record('pointsPerUpdate', pointsPerUpdate)
-
-    record('updateOperations', len(updateTimes))
-    record('committedPoints', committedPoints)
-    record('creates', creates)
-    record('errors', errors)
-    record('cache.queries', cacheQueries)
-    record('cache.queues', len(cache.MetricCache))
-    record('cache.size', cache.MetricCache.size)
-    record('cache.overflow', cacheOverflow)
-
-  # aggregator metrics
-  elif settings.program == 'carbon-aggregator':
-    record = aggregator_record
-    record('allocatedBuffers', len(BufferManager))
-    record('bufferedDatapoints',
-           sum([b.size for b in BufferManager.buffers.values()]))
-    record('aggregateDatapointsSent', myStats.get('aggregateDatapointsSent', 0))
-
-  # common metrics
-  record('metricsReceived', myStats.get('metricsReceived', 0))
-  record('cpuUsage', getCpuUsage())
-  try: # This only works on Linux
-    record('memUsage', getMemUsage())
-  except:
-    pass
-
-
-def cache_record(metric, value):
-    if settings.instance is None:
-      fullMetric = 'carbon.agents.%s.%s' % (HOSTNAME, metric)
-    else:
-      fullMetric = 'carbon.agents.%s-%s.%s' % (HOSTNAME, settings.instance, metric)
-    datapoint = (time.time(), value)
-    cache.MetricCache.store(fullMetric, datapoint)
-
-def relay_record(metric, value):
-    if settings.instance is None:
-      fullMetric = 'carbon.relays.%s.%s' % (HOSTNAME, metric)
-    else:
-      fullMetric = 'carbon.relays.%s-%s.%s' % (HOSTNAME, settings.instance, metric)
-    datapoint = (time.time(), value)
-    events.metricGenerated(fullMetric, datapoint)
-
-def aggregator_record(metric, value):
-    if settings.instance is None:
-      fullMetric = 'carbon.aggregator.%s.%s' % (HOSTNAME, metric)
-    else:
-      fullMetric = 'carbon.aggregator.%s-%s.%s' % (HOSTNAME, settings.instance, metric)
-    datapoint = (time.time(), value)
-    events.metricGenerated(fullMetric, datapoint)
+# end API
 
 
 class InstrumentationService(Service):
-    def __init__(self):
-        self.record_task = LoopingCall(recordMetrics)
+  def __init__(self):
+    self.record_task = LoopingCall(record_metrics)
+    self.metric_prefix = "Graphite.carbon-daemons.%s.%s." % (HOSTNAME, state.settings.instance)
 
-    def startService(self):
-        self.record_task.start(60, False)
-        Service.startService(self)
+  def startService(self):
+    self.record_task.start(60, False)
+    Service.startService(self)
 
-    def stopService(self):
-        self.record_task.stop()
-        Service.stopService(self)
+  def stopService(self):
+    self.record_task.stop()
+    Service.stopService(self)
+
+  def record_metrics(self):
+    now = time.time()
+
+    # accumulated data
+    metric_data_lock.acquire()
+    try:
+      for metric, data in metric_data.items():
+        if isinstance(data, list):
+          for stat_metric, value in self._compute_stats(metric, data)
+            metric_path = self.metric_prefix + stat_metric
+            datapoint = (now, value)
+            events.metricGenerated(metric_path, datapoint)
+
+        else: # counters
+          metric_path = self.metric_prefix + metric
+          datapoint = (now, data)
+          events.metricGenerated(metric_path, datapoint)
+
+    finally:
+      metric_data.clear()
+      for metric in counter_metrics:
+        metric_data[metric] = 0
+      metric_data_lock.release()
+
+    # measurement functions
+    for metric, func in metric_functions.items():
+      try:
+        value = func()
+      except:
+        log.err()
+      else:
+        events.metricGenerated(metric, (now, value))
+
+  def _compute_stats(self, metric, data):
+    for stat, func in get_stat_functions(metric).items():
+      yield (metric + '.' + stat, func(data))
 
 
-# Avoid import circularities
-from carbon import state, events, cache
-from carbon.aggregator.buffers import BufferManager
+# data gathering stuff below
+rusage = getrusage(RUSAGE_SELF)
+last_usage = rusage.ru_utime + rusage.ru_stime
+last_usage_time = time.time()
+
+def get_cpu_usage():
+  global last_usage, last_usage_time
+
+  rusage = getrusage(RUSAGE_SELF)
+  current_usage = rusage.ru_utime + rusage.ru_stime
+  now = time.time()
+
+  usage_diff = current_usage - last_usage
+  time_diff = now - last_usage_time
+
+  if time_diff == 0: #shouldn't be possible, but I've actually seen a ZeroDivisionError from this
+    time_diff = 0.000001
+
+  cpu_usage_percent = (usage_diff / time_diff) * 100.0
+
+  last_usage = current_usage
+  last_usage_time = now
+
+  return cpu_usage_percent
+
+
+def get_mem_usage():
+  rss_pages = int( open('/proc/self/statm').read().split()[1] )
+  return rss_pages * PAGESIZE
+
+
+configure_metric_function('cpu_usage', get_cpu_usage)
+configure_metric_function('mem_usage', get_mem_usage)

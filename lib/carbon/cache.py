@@ -77,4 +77,7 @@ class MetricCache(dict):
 MetricCache = MetricCache()
 
 # Avoid import circularities
-from carbon import log, state
+from carbon import log, state, instrumentation
+
+instrumentation.configure_metric_function('writer.cached_metrics', lambda: len(MetricCache))
+instrumentation.configure_metric_function('writer.cached_datapoints', lambda: MetricCache.size)

@@ -19,16 +19,28 @@ from os.path import join, exists, dirname, basename
 
 from carbon import state
 from carbon.cache import MetricCache
-from carbon.conf import settings
+from carbon.conf import settings, load_storage_rules
 from carbon import log, events, instrumentation
 
 from twisted.internet import reactor
 from twisted.internet.task import LoopingCall
 from twisted.application.service import Service
-'''
-ceres needs a muthafuckin node cache 
-'''
-#XXX
+
+
+stats = ('total', 'min', 'max', 'avg')
+instrumentation.configure_stats('writer.create_microseconds', stats)
+instrumentation.configure_stats('writer.write_microseconds', stats)
+instrumentation.configure_stats('writer.datapoints_per_write', ('min', 'max', 'avg'))
+instrumentation.configure_counters([
+  'writer.metrics_created',
+  'writer.metric_create_errors',
+  'writer.datapoints_written',
+  'writer.write_operations',
+  'writer.write_errors',
+  'writer.cache_full_events',
+  'writer.cache_queries',
+])
+
 ONE_MILLION = 1000000 # I hate counting zeroes
 
 
@@ -37,41 +49,48 @@ class RateLimit(object):
     self.limit = limit
     self.seconds = seconds
     self.counter = 0
-    self.last_reset = self._current_interval()
+    self.next_reset = time.time() + seconds
 
-  def _current_interval(self):
+  @property
+  def exceeded(self):
+    return self.counter > self.limit
+
+  def check(self):
+    if time.time() >= self.next_reset:
+      self.reset()
+
+  def reset(self):
+    self.counter = 0
     now = int(time.time())
-    return now - (now % self.seconds)
-
-  def _maybe_reset(self):
-    now = time.time()
-    if now - self.last_reset >= self.seconds:
-      self.last_reset = self._current_interval() + self.seconds
+    if now % self.seconds:
+      current_interval = now - (now % self.seconds)
+    else:
+      current_interval = now
+    self.next_reset = current_interval + self.seconds
 
   def increment(self, value=1):
-    self._maybe_reset()
+    self.check()
     self.counter += value
-    .
-
-  def exceeded(self):
-    self._maybe_reset()
-    return self.counter >= self.limit
 
   def wait(self):
-    ...
+    self.check()
+    delay = self.next_reset - time.time()
+    if delay > 0:
+      time.sleep(delay)
+      self.reset()
 
 
 write_ratelimit = RateLimit(settings.MAX_WRITES_PER_SECOND, 1)
 create_ratelimit = RateLimit(settings.MAX_CREATES_PER_MINUTE, 60)
 
 
-def writeCachedDatapoints():
+def write_cached_datapoints():
   for (metric, datapoints) in MetricCache.drain():
-    if write_ratelimit.exceeded():
+    if write_ratelimit.exceeded:
       write_ratelimit.wait()
 
     if not database.exists(metric):
-      if create_ratelimit.exceeded():
+      if create_ratelimit.exceeded:
         continue # we *do* want to drop the datapoint here.
 
       metadata = {}
@@ -91,7 +110,7 @@ def writeCachedDatapoints():
       else:
         create_ratelimit.increment()
         instrumentation.increment('writer.metrics_created')
-        instrumentation.append("writer.create_microseconds", create_micros) #XXX total/min/max/avg
+        instrumentation.append('writer.create_microseconds', create_micros)
 
     try:
       t = time.time()
@@ -103,27 +122,28 @@ def writeCachedDatapoints():
     else:
       write_ratelimit.increment()
       instrumentation.increment('writer.datapoints_written', len(datapoints))
-      instrumentation.append('writer.write_microseconds', write_micros) #XXX total/min/max/avg
+      instrumentation.append('writer.datapoints_per_write', len(datapoints))
+      instrumentation.increment('writer.write_operations')
+      instrumentation.append('writer.write_microseconds', write_micros)
 
       if settings.LOG_WRITES:
         log.writes("wrote %d datapoints to %s in %d microseconds" %
                    (len(datapoints), metric, write_micros))
 
 
-def writeForever():
+def write_forever():
   while reactor.running:
     try:
-      writeCachedDataPoints()
+      write_cached_datapoints()
     except:
       log.err()
 
     time.sleep(1) # The writer thread only sleeps when the cache is empty or an error occurs
 
 
-def reloadStorageSchemas(): #XXX how the fuck does... conf.read_listeners() { settings['LISTENERS'] = CarbonConfiguration.read_file('listeners.conf') }
-  global schemas
+def reload_storage_rules():
   try:
-    schemas = loadStorageSchemas()
+    settings['STORAGE_RULES'] = load_storage_rules()
   except:
     log.msg("Failed to reload storage schemas")
     log.err()
@@ -131,11 +151,11 @@ def reloadStorageSchemas(): #XXX how the fuck does... conf.read_listeners() { se
 
 class WriterService(Service):
     def __init__(self):
-        self.reload_task = LoopingCall(reloadStorageSchemas)
+        self.reload_task = LoopingCall(reload_storage_rules)
 
     def startService(self):
         self.reload_task.start(60, False)
-        reactor.callInThread(writeForever)
+        reactor.callInThread(write_forever)
         Service.startService(self)
 
     def stopService(self):

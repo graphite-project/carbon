@@ -187,6 +187,7 @@ class CarbonConfiguration(dict):
 
 # The global settings singleton
 settings = CarbonConfiguration()
+state.settings = settings
 
 
 class ConfigError(Exception):
@@ -428,16 +429,12 @@ def read_writer_configs():
 
   db_settings = settings.read_file('db.conf')
   writer_settings = settings.read_file('writer.conf')
-  storage_rules = settings.read_file('storage-rules.conf', ordered_items=True)
 
   db = db_settings['DATABASE']
   if db not in ('whisper', 'ceres'):
     raise ConfigError("Invalid DATABASE \"%s\" must be whisper or ceres." % db)
 
-  if [k for (k,v) in storage_rules if not isinstance(v, dict)]:
-    raise ConfigError("Global settings not allowed in storage-rules.conf")
-
-  settings['STORAGE_RULES'] = [StorageRule(values) for name, values in storage_rules]
+  settings['STORAGE_RULES'] = load_storage_rules(settings)
   settings['CACHE_SIZE_LOW_WATERMARK'] = settings.MAX_CACHE_SIZE * 0.95
 
   # Database-specific settings
@@ -446,6 +443,14 @@ def read_writer_configs():
 
   DatabasePlugin = TimeSeriesDatabase.plugins[db]
   state.database = DatabasePlugin(settings)
+
+
+def load_storage_rules(settings): # handled separately to be easily reloadable
+  storage_rules = settings.read_file('storage-rules.conf', ordered_items=True)
+  if [k for (k,v) in storage_rules if not isinstance(v, dict)]:
+    raise ConfigError("Global settings not allowed in storage-rules.conf")
+
+  return [StorageRule(values) for name, values in storage_rules]
 
 
 def read_relay_configs():

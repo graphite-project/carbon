@@ -20,7 +20,6 @@ import errno
 from os.path import join, basename, dirname, normpath, exists, isdir
 from glob import glob
 
-import whisper
 from carbon.storage import StorageRule
 from carbon.database import TimeSeriesDatabase
 from carbon import log, util, state
@@ -139,10 +138,7 @@ class CarbonConfiguration(dict):
       if line.startswith('[') and line.endswith(']'):
         context_name = line[1:-1]
         names.append(context_name)
-        if context_name in self or context_name in settings:
-          raise ConfigError("context [%s] already defined" % context_name)
-        else:
-          context = settings[context_name] = {}
+        context = settings[context_name] = {}
         continue
 
       elif '=' in line:
@@ -451,7 +447,19 @@ def load_storage_rules(settings): # handled separately to be easily reloadable
   if [k for (k,v) in storage_rules if not isinstance(v, dict)]:
     raise ConfigError("Global settings not allowed in storage-rules.conf")
 
-  return [StorageRule(values) for name, values in storage_rules] + [default_storage_rule] #XXX default... db-specific or no???
+  # There is almost certainly a better way to set this up.
+  default_storage_rule = {
+    'match-all' : 'true',
+    'retentions' : '1m:1w', # minutely data for a week
+    'xfilesfactor' : 0.5,
+    'aggregation-method' : 'average',
+  }
+
+  if 'default' in storage_rules:
+    default_storage_rule.update(storage_rules.pop('default'))
+
+  storage_rules.append(('default', default_storage_rule))
+  return [StorageRule(values) for name, values in storage_rules]
 
 
 def read_relay_configs():

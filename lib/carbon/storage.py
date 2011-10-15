@@ -25,7 +25,7 @@ class StorageRule(object):
     match_all = definition.pop('match-all', None)
     pattern = definition.pop('pattern', None)
     metric_list = definition.pop('list', None)
-    if (match_all, pattern, metric_list).count(None) != 2:
+    if [match_all, pattern, metric_list].count(None) != 2:
       raise Exception("Exactly one condition key must be provided: match-all"
                         " | pattern | list")
 

@@ -1,6 +1,7 @@
 #TODO(chrismd): unify this with the webapp's storage plugin system after the 1.1 merge
 
-from os.path import join, exists
+import os
+from os.path import join, exists, dirname
 
 
 class PluginRegistrar(type):

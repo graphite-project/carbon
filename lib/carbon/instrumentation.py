@@ -20,11 +20,11 @@ counter_metrics = set([
   'metrics_received',
 ])
 
-def avg(*values):#
+def avg(values):
   if values:
     return sum(values) / len(values)
 
-def latest(*values):
+def latest(values):
   if values:
     return values[-1]
 
@@ -40,7 +40,7 @@ metric_functions = {}
 
 def get_stat_functions(metric):
   stat_names = custom_stats.get(metric, stat_functions.keys())
-  return dict(zip(stat_names, stat_functions))
+  return dict([(name, stat_functions[name]) for name in stat_names])
 
 # API
 def configure_stats(metric, stats):
@@ -88,7 +88,8 @@ class InstrumentationService(Service):
     Service.startService(self)
 
   def stopService(self):
-    self.record_task.stop()
+    if self.record_task.running:
+      self.record_task.stop()
     Service.stopService(self)
 
   def record_metrics(self):

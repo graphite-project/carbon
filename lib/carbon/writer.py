@@ -151,7 +151,7 @@ def write_forever():
 
 def reload_storage_rules():
   try:
-    settings['STORAGE_RULES'] = load_storage_rules()
+    settings['STORAGE_RULES'] = load_storage_rules(settings)
   except:
     log.msg("Failed to reload storage schemas")
     log.err()

@@ -1,36 +1,35 @@
 import re
+from carbon.pipeline import Processor
+
+
+class RewriteProcessor(Processor):
+  plugin_name = 'rewrite'
+
+  def process(self, metric, datapoint):
+    for rule in RewriteRuleManager.rules:
+      metric = rule.apply(metric)
+      yield (metric, datapoint)
 
 
 class RewriteRuleManager:
   def __init__(self):
-    self.preRules = []
-    self.postRules = []
+    self.rules = []
 
   def read_from(self, path):
-    pre = []
-    post = []
+    rules = []
 
-    section = None
     for line in open(path):
       line = line.strip()
       if line.startswith('#') or not line:
         continue
-
-      if line.startswith('[') and line.endswith(']'):
-        section = line[1:-1].lower()
-
+      elif line.startswith('[') and line.endswith(']'):
+        continue # just ignore it
       else:
         pattern, replacement = line.split('=', 1)
         pattern, replacement = pattern.strip(), replacement.strip()
-        rule = RewriteRule(pattern, replacement)
+        rules.append(RewriteRule(pattern, replacement))
 
-        if section == 'pre':
-          pre.append(rule)
-        elif section == 'post':
-          post.append(rule)
-
-    self.preRules = pre
-    self.postRules = post
+    self.rules = rules
 
 
 class RewriteRule:

@@ -50,7 +50,7 @@ defaults = dict(
 
   # daemon.conf
   USER="",
-  WORKFLOW=[],
+  PIPELINE=[],
   USE_INSECURE_UNPICKLER=False,
 
   # db.conf
@@ -364,13 +364,13 @@ def read_configs(instance, options):
     settings.use_config_directory(config_dir)
 
     daemon_settings = settings.read_file('daemon.conf')
-    workflow = daemon_settings['WORKFLOW']
-    if not workflow:
-      raise ConfigError("Empty workflow? You lazy bastard...")
+    pipeline = daemon_settings['PIPELINE']
+    if not pipeline:
+      raise ConfigError("Empty pipeline? You lazy bastard...")
 
-    if workflow.count('write') + workflow.count('relay') != 1:
+    if pipeline.count('write') + pipeline.count('relay') != 1:
       raise ConfigError("Exactly one 'write' or 'relay' must exist "
-                        "in WORKFLOW", filename='daemon.conf')
+                        "in PIPELINE", filename='daemon.conf')
 
     settings['LISTENERS'] = settings.read_file('listeners.conf').values()
     if not settings['LISTENERS']:
@@ -390,7 +390,7 @@ def read_configs(instance, options):
             raise ConfigError("UDP listeners only support type=plaintext-receiver")
 
     # Type-specific configs
-    destiny = workflow[-1]
+    destiny = pipeline[-1]
     if destiny == 'write':
       settings['DAEMON_TYPE'] = 'write'
       read_writer_configs()
@@ -398,7 +398,7 @@ def read_configs(instance, options):
       settings['DAEMON_TYPE'] = 'relay'
       read_relay_configs()
     else:
-      raise ConfigError("Invalid workflow destination \"" + destiny +
+      raise ConfigError("Invalid pipeline destination \"" + destiny +
                         "\" must be \"write\" or \"relay\"")
 
     # Pull in optional configs

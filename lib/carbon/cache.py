@@ -16,6 +16,15 @@ import time
 from threading import Lock
 from carbon.conf import settings
 from carbon import log
+from carbon.pipeline import Processor
+
+
+class CacheFeedingProcessor(Processor):
+  plugin_name = 'write'
+
+  def process(self, metric, datapoint):
+    MetricCache.store(metric, datapoint)
+    return Processor.NO_OUTPUT
 
 
 class MetricCache(dict):

@@ -21,20 +21,20 @@ from twisted.application.internet import TCPServer, TCPClient, UDPServer
 from twisted.internet.protocol import ServerFactory
 from twisted.python.components import Componentized
 from twisted.python.log import ILogObserver
-# Attaching modules to the global state module simplifies import order hassles
 from carbon import state, events, instrumentation
+from carbon.pipeline import run_pipeline, Processor
 from carbon.log import carbonLogObserver
 state.events = events
 state.instrumentation = instrumentation
 
 
 class CarbonRootService(MultiService):
-  """Root Service that properly configures twistd logging"""
+    """Root Service that properly configures twistd logging"""
 
-  def setServiceParent(self, parent):
-    MultiService.setServiceParent(self, parent)
-    if isinstance(parent, Componentized):
-      parent.setComponent(ILogObserver, carbonLogObserver)
+    def setServiceParent(self, parent):
+        MultiService.setServiceParent(self, parent)
+        if isinstance(parent, Componentized):
+            parent.setComponent(ILogObserver, carbonLogObserver)
 
 
 
@@ -45,35 +45,36 @@ def createDaemonService(options):
     root_service.setName(options['instance'])
     settings['INSTANCE'] = options['instance']
 
-    setupWorkflow(root_service, settings)
+    setupPipeline(root_service, settings)
     setupReceivers(root_service, settings)
     setupInstrumentation(root_service, settings)
     return root_service
 
 
-
-def setupWorkflow(root_service, settings):
-    # The order of WORKFLOW determines the order in which event handlers
-    # get configured, which determines the order in which they get executed.
-    for component in settings.WORKFLOW:
-        if component == 'aggregate':
-          setupAggregatorComponent(root_service, settings)
-        elif component == 'rewrite':
-          setupRewriterComponent(root_service, settings)
-        elif component == 'relay':
-          setupRelayComponent(root_service, settings)
-        elif component == 'write':
-          setupWriterComponent(root_service, settings)
+def setupPipeline(root_service, settings):
+    state.pipeline_processors = []
+    for processor in settings.PIPELINE:
+        if processor == 'aggregate':
+            setupAggregatorProcessor(root_service, settings)
+        elif processor == 'rewrite':
+            setupRewriterProcessor(root_service, settings)
+        elif processor == 'relay':
+            setupRelayProcessor(root_service, settings)
+        elif processor == 'write':
+            setupWriterProcessor(root_service, settings)
         else:
-          raise ValueError("Invalid workflow component '%s'" % component)
+            raise ValueError("Invalid pipeline processor '%s'" % processor)
+
+        plugin_class = Processor.plugins[processor]
+        state.pipeline_processors.append(plugin_class())
+
+    events.metricReceived.addHandler(run_pipeline)
+    events.metricGenerated.addHandler(run_pipeline)
 
 
-def setupAggregatorComponent(root_service, settings):
-    from carbon.aggregator import receiver
+def setupAggregatorProcessor(root_service, settings):
     from carbon.aggregator.rules import RuleManager
     from carbon import events
-
-    events.metricReceived.addHandler(receiver.process)
 
     aggregation_rules_path = join(settings.config_dir, "aggregation-rules.conf")
     if not exists(aggregation_rules_path):
@@ -81,7 +82,7 @@ def setupAggregatorComponent(root_service, settings):
     RuleManager.read_from(aggregation_rules_path)
 
 
-def setupRewriterComponent(root_service, settings):
+def setupRewriterProcessor(root_service, settings):
     from carbon.rewrite import RewriteRuleManager
 
     rewrite_rules_path = join(settings.config_dir, "rewrite-rules.conf")
@@ -90,7 +91,7 @@ def setupRewriterComponent(root_service, settings):
     RewriteRuleManager.read_from(rewrite_rules_path)
 
 
-def setupRelayComponent(root_service, settings):
+def setupRelayProcessor(root_service, settings):
     from carbon.routers import ConsistentHashingRouter, RelayRulesRouter
     from carbon.client import CarbonClientManager
 
@@ -99,24 +100,18 @@ def setupRelayComponent(root_service, settings):
     elif settings.RELAY_METHOD == 'relay-rules':
         router = RelayRulesRouter()
 
-    client_manager = CarbonClientManager(router)
-    client_manager.setServiceParent(root_service)
+    state.client_manager = CarbonClientManager(router)
+    state.client_manager.setServiceParent(root_service)
 
     for destination in settings.DESTINATIONS:
-      client_manager.startClient(destination)
-
-    events.metricReceived.addHandler(client_manager.sendDatapoint) #XXX Nope. It's gotta process the datapoints *before* forwarding it.
-    events.metricGenerated.addHandler(client_manager.sendDatapoint)
+        state.client_manager.startClient(destination)
 
 
-def setupWriterComponent(root_service, settings):
+def setupWriterProcessor(root_service, settings):
     from carbon.cache import MetricCache
     from carbon.protocols import CacheManagementHandler
     from carbon.writer import WriterService
     from carbon import events
-
-    events.metricReceived.addHandler(MetricCache.store)
-    events.metricGenerated.addHandler(MetricCache.store)
 
     factory = ServerFactory()
     factory.protocol = CacheManagementHandler

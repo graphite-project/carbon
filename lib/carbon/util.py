@@ -229,3 +229,16 @@ def get_unpickler(insecure=False):
     return pickle
   else:
     return SafeUnpickler
+
+
+class PluginRegistrar(type):
+  """Clever subclass detection hack that makes plugin loading trivial.
+  To use this, define an abstract base class for plugin implementations
+  that defines the plugin API. Give that base class a __metaclass__ of
+  PluginRegistrar, and define a 'plugins = {}' class member. Subclasses
+  defining a 'plugin_name' member will then appear in the plugins dict.
+  """
+  def __init__(classObj, name, bases, members):
+    super(PluginRegistrar, classObj).__init__(name, bases, members)
+    if hasattr(classObj, 'plugin_name'):
+      classObj.plugins[classObj.plugin_name] = classObj

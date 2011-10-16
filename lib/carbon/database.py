@@ -2,15 +2,8 @@
 
 import os
 from os.path import join, exists, dirname
+from carbon.util import PluginRegistrar
 
-
-class PluginRegistrar(type):
-  """Clever subclass detection hack makes finding user-defined
-  database implementations trivial."""
-  def __init__(classObj, name, bases, members):
-    super(PluginRegistrar, classObj).__init__(name, bases, members)
-    if hasattr(classObj, 'plugin_name'):
-      classObj.plugins[classObj.plugin_name] = classObj
 
 
 class TimeSeriesDatabase(object):

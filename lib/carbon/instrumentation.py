@@ -81,7 +81,7 @@ def append(metric, value):
 class InstrumentationService(Service):
   def __init__(self):
     self.record_task = LoopingCall(self.record_metrics)
-    self.metric_prefix = "Graphite.carbon-daemons.%s.%s." % (HOSTNAME, state.settings.INSTANCE)
+    self.metric_prefix = "graphite.carbon-daemons.%s.%s." % (HOSTNAME, state.settings.INSTANCE)
 
   def startService(self):
     self.record_task.start(60, False)
@@ -154,6 +154,7 @@ def get_cpu_usage():
     time_diff = 0.000001
 
   cpu_usage_percent = (usage_diff / time_diff) * 100.0
+  cpu_usage_percent = max(cpu_usage_percent, 0.0)
 
   last_usage = current_usage
   last_usage_time = now

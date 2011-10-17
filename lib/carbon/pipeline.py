@@ -1,6 +1,6 @@
 from carbon.util import PluginRegistrar
 from carbon.conf import settings
-from carbon import state
+from carbon import state, log
 
 
 class Processor(object):
@@ -12,12 +12,18 @@ class Processor(object):
     raise NotImplemented()
 
 
-def run_pipeline(self, metric, datapoint, processors=None):
+def run_pipeline(metric, datapoint, processors=None):
   if processors is None:
     processors = state.pipeline_processors
   elif not processors:
     return
 
   processor = processors[0]
-  for out_metric, out_datapoint in processor(metric, datapoint):
-    self.run(out_metric, out_datapoint, processors[1:])
+  try:
+    for out_metric, out_datapoint in processor.process(metric, datapoint):
+      try:
+        run_pipeline(out_metric, out_datapoint, processors[1:])
+      except:
+        log.err()
+  except:
+    log.err()

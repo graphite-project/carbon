@@ -98,36 +98,41 @@ class InstrumentationService(Service):
     # accumulated data
     metric_data_lock.acquire()
     try:
-      for metric, data in metric_data.items():
-        if isinstance(data, list):
-          for stat_metric, value in self._compute_stats(metric, data):
-            metric_path = self.metric_prefix + stat_metric
-            datapoint = (now, value)
-            events.metricGenerated(metric_path, datapoint)
-
-        else: # counters
-          metric_path = self.metric_prefix + metric
-          datapoint = (now, data)
-          events.metricGenerated(metric_path, datapoint)
-
-    finally:
+      my_metric_data = metric_data.copy()
       metric_data.clear()
       for metric in counter_metrics:
         metric_data[metric] = 0
+    finally:
       metric_data_lock.release()
+
+    for metric, data in my_metric_data.items():
+      if isinstance(data, list):
+        for stat_metric, value in self._compute_stats(metric, data):
+          metric_path = self.metric_prefix + stat_metric
+          datapoint = (now, value)
+          events.metricGenerated(metric_path, datapoint)
+
+      else: # counters
+        metric_path = self.metric_prefix + metric
+        datapoint = (now, data)
+        events.metricGenerated(metric_path, datapoint)
 
     # metric functions
     for metric, func in metric_functions.items():
+      metric_path = self.metric_prefix + metric
       try:
         value = func()
       except:
         log.err()
       else:
-        events.metricGenerated(metric, (now, value))
+        if value is not None:
+          events.metricGenerated(metric_path, (now, value))
 
   def _compute_stats(self, metric, data):
     for stat, func in get_stat_functions(metric).items():
-      yield (metric + '.' + stat, func(data))
+      value = func(data)
+      if value is not None:
+        yield (metric + '.' + stat, value)
 
 
 # Toss in a few system metrics for good measure

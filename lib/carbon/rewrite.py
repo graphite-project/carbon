@@ -8,7 +8,7 @@ class RewriteProcessor(Processor):
   def process(self, metric, datapoint):
     for rule in RewriteRuleManager.rules:
       metric = rule.apply(metric)
-      yield (metric, datapoint)
+    yield (metric, datapoint)
 
 
 class RewriteRuleManager:

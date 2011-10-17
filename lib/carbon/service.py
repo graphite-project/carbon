@@ -73,6 +73,7 @@ def setupPipeline(root_service, settings):
 
 
 def setupAggregatorProcessor(root_service, settings):
+    from carbon.aggregator.processor import AggregationProcessor # to register the plugin class
     from carbon.aggregator.rules import RuleManager
     from carbon import events
 

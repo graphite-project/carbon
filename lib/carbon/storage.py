@@ -33,7 +33,7 @@ class StorageRule(object):
       self.test = lambda metric: True
     elif pattern:
       regex = re.compile(pattern)
-      self.test = lambda metric: self.regex.search(metric)
+      self.test = lambda metric: regex.search(metric)
     elif metric_list:
       list_checker = ListChecker(metric_list)
       self.test = lambda metric: list_checker.check(metric)

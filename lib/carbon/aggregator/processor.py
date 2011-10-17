@@ -1,7 +1,7 @@
 from carbon import instrumentation
 from carbon.aggregator.rules import RuleManager
 from carbon.aggregator.buffers import BufferManager
-from carbon.util import Processor
+from carbon.pipeline import Processor
 
 
 instrumentation.configure_counters([
@@ -13,7 +13,7 @@ instrumentation.configure_counters([
 class AggregationProcessor(Processor):
   plugin_name = 'aggregate'
 
-  def process(metric, datapoint):
+  def process(self, metric, datapoint):
     instrumentation.increment('aggregation.datapoints_analyzed')
 
     for rule in RuleManager.rules:

@@ -89,10 +89,12 @@ def write_cached_datapoints():
 
   for (metric, datapoints) in MetricCache.drain():
     if write_ratelimit.exceeded:
+      log.writes("write ratelimit exceeded")
       write_ratelimit.wait()
 
     if not database.exists(metric):
       if create_ratelimit.exceeded:
+        log.creates("create ratelimit exceeded")
         continue # we *do* want to drop the datapoint here.
 
       metadata = determine_metadata(metric)
@@ -109,6 +111,8 @@ def write_cached_datapoints():
         create_ratelimit.increment()
         instrumentation.increment('writer.metrics_created')
         instrumentation.append('writer.create_microseconds', create_micros)
+        log.creates("created new timeseries in %d microseconds: %s {%s}" %
+                    (create_micros, metric, metadata_string))
 
     try:
       t = time.time()

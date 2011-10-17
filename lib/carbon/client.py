@@ -247,4 +247,4 @@ class RelayProcessor(pipeline.Processor):
 
   def process(self, metric, datapoint):
     state.client_manager.sendDatapoint(metric, datapoint)
-    return Processor.NO_OUTPUT
+    return pipeline.Processor.NO_OUTPUT

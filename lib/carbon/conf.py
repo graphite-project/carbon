@@ -116,7 +116,7 @@ class CarbonConfiguration(dict):
       raise ConfigError("use_config_directory() has not been called yet")
     return filename in self.config_files
 
-  def read_file(self, filename, ordered_items=False):
+  def read_file(self, filename, ordered_items=False, store=True):
     if self.config_dir is None:
       raise ConfigError("use_config_directory() has not been called yet")
 
@@ -173,7 +173,8 @@ class CarbonConfiguration(dict):
         raise ConfigError("Invalid line: %s" % line, filename=filename)
 
     # Absorb settings from this file
-    self.update(settings)
+    if store:
+      self.update(settings)
 
     # Return only what this file defined
     if ordered_items:

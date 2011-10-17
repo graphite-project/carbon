@@ -23,7 +23,7 @@ class RewriteRuleManager:
       if line.startswith('#') or not line:
         continue
       elif line.startswith('[') and line.endswith(']'):
-        continue # just ignore it
+        continue # just ignore it, no more sections
       else:
         pattern, replacement = line.split('=', 1)
         pattern, replacement = pattern.strip(), replacement.strip()

@@ -1,6 +1,7 @@
 import imp
 from carbon.relayrules import loadRelayRules
 from carbon.hashing import ConsistentHashRing
+from carbon import log
 
 
 class DatapointRouter:
@@ -35,6 +36,9 @@ class RelayRulesRouter(DatapointRouter):
         for destination in rule.destinations:
           if destination in self.destinations:
             yield destination
+          else:
+            log.msg("relay-rule destination \"" + str(destination) + "\" "
+                    "not configured in relay.conf DESTINATIONS")
 
 
 class ConsistentHashingRouter(DatapointRouter):

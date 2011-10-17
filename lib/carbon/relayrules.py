@@ -14,7 +14,7 @@ class RelayRule:
 
 def loadRelayRules(config_file):
   rules = []
-  rule_definitions = config.read_file(config_file)
+  rule_definitions = settings.read_file(config_file, store=False)
 
   default_rule = None
   for rule_name, definition in rule_definitions.items():

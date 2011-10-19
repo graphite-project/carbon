@@ -122,6 +122,14 @@ class CacheManagementHandler(Int32StringReceiver):
       log.query('[%s] cache query for \"%s\" returned %d values' % (self.peerAddr, metric, len(datapoints)))
       instrumentation.increment('writer.cache_queries')
 
+    elif request['type'] == 'bulk-cache-query':
+      query_results = {}
+      for metric in request['metrics']:
+        query_results[metric] = MetricCache.get(metric, [])
+      log.query('[%s] bulk-cache-query for %d metrics' % (self.peerAddr, len(query_results)))
+      instrumentation.increment('writer.cache_queries')
+      result = dict(results=query_results)
+
     elif request['type'] == 'get-metadata':
       try:
         value = state.database.get_metadata(request['metric'], request['key'])

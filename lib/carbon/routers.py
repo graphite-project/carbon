@@ -1,7 +1,6 @@
-import imp
 from carbon.relayrules import loadRelayRules
 from carbon.hashing import ConsistentHashRing
-from carbon import log
+from carbon import log, util
 
 
 class DatapointRouter:
@@ -84,8 +83,5 @@ class ConsistentHashingRouter(DatapointRouter):
 
   def setKeyFunctionFromModule(self, keyfunc_spec):
     module_path, func_name = keyfunc_spec.rsplit(':', 1)
-    module_file = open(module_path, 'U')
-    description = ('.py', 'U', imp.PY_SOURCE)
-    module = imp.load_module('keyfunc_module', module_file, module_path, description)
-    keyfunc = getattr(module, func_name)
+    keyfunc = util.load_module(module_path, member=func_name)
     self.setKeyFunction(keyfunc)

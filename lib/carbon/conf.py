@@ -35,6 +35,7 @@ LISTENER_TYPES = (
 defaults = dict(
   # aggregation.conf
   MAX_AGGREGATION_INTERVALS=5,
+  AGGREGATION_FILTER_MODULE='',
 
   # amqp.conf
   ENABLE_AMQP=False,
@@ -49,7 +50,7 @@ defaults = dict(
   BIND_PATTERNS='#',
 
   # daemon.conf
-  USER="",
+  USER='',
   PIPELINE=[],
   USE_INSECURE_UNPICKLER=False,
 
@@ -421,10 +422,6 @@ def read_configs(instance, options):
 
 
 def read_writer_configs():
-  checkForRequiredConfig('db.conf')
-  checkForRequiredConfig('writer.conf')
-  checkForRequiredConfig('storage-rules.conf')
-
   db_settings = settings.read_file('db.conf')
   writer_settings = settings.read_file('writer.conf')
 
@@ -443,7 +440,7 @@ def read_writer_configs():
   state.database = DatabasePlugin(settings)
 
 
-def load_storage_rules(settings): # handled separately to be easily reloadable
+def load_storage_rules(settings):
   storage_rules = settings.read_file('storage-rules.conf', ordered_items=True)
   if [k for (k,v) in storage_rules if not isinstance(v, dict)]:
     raise ConfigError("Global settings not allowed in storage-rules.conf")
@@ -464,7 +461,6 @@ def load_storage_rules(settings): # handled separately to be easily reloadable
 
 
 def read_relay_configs():
-  checkForRequiredConfig('relay.conf')
   relay_settings = settings.read_file('relay.conf')
 
   method = relay_settings['RELAY_METHOD']
@@ -476,11 +472,6 @@ def read_relay_configs():
     raise ConfigError("relay.conf DESTINATIONS cannot be empty")
 
   settings['DESTINATIONS'] = util.parseDestinations(relay_settings['DESTINATIONS'])
-
-
-def checkForRequiredConfig(filename):
-  if not settings.file_exists(filename):
-    raise ConfigError("Missing required config file: %s" % filename)
 
 
 def _process_alive(pid):

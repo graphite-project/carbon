@@ -1,0 +1,247 @@
+#!/usr/bin/env python2.6
+
+import sys
+import os
+import time
+import traceback
+from os.path import basename, dirname, splitext, exists, join, isfile, expanduser, abspath
+from optparse import OptionParser
+from ceres import getTree, CeresNode
+
+# Make carbon imports available for some functionality
+root_dir = os.environ['GRAPHITE_ROOT'] = os.environ.get('GRAPHITE_ROOT', '/opt/graphite/')
+lib_dir = join(root_dir, 'lib')
+sys.path.append(lib_dir)
+
+try:
+  import carbon
+except ImportError:
+  print ("Failed to import carbon, specify your installation location "
+         "with the GRAPHITE_ROOT environment variable.")
+  sys.exit(1)
+
+from carbon.storage import loadStorageSchemas
+
+
+EVENTS = (
+  'maintenance_start',
+  'maintenance_complete',
+  'node_found',
+  'directory_found',
+  'directory_empty',
+)
+
+
+class Plugin:
+  context = {
+    'params' : {}
+  }
+
+  def __init__(self, path):
+    self.path = path
+    self.name = basename( splitext(path)[0] )
+    self.namespace = {}
+    self.namespace.update(Plugin.context)
+    self.event_handlers = {}
+
+  def load(self):
+    execfile(self.path, self.namespace)
+    for event in EVENTS:
+      if event in self.namespace:
+        self.event_handlers[event] = self.namespace[event]
+
+  def handle_event(self, event, *args, **kwargs):
+    handler = self.event_handlers.get(event)
+    if handler:
+      handler(*args, **kwargs)
+
+
+class PluginFinder:
+  def __init__(self, plugin_dir):
+    self.plugin_dir = abspath( expanduser(plugin_dir) )
+
+  def find_plugins(self, plugin_refs):
+    for ref in plugin_refs:
+      if ref.startswith('~'):
+        ref = expanduser(ref)
+
+      if isfile(ref):
+        yield Plugin(ref)
+
+      else:
+        filename = "%s.py" % ref
+        plugin_path = join(self.plugin_dir, filename)
+
+        if isfile(plugin_path):
+          yield Plugin(plugin_path)
+        else:
+          raise PluginNotFound("The plugin '%s' could not be found in %s" % (ref, self.plugin_dir))
+
+
+class PluginNotFound(Exception):
+  pass
+
+
+class EventDispatcher:
+  def __init__(self):
+    self.handlers = {}
+
+  def add_handler(self, event, handler):
+    if event not in self.handlers:
+      self.handlers[event] = []
+    self.handlers[event].append(handler)
+
+  def dispatch(self, event, *args, **kwargs):
+    for handler in self.handlers.get(event, []):
+      try:
+        handler(*args, **kwargs)
+      except:
+        log("--- Error in %s event-handler ---" % event)
+        log( traceback.format_exc() )
+        log('-' * 80)
+
+  __call__ = dispatch
+
+
+def daemonize():
+  if os.fork() > 0: sys.exit(0)
+  os.setsid()
+  if os.fork() > 0: sys.exit(0)
+  si = open('/dev/null', 'r')
+  so = open('/dev/null', 'a+')
+  se = open('/dev/null', 'a+', 0)
+  os.dup2(si.fileno(), sys.stdin.fileno())
+  os.dup2(so.fileno(), sys.stdout.fileno())
+  os.dup2(se.fileno(), sys.stderr.fileno())
+
+
+# Utility functions (exist in the plugin namespace)
+logfile = open('/dev/null', 'w')
+
+def log(message):
+  logfile.write("[%s]  %s\n" % (time.ctime(), message.strip()))
+  logfile.flush()
+
+
+schemas = None
+def get_storage_config(path):
+  global schemas
+  if schemas is None:
+    schemas = loadStorageSchemas()
+
+  for schema in schemas:
+    if schema.matches(path):
+      return schema
+
+  raise Exception("No storage schema matched the metric '%s', check your storage-schemas.conf file." % path)
+
+
+class MissingRequiredParam(Exception):
+  def __init__(self, param):
+    Exception.__init__(self)
+    self.param = param
+
+
+class PluginFail(Exception):
+  pass
+
+
+Plugin.context['log'] = log
+Plugin.context['get_storage_config'] = get_storage_config
+Plugin.context['MissingRequiredParam'] = MissingRequiredParam
+Plugin.context['PluginFail'] = PluginFail
+
+
+if __name__ == '__main__':
+  default_plugindir = join(root_dir, 'plugins', 'maintenance')
+  parser = OptionParser(usage='''%prog [options] plugin [plugin2 ...] [key=val ...]''')
+  parser.add_option('--daemon', action='store_true')
+  parser.add_option('--log', help="Write to the given log file instead of stdout")
+  parser.add_option('--root', default='/opt/graphite/storage/ceres/',
+                    help="Specify were to perform maintenance (default: /opt/graphite/storage/ceres/)")
+  parser.add_option('--plugindir', default=default_plugindir,
+                    help="Specify path to the plugin directory (default: %s)" % default_plugindir)
+
+  options, args = parser.parse_args()
+
+  plugin_args = []
+  for arg in args:
+    if '=' in arg:
+      key, value = arg.split('=')
+      Plugin.context['params'][key] = value
+    else:
+      plugin_args.append(arg)
+
+  if len(plugin_args) < 1:
+    print "At least one plugin is required."
+    parser.print_usage()
+    sys.exit(1)
+
+  tree = getTree(options.root)
+  if tree is None:
+    print "%s is not inside a CeresTree" % options.root
+    sys.exit(1)
+
+  # Load the plugins and setup event handlers
+  finder = PluginFinder(options.plugindir)
+  try:
+    plugins = finder.find_plugins(plugin_args)
+  except PluginNotFound, e:
+    print e.message, ' searched in %s' % options.plugindir
+    sys.exit(1)
+
+  dispatcher = EventDispatcher()
+
+  def dispatch(event, *args):
+    log("%s :: %s" % (event, args))
+    dispatcher(event, *args)
+
+  for plugin in plugins:
+    try:
+      plugin.load()
+    except MissingRequiredParam, e:
+      print "Failed to load %s plugin: required param '%s' must be specified" % (plugin.name, e.param)
+      sys.exit(1)
+    except PluginFail, e:
+      print "Failed to load %s plugin: %s" % (plugin.name, e.message)
+      sys.exit(1)
+
+    for event, handler in plugin.event_handlers.items():
+      dispatcher.add_handler(event, handler)
+
+  # Daemonize & logify
+  if options.daemon:
+    daemonize()
+
+  if options.log:
+    logfile = open(options.log, 'a')
+
+  if not (options.daemon or options.log):
+    logfile = sys.stdout
+
+  # Begin walking the tree
+  dispatch('maintenance_start', tree)
+
+  for current_dir, subdirs, files in os.walk(options.root):
+    for subdir in subdirs:
+      if subdir == '.ceres-tree':
+        continue
+
+      path = join(current_dir, subdir)
+
+      if os.listdir(path):
+
+        if exists( join(path, '.ceres-node') ):
+          nodePath = tree.getNodePath(path)
+          node = CeresNode(tree, nodePath, path)
+          dispatch('node_found', node)
+
+        else:
+          dispatch('directory_found', path)
+          if not os.listdir(path): # check again in case a handler empties it
+            dispatch('directory_empty', path)
+
+      else:
+        dispatch('directory_empty', path)
+
+  dispatch('maintenance_complete', tree)

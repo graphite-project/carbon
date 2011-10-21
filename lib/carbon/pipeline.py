@@ -8,6 +8,9 @@ class Processor(object):
   plugins = {}
   NO_OUTPUT = ()
 
+  def pipeline_ready(self):
+    "override me if you want"
+
   def process(self, metric, datapoint):
     raise NotImplemented()
 

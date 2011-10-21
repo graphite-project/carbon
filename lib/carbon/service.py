@@ -71,6 +71,13 @@ def setupPipeline(root_service, settings):
     events.metricReceived.addHandler(run_pipeline)
     events.metricGenerated.addHandler(run_pipeline)
 
+    def activate_processors():
+      for processor in state.pipeline_processors:
+        processor.pipeline_ready()
+
+    from twisted.internet import reactor
+    reactor.callWhenRunning(activate_processors)
+
 
 def setupAggregatorProcessor(root_service, settings):
     from carbon.aggregator.processor import AggregationProcessor # to register the plugin class

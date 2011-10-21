@@ -20,8 +20,6 @@ except ImportError:
          "with the GRAPHITE_ROOT environment variable.")
   sys.exit(1)
 
-from carbon.storage import loadStorageSchemas
-
 
 EVENTS = (
   'maintenance_start',
@@ -146,12 +144,6 @@ class PluginFail(Exception):
   pass
 
 
-Plugin.context['log'] = log
-Plugin.context['get_storage_config'] = get_storage_config
-Plugin.context['MissingRequiredParam'] = MissingRequiredParam
-Plugin.context['PluginFail'] = PluginFail
-
-
 if __name__ == '__main__':
   default_plugindir = join(root_dir, 'plugins', 'maintenance')
   parser = OptionParser(usage='''%prog [options] plugin [plugin2 ...] [key=val ...]''')
@@ -161,9 +153,27 @@ if __name__ == '__main__':
                     help="Specify were to perform maintenance (default: /opt/graphite/storage/ceres/)")
   parser.add_option('--plugindir', default=default_plugindir,
                     help="Specify path to the plugin directory (default: %s)" % default_plugindir)
+  parser.add_option('--configdir', default=None, help="Path to the carbon-daemon instance configuration directory")
 
   options, args = parser.parse_args()
 
+  if not options.configdir:
+    sys.exit("You must specify a --configdir for the carbon-daemon instance config directory "
+             "that has the storage-rules.conf you want ceres-maintenance to use.")
+
+  # Magic plugin vars
+  Plugin.context['log'] = log
+  Plugin.context['MissingRequiredParam'] = MissingRequiredParam
+  Plugin.context['PluginFail'] = PluginFail
+
+  from carbon.conf import settings, load_storage_rules
+  settings.use_config_directory(options.configdir)
+  Plugin.context['storage_rules'] = settings['STORAGE_RULES'] = load_storage_rules(settings)
+
+  from carbon.writer import determine_metadata
+  Plugin.context['get_metadata'] = determine_metadata
+
+  # User-defined plugin vars
   plugin_args = []
   for arg in args:
     if '=' in arg:

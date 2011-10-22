@@ -170,9 +170,6 @@ if __name__ == '__main__':
   settings.use_config_directory(options.configdir)
   Plugin.context['storage_rules'] = settings['STORAGE_RULES'] = load_storage_rules(settings)
 
-  from carbon.writer import determine_metadata
-  Plugin.context['get_metadata'] = determine_metadata
-
   # User-defined plugin vars
   plugin_args = []
   for arg in args:

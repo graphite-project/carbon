@@ -1,15 +1,33 @@
 import time
 from ceres import CeresSlice, SliceDeleted
 
-
-def aggregate(node, datapoints): #XXX 
+#######################################################
+# Put your custom aggregation logic in this function! #
+#######################################################
+def aggregate(node, datapoints):
   "Put your custom aggregation logic here."
   values = [value for (timestamp,value) in datapoints]
-  return float(sum(values)) / len(values)
+  metadata = node.readMetadata()
+  method = metadata.get('aggregationMethod', 'avg')
+
+  if method in ('avg', 'average'):
+    return float(sum(values)) / len(values) # values is guaranteed to be nonempty
+
+  elif method == 'sum':
+    return sum(values)
+
+  elif method == 'min':
+    return min(values)
+
+  elif method == 'max':
+    return max(values)
+
+  elif method == 'median':
+    values.sort()
+    return values[ len(values) / 2 ]
 
 
 def node_found(node):
-  metadata = get_metadata(node.nodePath)
   archives = []
   t = int( time.time() )
 

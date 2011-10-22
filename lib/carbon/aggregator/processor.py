@@ -3,7 +3,6 @@ from carbon.aggregator.rules import RuleManager
 from carbon.aggregator.buffers import BufferManager
 from carbon.pipeline import Processor
 from carbon.conf import settings
-from carbon.util import load_module
 
 
 instrumentation.configure_counters([
@@ -18,14 +17,17 @@ class AggregationProcessor(Processor):
   filter_function = staticmethod(lambda metric: True)
 
   def pipeline_ready(self):
-    if settings.AGGREGATION_FILTER_MODULE:
-      self.filter_function = load_module(settings.AGGREGATION_FILTER_MODULE, member='allow')
+    if settings.ENABLE_AGGREGATION_FILTERING:
+      self.filters = settings.read_filters('aggregation-filters.conf', store=False)
+    else:
+      self.filters = []
 
   def process(self, metric, datapoint):
-    if not self.filter_function(metric):
-      instrumentation.increment('aggregation.datapoints_filtered')
-      yield (metric, datapoint)
-      return
+    for filter in self.filters:
+      if not filter.allow(metric):
+        instrumentation.increment('aggregation.datapoints_filtered')
+        yield (metric, datapoint)
+        return
 
     instrumentation.increment('aggregation.datapoints_analyzed')
     for rule in RuleManager.rules:

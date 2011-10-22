@@ -16,6 +16,7 @@ import os
 import sys
 import pwd
 import errno
+import re
 
 from os.path import join, basename, dirname, normpath, exists, isdir
 from glob import glob
@@ -35,7 +36,7 @@ LISTENER_TYPES = (
 defaults = dict(
   # aggregation.conf
   MAX_AGGREGATION_INTERVALS=5,
-  AGGREGATION_FILTER_MODULE='',
+  ENABLE_AGGREGATION_FILTERING=False,
 
   # amqp.conf
   ENABLE_AMQP=False,
@@ -117,17 +118,20 @@ class CarbonConfiguration(dict):
       raise ConfigError("use_config_directory() has not been called yet")
     return filename in self.config_files
 
-  def read_file(self, filename, ordered_items=False, store=True):
+  def get_path(self, filename):
     if self.config_dir is None:
       raise ConfigError("use_config_directory() has not been called yet")
-
-    settings = {}
-    names = [] # keep track of order of global names
-    context = settings # start out in the global context
 
     path = join(self.config_dir, filename)
     if not exists(path):
       raise ConfigError("No such file %s" % path)
+    return path
+ 
+  def read_file(self, filename, ordered_items=False, store=True):
+    path = self.get_path(filename)
+    settings = {}
+    names = [] # keep track of order of global names
+    context = settings # start out in the global context
 
     # Parsing logic
     for line in open(path):
@@ -182,6 +186,36 @@ class CarbonConfiguration(dict):
       return [(name, settings[name]) for name in names]
     else:
       return settings
+
+  def read_filters(self, filename):
+    path = self.get_path(filename)
+    for line in open(path):
+      line = line.strip()
+      if line.startswith('#') or not line:
+        continue
+      try:
+        action, regex_pattern = line.split(' ', 1)
+      except:
+        raise ConfigError("Invalid filter line: %s" % line)
+      else:
+        filters.append( Filter(action, regex_pattern) )
+
+    return filters
+
+
+class Filter(object):
+  def __init__(self, action, regex_pattern):
+    if action not in ('include', 'exclude'):
+      raise ValueError("Invalid filter action '%s'" % action)
+    self.action = action
+    self.regex = re.compile(regex_pattern)
+
+  def allow(self, metric):
+    matches = bool(self.regex.search(metric))
+    if self.action == 'include':
+      return matches
+    else:
+      return not matches
 
 
 # The global settings singleton

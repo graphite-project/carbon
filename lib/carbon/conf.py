@@ -189,6 +189,7 @@ class CarbonConfiguration(dict):
 
   def read_filters(self, filename):
     path = self.get_path(filename)
+    filters = []
     for line in open(path):
       line = line.strip()
       if line.startswith('#') or not line:

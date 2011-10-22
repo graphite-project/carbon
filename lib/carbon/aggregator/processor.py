@@ -18,7 +18,7 @@ class AggregationProcessor(Processor):
 
   def pipeline_ready(self):
     if settings.ENABLE_AGGREGATION_FILTERING:
-      self.filters = settings.read_filters('aggregation-filters.conf', store=False)
+      self.filters = settings.read_filters('aggregation-filters.conf')
     else:
       self.filters = []
 

@@ -1,4 +1,4 @@
-recursive-include conf *
-exclude conf/*.conf
+recursive-include conf/carbon-daemons/example *
+recursive-include plugins *.py
 include LICENSE
 include lib/carbon/amqp0-8.xml

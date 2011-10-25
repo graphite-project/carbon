@@ -148,6 +148,7 @@ if __name__ == '__main__':
   default_plugindir = join(root_dir, 'plugins', 'maintenance')
   parser = OptionParser(usage='''%prog [options] plugin [plugin2 ...] [key=val ...]''')
   parser.add_option('--daemon', action='store_true')
+  parser.add_option('--verbose', action='store_true', help="Increase truthiness")
   parser.add_option('--log', help="Write to the given log file instead of stdout")
   parser.add_option('--root', default='/opt/graphite/storage/ceres/',
                     help="Specify were to perform maintenance (default: /opt/graphite/storage/ceres/)")
@@ -200,7 +201,8 @@ if __name__ == '__main__':
   dispatcher = EventDispatcher()
 
   def dispatch(event, *args):
-    log("%s :: %s" % (event, args))
+    if options.verbose:
+      log("%s :: %s" % (event, args))
     dispatcher(event, *args)
 
   for plugin in plugins:

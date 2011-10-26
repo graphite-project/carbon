@@ -87,7 +87,7 @@ def run_twistd_plugin(filename):
     if options.debug:
         twistd_options.extend(["--nodaemon"])
     if options.profile:
-        twistd_options.append("--profile")
+        twistd_options.append("--profile=%s" % options.profile)
     if options.pidfile:
         twistd_options.extend(["--pidfile", options.pidfile])
 

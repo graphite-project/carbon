@@ -14,17 +14,27 @@ instrumentation.configure_counters([
 
 class AggregationProcessor(Processor):
   plugin_name = 'aggregate'
-  filter_function = staticmethod(lambda metric: True)
 
   def pipeline_ready(self):
     if settings.ENABLE_AGGREGATION_FILTERING:
-      self.filters = settings.read_filters('aggregation-filters.conf')
+      filters = settings.read_filters('aggregation-filters.conf')
     else:
-      self.filters = []
+      filters = []
+    self.include_filters = [f for f in filters if f.action == 'include']
+    self.exclude_filters = [f for f in filters if f.action == 'exclude']
 
   def process(self, metric, datapoint):
-    for filter in self.filters:
+    for filter in self.exclude_filters:
       if not filter.allow(metric):
+        instrumentation.increment('aggregation.datapoints_filtered')
+        yield (metric, datapoint)
+        return
+
+    if self.include_filters:
+      for filter in self.include_filters:
+        if filter.allow(metric):
+          break
+      else:
         instrumentation.increment('aggregation.datapoints_filtered')
         yield (metric, datapoint)
         return

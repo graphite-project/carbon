@@ -89,12 +89,12 @@ def write_cached_datapoints():
 
   for (metric, datapoints) in MetricCache.drain():
     if write_ratelimit.exceeded:
-      log.writes("write ratelimit exceeded")
+      #log.writes("write ratelimit exceeded")
       write_ratelimit.wait()
 
     if not database.exists(metric):
       if create_ratelimit.exceeded:
-        log.creates("create ratelimit exceeded")
+        #log.creates("create ratelimit exceeded")
         continue # we *do* want to drop the datapoint here.
 
       metadata = determine_metadata(metric)

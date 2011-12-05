@@ -32,10 +32,12 @@ instrumentation.configure_stats('writer.create_microseconds', stats)
 instrumentation.configure_stats('writer.write_microseconds', stats)
 instrumentation.configure_stats('writer.datapoints_per_write', ('min', 'max', 'avg'))
 instrumentation.configure_counters([
+  'writer.create_ratelimit_exceeded',
   'writer.metrics_created',
   'writer.metric_create_errors',
   'writer.datapoints_written',
   'writer.write_operations',
+  'writer.write_ratelimit_exceeded',
   'writer.write_errors',
   'writer.cache_full_events',
   'writer.cache_queries',
@@ -90,10 +92,12 @@ def write_cached_datapoints():
   for (metric, datapoints) in MetricCache.drain():
     if write_ratelimit.exceeded:
       #log.writes("write ratelimit exceeded")
+      instrumentation.increment('writer.write_ratelimit_exceeded')
       write_ratelimit.wait()
 
     if not database.exists(metric):
       if create_ratelimit.exceeded:
+        instrumentation.increment('writer.create_ratelimit_exceeded')
         #log.creates("create ratelimit exceeded")
         continue # we *do* want to drop the datapoint here.
 

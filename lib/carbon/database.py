@@ -64,7 +64,7 @@ else:
     def create(self, metric, **options):
       path = self._get_filesystem_path(metric)
       directory = dirname(path)
-      os.system("mkdir -p -m 755 '%s'" % directory)
+      os.system("(umask u=rwx,go=rx; mkdir -p -m 755 '%s')" % directory)
 
       # convert argument naming convention
       options['archiveList'] = options.pop('retentions')

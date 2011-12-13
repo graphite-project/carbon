@@ -48,7 +48,7 @@ class MetricCache(dict):
     metric = '.'.join(part for part in metric.split('.') if part) # normalize the path
     try:
       self.lock.acquire()
-      self.setdefault(metric, {})[timestamp] = datapoint
+      self.setdefault(metric, {})[datapoint[0]] = datapoint
       self.size += 1
     finally:
       self.lock.release()

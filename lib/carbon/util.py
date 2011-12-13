@@ -48,6 +48,12 @@ def run_twistd_plugin(filename):
         "--profile",
         help="Record performance profile data to the given file")
     parser.add_option(
+        "--profiler",
+        help="Choose the profiler to use")
+    parser.add_option(
+        "--savestats", action="store_true",
+        help="Save raw performance profile data instead of parsed output")
+    parser.add_option(
         "--pidfile", default=None,
         help="Write pid to the given file")
     parser.add_option(
@@ -88,6 +94,10 @@ def run_twistd_plugin(filename):
         twistd_options.extend(["--nodaemon"])
     if options.profile:
         twistd_options.append("--profile=%s" % options.profile)
+    if options.profiler:
+        twistd_options.append("--profiler=%s" % options.profiler)
+    if options.savestats:
+        twistd_options.append("--savestats")
     if options.pidfile:
         twistd_options.extend(["--pidfile", options.pidfile])
 
@@ -99,7 +109,7 @@ def run_twistd_plugin(filename):
 
     for option_name, option_value in vars(options).items():
         if (option_value is not None and
-            option_name not in ("debug", "profile", "pidfile")):
+            option_name not in ("debug", "profile", "pidfile", "savestats", "profiler")):
             twistd_options.extend(["--%s" % option_name.replace("_", "-"),
                                    option_value])
 

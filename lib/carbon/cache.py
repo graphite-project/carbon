@@ -19,6 +19,10 @@ from carbon import log
 from carbon.pipeline import Processor
 
 
+def by_timestamp((timestamp, value)): # useful sort key function
+  return timestamp
+
+
 class CacheFeedingProcessor(Processor):
   plugin_name = 'write'
 
@@ -44,10 +48,13 @@ class MetricCache(dict):
     metric = '.'.join(part for part in metric.split('.') if part) # normalize the path
     try:
       self.lock.acquire()
-      self.setdefault(metric, []).append(datapoint)
+      self.setdefault(metric, {})[timestamp] = datapoint
       self.size += 1
     finally:
       self.lock.release()
+
+  def getDatapoints(self, metric):
+    return sorted(self.get(metric, {}).values(), key=by_timestamp)
 
   def isFull(self):
     return self.size >= settings.MAX_CACHE_SIZE
@@ -55,9 +62,9 @@ class MetricCache(dict):
   def pop(self, metric):
     try:
       self.lock.acquire()
-      datapoints = dict.pop(self, metric)
-      self.size -= len(datapoints)
-      return datapoints
+      datapoint_index = dict.pop(self, metric)
+      self.size -= len(datapoint_index)
+      return sorted(datapoint_index.values(), key=by_timestamp)
     finally:
       self.lock.release()
 

@@ -116,7 +116,7 @@ def setupRelayProcessor(root_service, settings):
 
 
 def setupWriterProcessor(root_service, settings):
-    from carbon.cache import MetricCache
+    import carbon.cache # important side-effect: registration of CacheFeedingProcessor
     from carbon.protocols import CacheManagementHandler
     from carbon.writer import WriterService
     from carbon import events

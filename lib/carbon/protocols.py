@@ -117,7 +117,7 @@ class CacheManagementHandler(Int32StringReceiver):
     request = self.unpickler.loads(rawRequest)
     if request['type'] == 'cache-query':
       metric = request['metric']
-      datapoints = MetricCache.get(metric, [])
+      datapoints = MetricCache.getDatapoints(metric)
       result = dict(datapoints=datapoints)
       log.query('[%s] cache query for \"%s\" returned %d values' % (self.peerAddr, metric, len(datapoints)))
       instrumentation.increment('writer.cache_queries')
@@ -125,7 +125,7 @@ class CacheManagementHandler(Int32StringReceiver):
     elif request['type'] == 'bulk-cache-query':
       query_results = {}
       for metric in request['metrics']:
-        query_results[metric] = MetricCache.get(metric, [])
+        query_results[metric] = MetricCache.getDatapoints(metric)
       log.query('[%s] bulk-cache-query for %d metrics' % (self.peerAddr, len(query_results)))
       instrumentation.increment('writer.cache_queries')
       result = dict(results=query_results)

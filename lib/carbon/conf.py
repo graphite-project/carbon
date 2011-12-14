@@ -36,6 +36,7 @@ LISTENER_TYPES = (
 defaults = dict(
   # aggregation.conf
   MAX_AGGREGATION_INTERVALS=5,
+  AGGREGATION_FREQUENCY_MULTIPLIER=1,
   ENABLE_AGGREGATION_FILTERING=False,
 
   # amqp.conf

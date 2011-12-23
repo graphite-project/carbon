@@ -40,8 +40,8 @@ class MetricCache(dict):
     raise TypeError("Use store() method instead!")
 
   def store(self, metric, datapoint):
+    self.lock.acquire()
     try:
-      self.lock.acquire()
       self.setdefault(metric, {})[datapoint[0]] = datapoint
       self.size += 1
     finally:
@@ -58,24 +58,29 @@ class MetricCache(dict):
     return self.size >= settings.MAX_CACHE_SIZE
 
   def pop(self, metric):
+    self.lock.acquire()
     try:
-      self.lock.acquire()
       datapoint_index = dict.pop(self, metric)
       self.size -= len(datapoint_index)
-      return sorted(datapoint_index.values(), key=by_timestamp)
     finally:
       self.lock.release()
+    return sorted(datapoint_index.values(), key=by_timestamp)
 
   def drain(self):
     "Removes and generates metrics in order of most cached values to least"
     if not self:
       return
 
+    t = time.time()
+    self.lock.acquire()
     try:
-      self.lock.acquire()
       metric_queue_sizes = [ (metric, len(datapoints)) for metric,datapoints in self.items() ]
     finally:
       self.lock.release()
+
+    micros = int((time.time() - t) * 1000000)
+    log.msg("Generated %d metric_queue_sizes in %d microseconds" %
+            (len(metric_queue_sizes), micros))
 
     t = time.time()
     metric_queue_sizes.sort(key=lambda item: item[1], reverse=True)

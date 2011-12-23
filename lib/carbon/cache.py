@@ -81,7 +81,7 @@ class MetricCache(dict):
       self.lock.release()
 
     micros = int((time.time() - t) * 1000000)
-    log.msg("Generated %d metric_queue_sizes in %d microseconds" %
+    log.msg("Generated %d cache queues in %d microseconds" %
             (len(metric_queue_sizes), micros))
 
     t = time.time()

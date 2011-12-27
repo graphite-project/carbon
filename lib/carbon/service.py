@@ -59,6 +59,8 @@ def setupPipeline(root_service, settings):
             setupRewriterProcessor(root_service, settings)
         elif processor == 'whitelist':
             setupWhitelistProcessor(root_service, settings)
+        elif processor == 'filter':
+            setupFilterProcessor(root_service, settings)
         elif processor == 'relay':
             setupRelayProcessor(root_service, settings)
         elif processor == 'write':
@@ -89,6 +91,14 @@ def setupAggregatorProcessor(root_service, settings):
     if not exists(aggregation_rules_path):
         raise IOError(ENOENT, "%s file does not exist")
     RuleManager.read_from(aggregation_rules_path)
+
+def setupFilterProcessor(root_service, settings):
+    from carbon.filter import FilterRuleManager
+
+    filter_rules_path = join(settings.config_dir, "filter-rules.conf")
+    if not exists(filter_rules_path):
+        raise IOError(ENOENT, "%s file does not exist")
+    FilterRuleManager.read_from(filter_rules_path)
 
 
 def setupRewriterProcessor(root_service, settings):

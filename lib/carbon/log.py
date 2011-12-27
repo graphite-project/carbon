@@ -94,6 +94,10 @@ def aggregator(message, **context):
   context['type'] = 'aggregator'
   msg(message, **context)
 
+def filter(message, **context):
+  context['type'] = 'filter'
+  msg(message, **context)
+
 def query(message, **context):
   context['type'] = 'query'
   msg(message, **context)

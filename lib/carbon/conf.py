@@ -198,14 +198,13 @@ class CarbonConfiguration(dict):
       if line.startswith('#') or not line:
         continue
       try:
-        action, regex_pattern = line.split(' ', 1)
-      except:
+        action, regex_pattern = line.split(None, 1)
+      except ValueError:
         raise ConfigError("Invalid filter line: %s" % line)
       else:
         filters.append( Filter(action, regex_pattern) )
 
     return filters
-
 
 class Filter(object):
   def __init__(self, action, regex_pattern):
@@ -215,12 +214,13 @@ class Filter(object):
     self.regex = re.compile(regex_pattern)
 
   def allow(self, metric):
-    matches = bool(self.regex.search(metric))
     if self.action == 'include':
-      return matches
+      return self.matches(metric)
     else:
-      return not matches
+      return not self.matches(metric)
 
+  def matches(self, metric):
+    return bool(self.regex.search(metric))
 
 # The global settings singleton
 settings = CarbonConfiguration()

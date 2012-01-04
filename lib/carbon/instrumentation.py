@@ -60,9 +60,9 @@ def configure_metric_function(metric, func):
 def increment(metric, value=1):
   metric_data_lock.acquire()
   try:
-    if metric not in metric_data:
-      metric_data[metric] = 0
     metric_data[metric] += value
+  except KeyError:
+    metric_data[metric] = value
   finally:
     metric_data_lock.release()
 

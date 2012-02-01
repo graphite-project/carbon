@@ -15,9 +15,13 @@ limitations under the License."""
 import time
 from threading import Lock
 from carbon.conf import settings
-from carbon import log
+from carbon import log, instrumentation
 from carbon.pipeline import Processor
 
+
+instrumentation.configure_stats('pipeline.cache_microseconds', ('total', 'min', 'max', 'avg'))
+
+ONE_MILLION = 1000000 # I hate counting zeroes
 
 def by_timestamp((timestamp, value)): # useful sort key function
   return timestamp
@@ -27,7 +31,10 @@ class CacheFeedingProcessor(Processor):
   plugin_name = 'write'
 
   def process(self, metric, datapoint):
+    t = time.time()
     MetricCache.store(metric, datapoint)
+    duration_micros = (time.time() - t) * ONE_MILLION
+    instrumentation.append('pipeline.cache_microseconds', duration_micros)
     return Processor.NO_OUTPUT
 
 

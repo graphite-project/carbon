@@ -3,14 +3,21 @@ import re
 from os.path import exists, getmtime
 from twisted.internet.task import LoopingCall
 from carbon.pipeline import Processor
+from carbon import instrumentation
 
+instrumentation.configure_stats('pipeline.rewrite_microseconds', ('total', 'min', 'max', 'avg'))
+
+ONE_MILLION = 1000000 # I hate counting zeroes
 
 class RewriteProcessor(Processor):
   plugin_name = 'rewrite'
 
   def process(self, metric, datapoint):
+    t = time.time()
     for rule in RewriteRuleManager.rules:
       metric = rule.apply(metric)
+    duration_micros = (time.time() - t) * ONE_MILLION
+    instrumentation.append('pipeline.rewrite_microseconds', duration_micros)
     yield (metric, datapoint)
 
 

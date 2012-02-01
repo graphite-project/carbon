@@ -1,3 +1,4 @@
+import time
 from carbon import instrumentation
 from carbon.aggregator.rules import RuleManager
 from carbon.aggregator.buffers import BufferManager
@@ -10,7 +11,9 @@ instrumentation.configure_counters([
   'aggregation.datapoints_analyzed',
   'aggregation.datapoints_filtered',
 ])
+instrumentation.configure_stats('pipeline.aggregation_microseconds', ('total', 'min', 'max', 'avg'))
 
+ONE_MILLION = 1000000 # I hate counting zeroes
 
 class AggregationProcessor(Processor):
   plugin_name = 'aggregate'
@@ -22,6 +25,7 @@ class AggregationProcessor(Processor):
       filters = []
 
   def process(self, metric, datapoint):
+    t = time.time()
     for filter in self.filters:
       if filter.action == 'allow':
         if filter.matches(metric):
@@ -29,6 +33,8 @@ class AggregationProcessor(Processor):
       elif filter.action == 'exclude':
         if filter.matches(metric):
           instrumentation.increment('aggregation.datapoints_filtered')
+          duration_micros = (time.time() - t) * ONE_MILLION
+          instrumentation.append('pipeline.aggregation_microseconds', duration_micros)
           yield (metric, datapoint)
           return
 
@@ -51,4 +57,6 @@ class AggregationProcessor(Processor):
       buffer.input(datapoint)
 
     if metric not in aggregate_metrics:
+      duration_micros = (time.time() - t) * ONE_MILLION
+      instrumentation.append('pipeline.aggregation_microseconds', duration_micros)
       yield (metric, datapoint)

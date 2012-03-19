@@ -60,15 +60,23 @@ class MetricBuffer:
     age_threshold = current_interval - (settings['MAX_AGGREGATION_INTERVALS'] * self.aggregation_frequency)
 
     for buffer in self.interval_buffers.values():
+      # If the interval is the current one, then skip computing it for now.
+      #  People get antsy about computed values being "wrong" when not enough data points are in
+      if buffer.interval == current_interval:
+        continue
+
+      # If interval is too old, then delete it.
+      if buffer.interval < age_threshold:
+        del self.interval_buffers[buffer.interval]
+        continue
+
+      # If buffer is active, then compute it.
       if buffer.active:
         value = self.aggregation_func(buffer.values)
         datapoint = (buffer.interval, value)
         state.events.metricGenerated(self.metric_path, datapoint)
         instrumentation.increment('aggregation.datapoints_generated')
         buffer.mark_inactive()
-
-      if buffer.interval < age_threshold:
-        del self.interval_buffers[buffer.interval]
 
   def close(self):
     if self.compute_task and self.compute_task.running:

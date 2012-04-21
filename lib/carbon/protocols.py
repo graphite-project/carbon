@@ -92,11 +92,7 @@ class MetricPickleReceiver(MetricReceiver, Int32StringReceiver):
       return
 
     for (metric, datapoint) in datapoints:
-      try:
-        datapoint = ( float(datapoint[0]), float(datapoint[1]) ) #force proper types
-      except:
-        continue
-
+      #Expect proper types since it is coming in pickled.
       self.metricReceived(metric, datapoint)
 
 

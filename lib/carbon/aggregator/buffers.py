@@ -3,6 +3,9 @@ from twisted.internet.task import LoopingCall
 from carbon.conf import settings
 from carbon import log, instrumentation
 
+instrumentation.configure_stats('aggregation.compute_value_microseconds', ('total', 'min', 'max', 'avg'))
+
+ONE_MILLION = 1000000 # I hate counting zeroes
 
 class BufferManager:
   def __init__(self):
@@ -77,6 +80,8 @@ class MetricBuffer:
         state.events.metricGenerated(self.metric_path, datapoint)
         instrumentation.increment('aggregation.datapoints_generated')
         buffer.mark_inactive()
+    duration_micros = (time.time() - now) * ONE_MILLION
+    instrumentation.append('aggregation.compute_value_microseconds', duration_micros)
 
   def close(self):
     if self.compute_task and self.compute_task.running:

@@ -19,24 +19,27 @@ class AggregationProcessor(Processor):
   plugin_name = 'aggregate'
 
   def pipeline_ready(self):
+    self.aggregation_filtering_enabled = False;
     if settings.ENABLE_AGGREGATION_FILTERING:
       filters = settings.read_filters('aggregation-filters.conf')
+      self.aggregation_filtering_enabled = True;
     else:
       filters = []
 
   def process(self, metric, datapoint):
     t = time.time()
-    for filter in self.filters:
-      if filter.action == 'allow':
-        if filter.matches(metric):
-          break
-      elif filter.action == 'exclude':
-        if filter.matches(metric):
-          instrumentation.increment('aggregation.datapoints_filtered')
-          duration_micros = (time.time() - t) * ONE_MILLION
-          instrumentation.append('pipeline.aggregation_microseconds', duration_micros)
-          yield (metric, datapoint)
-          return
+    if self.aggregation_filtering_enabled:
+      for filter in self.filters:
+        if filter.action == 'allow':
+          if filter.matches(metric):
+            break
+        elif filter.action == 'exclude':
+          if filter.matches(metric):
+            instrumentation.increment('aggregation.datapoints_filtered')
+            duration_micros = (time.time() - t) * ONE_MILLION
+            instrumentation.append('pipeline.aggregation_microseconds', duration_micros)
+            yield (metric, datapoint)
+            return
 
     instrumentation.increment('aggregation.datapoints_analyzed')
     aggregate_metrics = set()

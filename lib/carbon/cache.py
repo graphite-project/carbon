@@ -40,6 +40,7 @@ class CacheFeedingProcessor(Processor):
 
 class MetricCache(dict):
   def __init__(self):
+    self.MAX_CACHE_SIZE = settings.MAX_CACHE_SIZE
     self.size = 0
     self.lock = Lock()
 
@@ -64,7 +65,7 @@ class MetricCache(dict):
     return sorted(self.get(metric, {}).values(), key=by_timestamp)
 
   def isFull(self):
-    return self.size >= settings.MAX_CACHE_SIZE
+    return self.size >= self.MAX_CACHE_SIZE
 
   def pop(self, metric):
     self.lock.acquire()

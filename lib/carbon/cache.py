@@ -40,9 +40,10 @@ class CacheFeedingProcessor(Processor):
 
 class MetricCache(dict):
   def __init__(self):
-    self.MAX_CACHE_SIZE = settings.MAX_CACHE_SIZE
     self.size = 0
     self.lock = Lock()
+    self.MAX_CACHE_SIZE = settings.MAX_CACHE_SIZE
+    self.CACHE_SIZE_LOW_WATERMARK = settings.CACHE_SIZE_LOW_WATERMARK
 
   def __setitem__(self, key, value):
     raise TypeError("Use store() method instead!")
@@ -57,15 +58,12 @@ class MetricCache(dict):
     finally:
       self.lock.release()
 
-    if self.isFull():
+    if self.size >= self.MAX_CACHE_SIZE:
       log.msg("MetricCache is full: self.size=%d" % self.size)
       state.events.cacheFull()
 
   def getDatapoints(self, metric):
     return sorted(self.get(metric, {}).values(), key=by_timestamp)
-
-  def isFull(self):
-    return self.size >= self.MAX_CACHE_SIZE
 
   def pop(self, metric):
     self.lock.acquire()
@@ -101,7 +99,7 @@ class MetricCache(dict):
     for metric, queue_size in metric_queue_sizes:
       yield (metric, self.pop(metric))
 
-      if state.cacheTooFull and self.size < settings.CACHE_SIZE_LOW_WATERMARK:
+      if state.cacheTooFull and self.size < self.CACHE_SIZE_LOW_WATERMARK:
         log.msg("cache size below watermark")
         state.events.cacheSpaceAvailable()
 

@@ -17,11 +17,11 @@ storage backend. Currently [Whisper][] is our stable, supported backend and
 Client applications can connect to the running carbon-cache.py daemon on port
 2003 (default) and send it lines of text of the following format:
 
-    "my.metric.name value unix_timestamp"
+    my.metric.name value unix_timestamp
 
 For example:
 
-    "performance.servers.www01.cpuUsage 42.5 1208815315"
+    performance.servers.www01.cpuUsage 42.5 1208815315
 
 - The metric name is like a filesystem path that uses a dot as a separator instead of
 a forward-slash.

@@ -17,9 +17,11 @@ storage backend. Currently [Whisper][] is our stable, supported backend and
 Client applications can connect to the running carbon-cache.py daemon on port
 2003 (default) and send it lines of text of the following format:
 
-  "my.metric.name value unix_timestamp", for example:
+    "my.metric.name value unix_timestamp"
 
-  "performance.servers.www01.cpuUsage 42.5 1208815315"
+For example:
+
+    "performance.servers.www01.cpuUsage 42.5 1208815315"
 
 - The metric name is like a filesystem path that uses a dot as a separator instead of
 a forward-slash.
@@ -58,7 +60,7 @@ Alternatively, you can run `carbon-cache`/`carbon-relay`/`carbon-aggregator` as
           --help        Display this help and exit.
       twistd [options] carbon-cache [
 
-Common options to `twistd(1)`, like `--pidfile`, '--logfile`, `--uid`, `--gid`,
+Common options to `twistd(1)`, like `--pidfile`, `--logfile`, `--uid`, `--gid`,
 `--syslog` and `--prefix` are fully supported and have precedence over
 `carbon-*`'s own options. Please refer to `twistd --help` for the full list of
 supported `twistd` options.
@@ -68,12 +70,12 @@ supported `twistd` options.
 ## Writing a client
 
 First you obviously need to decide what data it is you want to graph with
-graphite. The script [examples/example-client.py](examples/example-client.py)
-demonstrates a simple client that sends `loadavg` data for your local machine
-to carbon on a minutely basis.
+graphite. The script [examples/example-client.py] demonstrates a simple client
+that sends `loadavg` data for your local machine to carbon on a minutely basis.
 
 The default storage schema stores data in one-minute intervals for 2 hours.
 This is probably not what you want so you should create a custom storage schema
 according to the docs on the [Graphite wiki][].
 
 [Graphite wiki]: http://graphite.wikidot.com
+[examples/example-client.py]: https://github.com/graphite-project/carbon/blob/master/examples/example-client.py

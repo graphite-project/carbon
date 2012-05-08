@@ -8,7 +8,7 @@ storage backend. Currently [Whisper][] is our stable, supported backend and
 [Ceres][] is the work-in-progress future replacement for Whisper.
 
 [Graphite]: https://github.com/graphite-project
-[Graphite]: https://github.com/graphite-project/graphite-web
+[Graphite Web]: https://github.com/graphite-project/graphite-web
 [Whisper]: https://github.com/graphite-project/whisper
 [Ceres]: https://github.com/graphite-project/ceres
 
@@ -34,8 +34,7 @@ Alternatively, they can send pickle-formatted messages to port 2004 (default)
 which is considered faster than the line-based format.
 
 Once you've got some clients sending data to carbon-cache, you can view
-graphs of that data through the frontend [Graphite Web] application.
-
+graphs of that data through the frontend [Graphite Web][] application.
 
 ## Running carbon-cache.py
 

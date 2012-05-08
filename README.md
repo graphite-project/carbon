@@ -45,7 +45,7 @@ account in $GRAPHITE_ROOT/conf/carbon.conf
 This user must also have write privileges to $GRAPHITE_ROOT/storage/log/carbon-cache/
 
 Alternatively, you can run carbon-cache/carbon-relay/carbon-aggregator as
-[Twistd] plugin, for example:
+[Twistd plugins][], for example:
 
     Usage: twistd [options] carbon-cache [options]
     Options:
@@ -61,6 +61,8 @@ Alternatively, you can run carbon-cache/carbon-relay/carbon-aggregator as
 
 Common options to twistd, like 'pidfile', 'logfile', 'uid', 'gid', 'syslog' and
 'prefix' are fully supported and have precedence over carbon's own options.
+
+[Twistd plugins]: http://twistedmatrix.com/documents/current/core/howto/plugin.html
 
 ## Writing a client
 

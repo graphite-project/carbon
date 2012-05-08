@@ -23,6 +23,12 @@ class FakeOptions(object):
     def __init__(self, **kwargs):
         self.__dict__.update(kwargs)
 
+    def __getitem__(self, name):
+        return self.__dict__[name]
+
+    def __setitem__(self, name, value):
+        self.__dict__[name] = value
+
 
 class DefaultParserTest(TestCase):
 
@@ -40,7 +46,7 @@ class DefaultParserTest(TestCase):
         self.assertTrue(parser.has_option("--logdir"))
         self.assertEqual(None, parser.defaults["logdir"])
         self.assertTrue(parser.has_option("--instance"))
-        self.assertEqual(None, parser.defaults["instance"])
+        self.assertEqual("a", parser.defaults["instance"])
 
 
 class ParseOptionsTest(TestCase):
@@ -80,16 +86,17 @@ class ReadConfigTest(MockerTestCase):
         At minimum, the caller must provide a 'ROOT_DIR' setting.
         """
         try:
-            read_config("carbon-foo", FakeOptions())
+            read_config("carbon-foo", FakeOptions(config=None))
         except ValueError, e:
-            self.assertEqual("ROOT_DIR needs to be provided.", e.message)
+            self.assertEqual("Either ROOT_DIR or GRAPHITE_ROOT "
+                             "needs to be provided.", e.message)
         else:
             self.fail("Did not raise exception.")
 
     def test_config_is_not_required(self):
         """
-        If the '--config' option is not provided, it will default to the
-        'carbon.conf' file inside 'ROOT_DIR/conf'.
+        If the '--config' option is not provided, it defaults to
+        ROOT_DIR/conf/carbon.conf.
         """
         root_dir = self.makeDir()
         conf_dir = join(root_dir, "conf")
@@ -97,11 +104,11 @@ class ReadConfigTest(MockerTestCase):
         self.makeFile(content="[foo]",
                       basename="carbon.conf",
                       dirname=conf_dir)
-        settings = read_config("carbon-foo",
-                               FakeOptions(config=None, instance=None,
-                                           pidfile=None, logdir=None),
-                               ROOT_DIR=root_dir)
-        self.assertEqual(conf_dir, settings.CONF_DIR)
+        options = FakeOptions(config=None, instance=None,
+                              pidfile=None, logdir=None)
+        read_config("carbon-foo", options, ROOT_DIR=root_dir)
+        self.assertEqual(join(root_dir, "conf", "carbon.conf"),
+                         options["config"])
 
     def test_config_dir_from_environment(self):
         """
@@ -194,7 +201,8 @@ class ReadConfigTest(MockerTestCase):
             FakeOptions(config=config, instance="x",
                         pidfile=None, logdir=None),
             ROOT_DIR="foo")
-        self.assertEqual(join("foo", "storage", "log", "carbon-foo-x"),
+        self.assertEqual(join("foo", "storage", "log",
+                              "carbon-foo", "carbon-foo-x"),
                          settings.LOG_DIR)
 
     def test_log_dir_for_instance_relative_to_provided_storage_dir(self):
@@ -209,7 +217,7 @@ class ReadConfigTest(MockerTestCase):
             FakeOptions(config=config, instance="x",
                         pidfile=None, logdir=None),
             ROOT_DIR="foo", STORAGE_DIR="bar")
-        self.assertEqual(join("bar", "log", "carbon-foo-x"),
+        self.assertEqual(join("bar", "log", "carbon-foo", "carbon-foo-x"),
                          settings.LOG_DIR)
 
     def test_pidfile_relative_to_storage_dir(self):
@@ -343,4 +351,4 @@ class ReadConfigTest(MockerTestCase):
             FakeOptions(config=config, instance="x",
                         pidfile=None, logdir=None),
             ROOT_DIR="foo")
-        self.assertEqual("boo-x", settings.LOG_DIR)
+        self.assertEqual("boo/carbon-foo-x", settings.LOG_DIR)

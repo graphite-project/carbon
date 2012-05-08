@@ -39,12 +39,11 @@ graphs of that data through the frontend [Graphite Web][] application.
 ## Running carbon-cache.py
 
 First you must tell carbon-cache what user it should run as.  This must be a
-user with write privileges to $GRAPHITE_ROOT/storage/whisper/ Specify the user
-account in $GRAPHITE_ROOT/conf/carbon.conf
+user with write privileges to `$GRAPHITE_ROOT/storage/whisper`. Specify the
+user account in `$GRAPHITE_ROOT/conf/carbon.conf`. This user must also have
+write privileges to `$GRAPHITE_ROOT/storage/log/carbon-cache`
 
-This user must also have write privileges to $GRAPHITE_ROOT/storage/log/carbon-cache/
-
-Alternatively, you can run carbon-cache/carbon-relay/carbon-aggregator as
+Alternatively, you can run `carbon-cache`/`carbon-relay`/`carbon-aggregator` as
 [Twistd plugins][], for example:
 
     Usage: twistd [options] carbon-cache [options]
@@ -59,16 +58,19 @@ Alternatively, you can run carbon-cache/carbon-relay/carbon-aggregator as
           --help        Display this help and exit.
       twistd [options] carbon-cache [
 
-Common options to twistd, like 'pidfile', 'logfile', 'uid', 'gid', 'syslog' and
-'prefix' are fully supported and have precedence over carbon's own options.
+Common options to `twistd(1)`, like `--pidfile`, '--logfile`, `--uid`, `--gid`,
+`--syslog` and `--prefix` are fully supported and have precedence over
+`carbon-*`'s own options. Please refer to `twistd --help` for the full list of
+supported `twistd` options.
 
 [Twistd plugins]: http://twistedmatrix.com/documents/current/core/howto/plugin.html
 
 ## Writing a client
 
 First you obviously need to decide what data it is you want to graph with
-graphite. The script examples/example-client.py demonstrates a simple client
-that sends loadavg data for your local machine to carbon on a minutely basis.
+graphite. The script [examples/example-client.py](examples/example-client.py)
+demonstrates a simple client that sends `loadavg` data for your local machine
+to carbon on a minutely basis.
 
 The default storage schema stores data in one-minute intervals for 2 hours.
 This is probably not what you want so you should create a custom storage schema

@@ -58,7 +58,6 @@ Alternatively, you can run `carbon-cache`/`carbon-relay`/`carbon-aggregator` as
           --blacklist=  List of metric patterns to disallow.
           --version     Display Twisted version and exit.
           --help        Display this help and exit.
-      twistd [options] carbon-cache [
 
 Common options to `twistd(1)`, like `--pidfile`, `--logfile`, `--uid`, `--gid`,
 `--syslog` and `--prefix` are fully supported and have precedence over

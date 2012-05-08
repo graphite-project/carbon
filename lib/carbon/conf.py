@@ -449,7 +449,12 @@ def read_config(program, options, **kwargs):
     for name, value in kwargs.items():
         settings.setdefault(name, value)
 
-    graphite_root = os.environ['GRAPHITE_ROOT']
+    graphite_root = kwargs.get("ROOT_DIR")
+    if graphite_root is None:
+        graphite_root = os.environ.get('GRAPHITE_ROOT')
+    if graphite_root is None:
+        raise ValueError("Either ROOT_DIR or GRAPHITE_ROOT "
+                         "needs to be provided.")
 
     # Default config directory to root-relative, unless overriden by the
     # 'GRAPHITE_CONF_DIR' environment variable.
@@ -485,8 +490,7 @@ def read_config(program, options, **kwargs):
     config = options["config"]
 
     if not exists(config):
-        print "Error: missing required config %s" % config
-        sys.exit(1)
+        raise ValueError("Error: missing required config %r" % config)
 
     settings.readFrom(config, section)
     settings.setdefault("instance", options["instance"])

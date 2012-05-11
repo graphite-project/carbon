@@ -15,6 +15,9 @@ rusage = getrusage(RUSAGE_SELF)
 lastUsage = rusage.ru_utime + rusage.ru_stime
 lastUsageTime = time.time()
 
+# NOTE: Referencing settings in this *top level scope* will
+# give you *defaults* only. Probably not what you wanted.
+
 # TODO(chrismd) refactor the graphite metrics hierarchy to be cleaner,
 # more consistent, and make room for frontend metrics.
 #metric_prefix = "Graphite.backend.%(program)s.%(instance)s." % settings
@@ -114,26 +117,29 @@ def recordMetrics():
 
 
 def cache_record(metric, value):
+    prefix = settings.CARBON_DATA_PREFIX
     if settings.instance is None:
-      fullMetric = 'carbon.agents.%s.%s' % (HOSTNAME, metric)
+      fullMetric = '%s.agents.%s.%s' % (prefix, HOSTNAME, metric)
     else:
-      fullMetric = 'carbon.agents.%s-%s.%s' % (HOSTNAME, settings.instance, metric)
+      fullMetric = '%s.agents.%s-%s.%s' % (prefix, HOSTNAME, settings.instance, metric)
     datapoint = (time.time(), value)
     cache.MetricCache.store(fullMetric, datapoint)
 
 def relay_record(metric, value):
+    prefix = settings.CARBON_DATA_PREFIX
     if settings.instance is None:
-      fullMetric = 'carbon.relays.%s.%s' % (HOSTNAME, metric)
+      fullMetric = '%s.relays.%s.%s' % (prefix, HOSTNAME, metric)
     else:
-      fullMetric = 'carbon.relays.%s-%s.%s' % (HOSTNAME, settings.instance, metric)
+      fullMetric = '%s.relays.%s-%s.%s' % (prefix, HOSTNAME, settings.instance, metric)
     datapoint = (time.time(), value)
     events.metricGenerated(fullMetric, datapoint)
 
 def aggregator_record(metric, value):
+    prefix = settings.CARBON_DATA_PREFIX
     if settings.instance is None:
-      fullMetric = 'carbon.aggregator.%s.%s' % (HOSTNAME, metric)
+      fullMetric = '%s.aggregator.%s.%s' % (prefix, HOSTNAME, metric)
     else:
-      fullMetric = 'carbon.aggregator.%s-%s.%s' % (HOSTNAME, settings.instance, metric)
+      fullMetric = '%s.aggregator.%s-%s.%s' % (prefix, HOSTNAME, settings.instance, metric)
     datapoint = (time.time(), value)
     events.metricGenerated(fullMetric, datapoint)
 

@@ -156,6 +156,15 @@ WHISPER_AUTOFLUSH = False
 # from [carbon] section.
 # You can then specify the --instance=b option to manage this instance
 
+# By default, carbon itself will log statistics (such as
+# a count, metricsReceived) under the metric path top named
+# 'carbon'. If you have a need to, uncomment the following
+# setting to put these statistics under '_carbon' instead
+# (or set it to whatever you'd like). This is useful, for
+# instance, when you have metrics coming in from a *host*
+# named carbon.
+# CARBON_DATA_PREFIX = _carbon
+
 
 [relay]
 LINE_RECEIVER_INTERFACE = 0.0.0.0
@@ -206,6 +215,15 @@ USE_FLOW_CONTROL = True
 # CONF_DIR/whitelist and CONF_DIR/blacklist. If the whitelist is missing or
 # empty, all metrics will pass through
 # USE_WHITELIST = False
+
+# By default, carbon itself will log statistics (such as
+# a count, metricsReceived) under the metric path top named
+# 'carbon'. If you have a need to, uncomment the following
+# setting to put these statistics under '_carbon' instead
+# (or set it to whatever you'd like). This is useful, for
+# instance, when you have metrics coming in from a *host*
+# named carbon.
+# CARBON_DATA_PREFIX = _carbon
 
 
 [aggregator]
@@ -259,3 +277,12 @@ MAX_AGGREGATION_INTERVALS = 5
 # CONF_DIR/whitelist and CONF_DIR/blacklist. If the whitelist is missing or
 # empty, all metrics will pass through
 # USE_WHITELIST = False
+
+# By default, carbon itself will log statistics (such as
+# a count, metricsReceived) under the metric path top named
+# 'carbon'. If you have a need to, uncomment the following
+# setting to put these statistics under '_carbon' instead
+# (or set it to whatever you'd like). This is useful, for
+# instance, when you have metrics coming in from a *host*
+# named carbon.
+# CARBON_DATA_PREFIX = _carbon

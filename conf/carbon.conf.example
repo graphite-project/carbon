@@ -110,6 +110,12 @@ WHISPER_AUTOFLUSH = False
 # empty, all metrics will pass through
 # USE_WHITELIST = False
 
+# By default, carbon itself will log statistics (such as a count,
+# metricsReceived) with the top level prefix of 'carbon' at an interval of 60
+# seconds. Set CARBON_METRIC_INTERVAL to 0 to disable instrumentation
+# CARBON_METRIC_PREFIX = carbon
+# CARBON_METRIC_INTERVAL = 60
+
 # Enable AMQP if you want to receve metrics using an amqp broker
 # ENABLE_AMQP = False
 
@@ -156,14 +162,6 @@ WHISPER_AUTOFLUSH = False
 # from [carbon] section.
 # You can then specify the --instance=b option to manage this instance
 
-# By default, carbon itself will log statistics (such as
-# a count, metricsReceived) under the metric path top named
-# 'carbon'. If you have a need to, uncomment the following
-# setting to put these statistics under '_carbon' instead
-# (or set it to whatever you'd like). This is useful, for
-# instance, when you have metrics coming in from a *host*
-# named carbon.
-# CARBON_DATA_PREFIX = _carbon
 
 
 [relay]
@@ -216,14 +214,11 @@ USE_FLOW_CONTROL = True
 # empty, all metrics will pass through
 # USE_WHITELIST = False
 
-# By default, carbon itself will log statistics (such as
-# a count, metricsReceived) under the metric path top named
-# 'carbon'. If you have a need to, uncomment the following
-# setting to put these statistics under '_carbon' instead
-# (or set it to whatever you'd like). This is useful, for
-# instance, when you have metrics coming in from a *host*
-# named carbon.
-# CARBON_DATA_PREFIX = _carbon
+# By default, carbon itself will log statistics (such as a count,
+# metricsReceived) with the top level prefix of 'carbon' at an interval of 60
+# seconds. Set CARBON_METRIC_INTERVAL to 0 to disable instrumentation
+# CARBON_METRIC_PREFIX = carbon
+# CARBON_METRIC_INTERVAL = 60
 
 
 [aggregator]
@@ -278,11 +273,8 @@ MAX_AGGREGATION_INTERVALS = 5
 # empty, all metrics will pass through
 # USE_WHITELIST = False
 
-# By default, carbon itself will log statistics (such as
-# a count, metricsReceived) under the metric path top named
-# 'carbon'. If you have a need to, uncomment the following
-# setting to put these statistics under '_carbon' instead
-# (or set it to whatever you'd like). This is useful, for
-# instance, when you have metrics coming in from a *host*
-# named carbon.
-# CARBON_DATA_PREFIX = _carbon
+# By default, carbon itself will log statistics (such as a count,
+# metricsReceived) with the top level prefix of 'carbon' at an interval of 60
+# seconds. Set CARBON_METRIC_INTERVAL to 0 to disable instrumentation
+# CARBON_METRIC_PREFIX = carbon
+# CARBON_METRIC_INTERVAL = 60

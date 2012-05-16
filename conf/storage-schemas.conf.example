@@ -5,6 +5,8 @@
 #  pattern = regex
 #  retentions = timePerPoint:timeToStore, timePerPoint:timeToStore, ...
 
+# Carbon's internal metrics. This entry should match what is specified in
+# CARBON_METRIC_PREFIX and CARBON_METRIC_INTERVAL settings
 [carbon]
 pattern = ^carbon\.
 retentions = 60:90d

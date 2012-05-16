@@ -117,7 +117,7 @@ def recordMetrics():
 
 
 def cache_record(metric, value):
-    prefix = settings.CARBON_DATA_PREFIX
+    prefix = settings.CARBON_METRIC_PREFIX
     if settings.instance is None:
       fullMetric = '%s.agents.%s.%s' % (prefix, HOSTNAME, metric)
     else:
@@ -126,7 +126,7 @@ def cache_record(metric, value):
     cache.MetricCache.store(fullMetric, datapoint)
 
 def relay_record(metric, value):
-    prefix = settings.CARBON_DATA_PREFIX
+    prefix = settings.CARBON_METRIC_PREFIX
     if settings.instance is None:
       fullMetric = '%s.relays.%s.%s' % (prefix, HOSTNAME, metric)
     else:
@@ -135,7 +135,7 @@ def relay_record(metric, value):
     events.metricGenerated(fullMetric, datapoint)
 
 def aggregator_record(metric, value):
-    prefix = settings.CARBON_DATA_PREFIX
+    prefix = settings.CARBON_METRIC_PREFIX
     if settings.instance is None:
       fullMetric = '%s.aggregator.%s.%s' % (prefix, HOSTNAME, metric)
     else:
@@ -149,11 +149,13 @@ class InstrumentationService(Service):
         self.record_task = LoopingCall(recordMetrics)
 
     def startService(self):
-        self.record_task.start(60, False)
+        if settings.CARBON_METRIC_INTERVAL > 0:
+          self.record_task.start(settings.CARBON_METRIC_INTERVAL, False)
         Service.startService(self)
 
     def stopService(self):
-        self.record_task.stop()
+        if settings.CARBON_METRIC_INTERVAL > 0:
+          self.record_task.stop()
         Service.stopService(self)
 
 

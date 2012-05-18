@@ -1,0 +1,61 @@
+#!/bin/bash
+# chkconfig:   - 25 75
+# description: carbon-cache
+# processname: carbon-cache
+
+export GRAPHITE_DIR="/opt/graphite"
+export PYTHONPATH="$GRAPHITE_DIR/lib:$PYTHONPATH"
+
+function die {
+  echo $1
+  exit 1
+}
+
+start(){
+    cd $GRAPHITE_DIR
+    if [ `/usr/bin/pgrep "carbon-cache" | /usr/bin/wc -l` -eq 0 ]; then
+        if [ -f ${GRAPHITE_DIR}/storage/carbon-cache.pid ]; then
+            echo "PID found, but no running process - removing it."
+            rm ${GRAPHITE_DIR}/storage/carbon-cache.pid;
+        fi;
+
+        echo "Starting carbon-cache..."
+        bin/carbon-cache.py start
+    fi;
+}
+
+stop(){
+    echo "Stopping carbon-cache..."
+    cd $GRAPHITE_DIR
+    bin/carbon-cache.py stop
+    sleep 3
+    if [ `/usr/bin/pgrep "carbon-cache" | /usr/bin/wc -l` -gt 0 ]; then
+        echo "Carbon did not stop yet. Sleeping longer, then force killing it..."
+        sleep 10
+        kill -9 `/usr/bin/pgrep "carbon-cache"`
+    fi;
+}
+
+status(){
+    cd $GRAPHITE_DIR
+    bin/carbon-cache.py status
+}
+
+case "$1" in
+  start)
+    start 
+    ;;
+  stop)
+    stop
+    ;;
+  status)
+    status
+    ;;
+  restart|reload)
+    stop
+    start
+    ;;
+  *)
+    echo $"Usage: $0 {start|stop|restart|status}"
+    exit 1
+esac

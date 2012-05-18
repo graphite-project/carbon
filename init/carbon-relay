@@ -1,0 +1,42 @@
+#!/bin/bash
+# chkconfig:   - 25 75
+# description: carbon-relay
+# processname: carbon-relay
+
+export GRAPHITE_DIR="/opt/graphite"
+export PYTHONPATH="$GRAPHITE_DIR/lib:$PYTHONPATH"
+
+function die {
+  echo $1
+  exit 1
+}
+start()
+{
+    echo "Starting carbon-relay"
+    cd $GRAPHITE_DIR
+    bin/carbon-relay.py start
+
+}
+stop()
+{
+    echo "Stopping carbon-relay"
+    cd $GRAPHITE_DIR
+    bin/carbon-relay.py stop
+
+}
+case "$1" in
+  start)
+    start 
+    ;;
+  stop)
+    stop
+    ;;
+  restart|reload)
+    stop
+    sleep 3
+    start
+    ;;
+  *)
+    echo $"Usage: $0 {start|stop|restart}"
+    exit 1
+esac

@@ -3,8 +3,16 @@
 # description: carbon-cache
 # processname: carbon-cache
 
-export GRAPHITE_DIR="/opt/graphite"
 export PYTHONPATH="$GRAPHITE_DIR/lib:$PYTHONPATH"
+
+# Source function library.
+if [ -e /etc/rc.d/init.d/functions ]; then
+    . /etc/rc.d/init.d/functions;
+fi;
+
+CARBON_DAEMON="cache"
+GRAPHITE_DIR="/opt/graphite"
+INSTANCES=`grep "\[${CARBON_DAEMON}" carbon.conf | cut -d \[ -f 2 | cut -d \] -f 1 | cut -d : -f 2`
 
 function die {
   echo $1
@@ -12,33 +20,47 @@ function die {
 }
 
 start(){
-    cd $GRAPHITE_DIR
-    if [ `/usr/bin/pgrep "carbon-cache" | /usr/bin/wc -l` -eq 0 ]; then
-        if [ -f ${GRAPHITE_DIR}/storage/carbon-cache.pid ]; then
-            echo "PID found, but no running process - removing it."
-            rm ${GRAPHITE_DIR}/storage/carbon-cache.pid;
-        fi;
+    cd $GRAPHITE_DIR;
 
-        echo "Starting carbon-cache..."
-        bin/carbon-cache.py start
-    fi;
+    for INSTANCE in INSTANCES; do
+        if [ "${INSTANCE}" == "${CARBON_DAEMON}" ]; then
+            INSTANCE="a";
+        fi;
+        echo "Starting carbon-${CARBON_DAEMON}:${INSTANCE}..."
+        bin/carbon-${CARBON_DAEMON}.py --instance=${INSTANCE} start;
+    done;
+    RETVAL=$?;
 }
 
 stop(){
-    echo "Stopping carbon-cache..."
     cd $GRAPHITE_DIR
-    bin/carbon-cache.py stop
-    sleep 3
-    if [ `/usr/bin/pgrep "carbon-cache" | /usr/bin/wc -l` -gt 0 ]; then
-        echo "Carbon did not stop yet. Sleeping longer, then force killing it..."
-        sleep 10
-        kill -9 `/usr/bin/pgrep "carbon-cache"`
-    fi;
+
+    for INSTANCE in INSTANCES; do
+        if [ "${INSTANCE}" == "${CARBON_DAEMON}" ]; then
+            INSTANCE="a";
+        fi;
+        echo "Stopping carbon-${CARBON_DAEMON}..."
+        bin/carbon-${CARBON_DAEMON}.py --instance=${INSTANCE} stop
+
+        if [ `sleep 3; /usr/bin/pgrep -f "carbon-${CARBON_DAEMON}.py --instance=${INSTANCE}" | /usr/bin/wc -l` -gt 0 ]; then
+            echo "Carbon did not stop yet. Sleeping longer, then force killing it...";
+            sleep 20;
+            /usr/bin/pkill -9 -f "carbon-${CARBON_DAEMON}.py --instance=${INSTANCE}";
+        fi;
+    done;
+    RETVAL=$?
 }
 
 status(){
-    cd $GRAPHITE_DIR
-    bin/carbon-cache.py status
+    cd $GRAPHITE_DIR;
+
+    for INSTANCE in INSTANCES; do
+        if [ "${INSTANCE}" == "${CARBON_DAEMON}" ]; then
+            INSTANCE="a";
+        fi;
+        bin/carbon-${CARBON_DAEMON}.py --instance=${INSTANCE} status;
+    done;
+    RETVAL=$?
 }
 
 case "$1" in
@@ -59,3 +81,5 @@ case "$1" in
     echo $"Usage: $0 {start|stop|restart|status}"
     exit 1
 esac
+
+exit $RETVAL;

@@ -12,7 +12,7 @@ fi;
 
 CARBON_DAEMON="relay"
 GRAPHITE_DIR="/opt/graphite"
-INSTANCES=`grep "\[${CARBON_DAEMON}" carbon.conf | cut -d \[ -f 2 | cut -d \] -f 1 | cut -d : -f 2`
+INSTANCES=`grep "\[${CARBON_DAEMON}" ${GRAPHITE_DIR}/conf/carbon.conf | cut -d \[ -f 2 | cut -d \] -f 1 | cut -d : -f 2`
 
 function die {
   echo $1

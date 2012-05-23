@@ -28,8 +28,14 @@ start(){
         fi;
         echo "Starting carbon-${CARBON_DAEMON}:${INSTANCE}..."
         bin/carbon-${CARBON_DAEMON}.py --instance=${INSTANCE} start;
+
+        if [ $? -eq 0 ]; then
+            echo_success
+        else
+            echo_failure
+        fi;
+        echo ""
     done;
-    RETVAL=$?;
 }
 
 stop(){
@@ -47,8 +53,14 @@ stop(){
             sleep 20;
             /usr/bin/pkill -9 -f "carbon-${CARBON_DAEMON}.py --instance=${INSTANCE}";
         fi;
+
+        if [ $? -eq 0 ]; then
+            echo_success
+        else
+            echo_failure
+        fi;
+        echo ""
     done;
-    RETVAL=$?
 }
 
 status(){
@@ -59,8 +71,14 @@ status(){
             INSTANCE="a";
         fi;
         bin/carbon-${CARBON_DAEMON}.py --instance=${INSTANCE} status;
+    
+        if [ $? -eq 0 ]; then
+            echo_success
+        else
+            echo_failure
+        fi;
+        echo ""
     done;
-    RETVAL=$?
 }
 
 case "$1" in
@@ -82,4 +100,3 @@ case "$1" in
     exit 1
 esac
 
-exit $RETVAL;

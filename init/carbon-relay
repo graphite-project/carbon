@@ -22,7 +22,7 @@ function die {
 start(){
     cd $GRAPHITE_DIR;
 
-    for INSTANCE in INSTANCES; do
+    for INSTANCE in ${INSTANCES}; do
         if [ "${INSTANCE}" == "${CARBON_DAEMON}" ]; then
             INSTANCE="a";
         fi;
@@ -35,11 +35,11 @@ start(){
 stop(){
     cd $GRAPHITE_DIR
 
-    for INSTANCE in INSTANCES; do
+    for INSTANCE in ${INSTANCES}; do
         if [ "${INSTANCE}" == "${CARBON_DAEMON}" ]; then
             INSTANCE="a";
         fi;
-        echo "Stopping carbon-${CARBON_DAEMON}..."
+        echo "Stopping carbon-${CARBON_DAEMON}:${INSTANCE}..."
         bin/carbon-${CARBON_DAEMON}.py --instance=${INSTANCE} stop
 
         if [ `sleep 3; /usr/bin/pgrep -f "carbon-${CARBON_DAEMON}.py --instance=${INSTANCE}" | /usr/bin/wc -l` -gt 0 ]; then
@@ -54,7 +54,7 @@ stop(){
 status(){
     cd $GRAPHITE_DIR;
 
-    for INSTANCE in INSTANCES; do
+    for INSTANCE in ${INSTANCES}; do
         if [ "${INSTANCE}" == "${CARBON_DAEMON}" ]; then
             INSTANCE="a";
         fi;

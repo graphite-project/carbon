@@ -1,9 +1,9 @@
 # CHKCONFIG init scripts on
-/sbin/chkconfig carbon on
+/sbin/chkconfig carbon-cache on
 /sbin/chkconfig carbon-relay on
 
 GRAPHITE_PATH=/opt/graphite
-CONFFILES="carbon.conf relay-rules.conf storage-schemas.conf"
+CONFFILES="carbon.conf relay-rules.conf storage-schemas.conf storage-aggregation.conf"
 for i in $CONFFILES; do
     if [ ! -e ${GRAPHITE_PATH}/conf/$i ]; then
         /bin/echo "No pre-existing $i - creating from example."

@@ -15,7 +15,7 @@ else:
 storage_dirs = [ ('storage/whisper',[]), ('storage/lists',[]),
                  ('storage/log',[]), ('storage/rrd',[]) ]
 conf_files = [ ('conf', glob('conf/*.example')) ]
-init_scripts = [ ('/etc/init.d', ['init/carbon', 'init/carbon-relay']) ]
+init_scripts = [ ('/etc/init.d', ['init/carbon-cache', 'init/carbon-relay', 'init/carbon-aggregator']) ]
 
 setup(
   name='carbon',

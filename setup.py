@@ -19,7 +19,7 @@ init_scripts = [ ('/etc/init.d', ['init/carbon-cache', 'init/carbon-relay', 'ini
 
 setup(
   name='carbon',
-  version='0.9.10_pre2',
+  version='0.9.10_pre3',
   url='https://launchpad.net/graphite',
   author='Chris Davis',
   author_email='chrismd@gmail.com',

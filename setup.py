@@ -15,10 +15,11 @@ else:
 storage_dirs = [ ('storage/whisper',[]), ('storage/lists',[]),
                  ('storage/log',[]), ('storage/rrd',[]) ]
 conf_files = [ ('conf', glob('conf/*.example')) ]
+init_scripts = [ ('/etc/init.d', ['init/carbon-cache', 'init/carbon-relay', 'init/carbon-aggregator']) ]
 
 setup(
   name='carbon',
-  version='0.9.10-pre3',
+  version='0.9.10_pre3',
   url='https://launchpad.net/graphite',
   author='Chris Davis',
   author_email='chrismd@gmail.com',
@@ -28,7 +29,7 @@ setup(
   package_dir={'' : 'lib'},
   scripts=glob('bin/*'),
   package_data={ 'carbon' : ['*.xml'] },
-  data_files=storage_dirs + conf_files,
+  data_files=storage_dirs + conf_files + init_scripts,
   install_requires=['twisted', 'txamqp'],
   **setup_kwargs
 )

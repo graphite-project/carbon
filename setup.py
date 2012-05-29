@@ -15,9 +15,10 @@ else:
 storage_dirs = [ ('storage/whisper',[]), ('storage/lists',[]),
                  ('storage/log',[]), ('storage/rrd',[]) ]
 conf_files = [ ('conf', glob('conf/*.example')) ]
-init_scripts = [ ('/etc/init.d', ['distro/redhat/init.d/carbon-cache',
-                                  'distro/redhat/init.d/carbon-relay',
-                                  'distro/redhat/init.d/carbon-aggregator']) ]
+#XXX Need a way to have these work for bdist_rpm but be left alone for everything else
+#init_scripts = [ ('/etc/init.d', ['distro/redhat/init.d/carbon-cache',
+#                                  'distro/redhat/init.d/carbon-relay',
+#                                  'distro/redhat/init.d/carbon-aggregator']) ]
 
 setup(
   name='carbon',
@@ -31,7 +32,7 @@ setup(
   package_dir={'' : 'lib'},
   scripts=glob('bin/*'),
   package_data={ 'carbon' : ['*.xml'] },
-  data_files=storage_dirs + conf_files + init_scripts,
+  data_files=storage_dirs + conf_files, # + init_scripts,
   install_requires=['twisted', 'txamqp'],
   **setup_kwargs
 )

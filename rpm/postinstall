@@ -1,6 +1,7 @@
 # CHKCONFIG init scripts on
 /sbin/chkconfig carbon-cache on
 /sbin/chkconfig carbon-relay on
+/sbin/chkconfig carbon-aggregator on
 
 GRAPHITE_PATH=/opt/graphite
 CONFFILES="carbon.conf relay-rules.conf storage-schemas.conf storage-aggregation.conf"

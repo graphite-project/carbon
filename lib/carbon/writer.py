@@ -99,6 +99,8 @@ def write_cached_datapoints():
       if create_ratelimit.exceeded:
         instrumentation.increment('writer.create_ratelimit_exceeded')
         #log.creates("create ratelimit exceeded")
+        # See if it's time to reset the counter in lieu of of a wait()
+        create_ratelimit.check()
         continue # we *do* want to drop the datapoint here.
 
       metadata = determine_metadata(metric)

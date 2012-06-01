@@ -78,8 +78,8 @@ def creates(message, **context):
   context['type'] = 'creates'
   msg(message, **context)
 
-def updates(message, **context):
-  context['type'] = 'updates'
+def writes(message, **context):
+  context['type'] = 'writes'
   msg(message, **context)
 
 def listener(message, **context):

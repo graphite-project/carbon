@@ -12,71 +12,157 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License."""
 
-from os.path import exists
+from os.path import exists, join
+from errno import ENOENT
 
 from twisted.application.service import MultiService
 from twisted.application.internet import TCPServer, TCPClient, UDPServer
 from twisted.internet.protocol import ServerFactory
 from twisted.python.components import Componentized
 from twisted.python.log import ILogObserver
-# Attaching modules to the global state module simplifies import order hassles
-from carbon import util, state, events, instrumentation
+from carbon import state, events, instrumentation
+from carbon.pipeline import run_pipeline, Processor
 from carbon.log import carbonLogObserver
 state.events = events
 state.instrumentation = instrumentation
 
 
 class CarbonRootService(MultiService):
-  """Root Service that properly configures twistd logging"""
+    """Root Service that properly configures twistd logging"""
 
-  def setServiceParent(self, parent):
-    MultiService.setServiceParent(self, parent)
-    if isinstance(parent, Componentized):
-      parent.setComponent(ILogObserver, carbonLogObserver)
+    def setServiceParent(self, parent):
+        MultiService.setServiceParent(self, parent)
+        if isinstance(parent, Componentized):
+            parent.setComponent(ILogObserver, carbonLogObserver)
 
 
 
-def createBaseService(config):
+def createDaemonService(options):
     from carbon.conf import settings
+
+    root_service = CarbonRootService()
+    root_service.setName(options['instance'])
+    settings['INSTANCE'] = options['instance']
+
+    setupPipeline(root_service, settings)
+    setupReceivers(root_service, settings)
+    setupInstrumentation(root_service, settings)
+    return root_service
+
+
+def setupPipeline(root_service, settings):
+    state.pipeline_processors = []
+    for processor in settings.PIPELINE:
+        if processor == 'aggregate':
+            setupAggregatorProcessor(root_service, settings)
+        elif processor == 'rewrite':
+            setupRewriterProcessor(root_service, settings)
+        elif processor == 'whitelist':
+            setupWhitelistProcessor(root_service, settings)
+        elif processor == 'relay':
+            setupRelayProcessor(root_service, settings)
+        elif processor == 'write':
+            setupWriterProcessor(root_service, settings)
+        else:
+            raise ValueError("Invalid pipeline processor '%s'" % processor)
+
+        plugin_class = Processor.plugins[processor]
+        state.pipeline_processors.append(plugin_class())
+
+    events.metricReceived.addHandler(run_pipeline)
+    events.metricGenerated.addHandler(run_pipeline)
+
+    def activate_processors():
+      for processor in state.pipeline_processors:
+        processor.pipeline_ready()
+
+    from twisted.internet import reactor
+    reactor.callWhenRunning(activate_processors)
+
+
+def setupAggregatorProcessor(root_service, settings):
+    from carbon.aggregator.processor import AggregationProcessor # to register the plugin class
+    from carbon.aggregator.rules import RuleManager
+    from carbon import events
+
+    aggregation_rules_path = join(settings.config_dir, "aggregation-rules.conf")
+    if not exists(aggregation_rules_path):
+        raise IOError(ENOENT, "%s file does not exist")
+    RuleManager.read_from(aggregation_rules_path)
+
+
+def setupRewriterProcessor(root_service, settings):
+    from carbon.rewrite import RewriteRuleManager
+
+    rewrite_rules_path = join(settings.config_dir, "rewrite-rules.conf")
+    if not exists(rewrite_rules_path):
+        raise IOError(ENOENT, "%s file does not exist")
+    RewriteRuleManager.read_from(rewrite_rules_path)
+
+def setupWhitelistProcessor(root_service, settings):
+    from carbon.whitelist import WhitelistProcessor, WhiteList, BlackList
+
+    whitelist_path = join(settings.config_dir, "whitelist.conf")
+    blacklist_path = join(settings.config_dir, "blacklist.conf")
+    WhiteList.read_from(whitelist_path)
+    BlackList.read_from(blacklist_path)
+
+def setupRelayProcessor(root_service, settings):
+    from carbon.routers import ConsistentHashingRouter, RelayRulesRouter
+    from carbon.client import CarbonClientManager
+
+    if settings.RELAY_METHOD == 'consistent-hashing':
+        router = ConsistentHashingRouter(settings.REPLICATION_FACTOR)
+    elif settings.RELAY_METHOD == 'relay-rules':
+        router = RelayRulesRouter()
+
+    state.client_manager = CarbonClientManager(router)
+    state.client_manager.setServiceParent(root_service)
+
+    for destination in settings.DESTINATIONS:
+        state.client_manager.startClient(destination)
+
+
+def setupWriterProcessor(root_service, settings):
+    import carbon.cache # important side-effect: registration of CacheFeedingProcessor
+    from carbon.protocols import CacheManagementHandler
+    from carbon.writer import WriterService
+    from carbon import events
+
+    factory = ServerFactory()
+    factory.protocol = CacheManagementHandler
+    service = TCPServer(settings.CACHE_QUERY_PORT, factory,
+                        interface=settings.CACHE_QUERY_INTERFACE)
+    service.setServiceParent(root_service)
+
+    writer_service = WriterService()
+    writer_service.setServiceParent(root_service)
+
+    if settings.USE_FLOW_CONTROL:
+      events.cacheFull.addHandler(events.pauseReceivingMetrics)
+      events.cacheSpaceAvailable.addHandler(events.resumeReceivingMetrics)
+
+
+def setupReceivers(root_service, settings):
     from carbon.protocols import (MetricLineReceiver, MetricPickleReceiver,
                                   MetricDatagramReceiver)
 
-    root_service = CarbonRootService()
-    root_service.setName(settings.program)
+    receiver_protocols = {
+      'plaintext-receiver' : MetricLineReceiver,
+      'pickle-receiver' : MetricPickleReceiver,
+    }
 
-    use_amqp = settings.get("ENABLE_AMQP", False)
-    if use_amqp:
+    if settings.ENABLE_AMQP:
         from carbon import amqp_listener
+        amqp_host = settings.AMQP_HOST
+        amqp_port = settings.AMQP_PORT
+        amqp_user = settings.AMQP_USER
+        amqp_password = settings.AMQP_PASSWORD
+        amqp_verbose  = settings.AMQP_VERBOSE
+        amqp_vhost    = settings.AMQP_VHOST
+        amqp_spec     = settings.AMQP_SPEC
+        amqp_exchange_name = settings.AMQP_EXCHANGE
 
-        amqp_host = settings.get("AMQP_HOST", "localhost")
-        amqp_port = settings.get("AMQP_PORT", 5672)
-        amqp_user = settings.get("AMQP_USER", "guest")
-        amqp_password = settings.get("AMQP_PASSWORD", "guest")
-        amqp_verbose  = settings.get("AMQP_VERBOSE", False)
-        amqp_vhost    = settings.get("AMQP_VHOST", "/")
-        amqp_spec     = settings.get("AMQP_SPEC", None)
-        amqp_exchange_name = settings.get("AMQP_EXCHANGE", "graphite")
-
-
-    for interface, port, protocol in ((settings.LINE_RECEIVER_INTERFACE,
-                                       settings.LINE_RECEIVER_PORT,
-                                       MetricLineReceiver),
-                                      (settings.PICKLE_RECEIVER_INTERFACE,
-                                       settings.PICKLE_RECEIVER_PORT,
-                                       MetricPickleReceiver)):
-        if port:
-            factory = ServerFactory()
-            factory.protocol = protocol
-            service = TCPServer(int(port), factory, interface=interface)
-            service.setServiceParent(root_service)
-
-    if settings.ENABLE_UDP_LISTENER:
-        service = UDPServer(int(settings.UDP_RECEIVER_PORT),
-                            MetricDatagramReceiver(),
-                            interface=settings.UDP_RECEIVER_INTERFACE)
-        service.setServiceParent(root_service)
-
-    if use_amqp:
         factory = amqp_listener.createAMQPListener(
             amqp_user, amqp_password,
             vhost=amqp_vhost, spec=amqp_spec,
@@ -85,113 +171,29 @@ def createBaseService(config):
         service = TCPClient(amqp_host, int(amqp_port), factory)
         service.setServiceParent(root_service)
 
+    for listener in settings.LISTENERS:
+        port = listener['port']
+        interface = listener['interface']
+        if listener['protocol'] == 'tcp':
+            factory = ServerFactory()
+            factory.protocol = receiver_protocols[listener['type']]
+            service = TCPServer(port, factory, interface=interface)
+        elif listener['protocol'] == 'udp':
+            service = UDPServer(port, MetricDatagramReceiver(), interface=interface)
+
+        service.setServiceParent(root_service)
+
     if settings.ENABLE_MANHOLE:
         from carbon import manhole
 
         factory = manhole.createManholeListener()
-        service = TCPServer(int(settings.MANHOLE_PORT), factory,
+        service = TCPServer(settings.MANHOLE_PORT, factory,
                             interface=settings.MANHOLE_INTERFACE)
         service.setServiceParent(root_service)
 
-    if settings.USE_WHITELIST:
-      from carbon.regexlist import WhiteList,BlackList
-      WhiteList.read_from(settings["whitelist"])
-      BlackList.read_from(settings["blacklist"])
 
-    # Instantiate an instrumentation service that will record metrics about
-    # this service.
+def setupInstrumentation(root_service, settings):
     from carbon.instrumentation import InstrumentationService
 
     service = InstrumentationService()
     service.setServiceParent(root_service)
-
-    return root_service
-
-
-def createCacheService(config):
-    from carbon.cache import MetricCache
-    from carbon.conf import settings
-    from carbon.protocols import CacheManagementHandler
-
-    # Configure application components
-    events.metricReceived.addHandler(MetricCache.store)
-
-    root_service = createBaseService(config)
-    factory = ServerFactory()
-    factory.protocol = CacheManagementHandler
-    service = TCPServer(int(settings.CACHE_QUERY_PORT), factory,
-                        interface=settings.CACHE_QUERY_INTERFACE)
-    service.setServiceParent(root_service)
-
-    # have to import this *after* settings are defined
-    from carbon.writer import WriterService
-
-    service = WriterService()
-    service.setServiceParent(root_service)
-
-    if settings.USE_FLOW_CONTROL:
-      events.cacheFull.addHandler(events.pauseReceivingMetrics)
-      events.cacheSpaceAvailable.addHandler(events.resumeReceivingMetrics)
-
-    return root_service
-
-
-def createAggregatorService(config):
-    from carbon.aggregator import receiver
-    from carbon.aggregator.rules import RuleManager
-    from carbon.routers import ConsistentHashingRouter
-    from carbon.client import CarbonClientManager
-    from carbon.rewrite import RewriteRuleManager
-    from carbon.conf import settings
-    from carbon import events
-
-    root_service = createBaseService(config)
-
-    # Configure application components
-    router = ConsistentHashingRouter()
-    client_manager = CarbonClientManager(router)
-    client_manager.setServiceParent(root_service)
-
-    events.metricReceived.addHandler(receiver.process)
-    events.metricGenerated.addHandler(client_manager.sendDatapoint)
-
-    RuleManager.read_from(settings["aggregation-rules"])
-    if exists(settings["rewrite-rules"]):
-        RewriteRuleManager.read_from(settings["rewrite-rules"])
-
-    if not settings.DESTINATIONS:
-      raise Exception("Required setting DESTINATIONS is missing from carbon.conf")
-
-    for destination in util.parseDestinations(settings.DESTINATIONS):
-      client_manager.startClient(destination)
-
-    return root_service
-
-
-def createRelayService(config):
-    from carbon.routers import RelayRulesRouter, ConsistentHashingRouter
-    from carbon.client import CarbonClientManager
-    from carbon.conf import settings
-    from carbon import events
-
-    root_service = createBaseService(config)
-
-    # Configure application components
-    if settings.RELAY_METHOD == 'rules':
-      router = RelayRulesRouter(settings["relay-rules"])
-    elif settings.RELAY_METHOD == 'consistent-hashing':
-      router = ConsistentHashingRouter(settings.REPLICATION_FACTOR)
-
-    client_manager = CarbonClientManager(router)
-    client_manager.setServiceParent(root_service)
-
-    events.metricReceived.addHandler(client_manager.sendDatapoint)
-    events.metricGenerated.addHandler(client_manager.sendDatapoint)
-
-    if not settings.DESTINATIONS:
-      raise Exception("Required setting DESTINATIONS is missing from carbon.conf")
-
-    for destination in util.parseDestinations(settings.DESTINATIONS):
-      client_manager.startClient(destination)
-
-    return root_service

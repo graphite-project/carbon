@@ -1,10 +1,10 @@
+import traceback
 from twisted.internet import reactor
 from twisted.internet.protocol import DatagramProtocol
 from twisted.internet.error import ConnectionDone
 from twisted.protocols.basic import LineOnlyReceiver, Int32StringReceiver
-from carbon import log, events, state, management
+from carbon import log, events, state
 from carbon.conf import settings
-from carbon.regexlist import WhiteList, BlackList
 from carbon.util import pickle, get_unpickler
 
 
@@ -47,12 +47,6 @@ class MetricReceiver:
     events.resumeReceivingMetrics.removeHandler(self.resumeReceiving)
 
   def metricReceived(self, metric, datapoint):
-    if BlackList and metric in BlackList:
-      instrumentation.increment('blacklistMatches')
-      return
-    if WhiteList and metric not in WhiteList:
-      instrumentation.increment('whitelistRejects')
-      return
     if datapoint[1] == datapoint[1]: # filter out NaN values
       events.metricReceived(metric, datapoint)
 
@@ -123,17 +117,36 @@ class CacheManagementHandler(Int32StringReceiver):
     request = self.unpickler.loads(rawRequest)
     if request['type'] == 'cache-query':
       metric = request['metric']
-      datapoints = MetricCache.get(metric, [])
+      datapoints = MetricCache.getDatapoints(metric)
       result = dict(datapoints=datapoints)
       log.query('[%s] cache query for \"%s\" returned %d values' % (self.peerAddr, metric, len(datapoints)))
-      instrumentation.increment('cacheQueries')
+      instrumentation.increment('writer.cache_queries')
+
+    elif request['type'] == 'bulk-cache-query':
+      query_results = {}
+      for metric in request['metrics']:
+        query_results[metric] = MetricCache.getDatapoints(metric)
+      log.query('[%s] bulk-cache-query for %d metrics' % (self.peerAddr, len(query_results)))
+      instrumentation.increment('writer.cache_queries')
+      result = dict(results=query_results)
 
     elif request['type'] == 'get-metadata':
-      result = management.getMetadata(request['metric'], request['key'])
+      try:
+        value = state.database.get_metadata(request['metric'], request['key'])
+        result = dict(value=value)
+      except:
+        log.err()
+        result = dict(error=traceback.format_exc())
 
     elif request['type'] == 'set-metadata':
-      result = management.setMetadata(request['metric'], request['key'], request['value'])
-
+      try:
+        old_value = state.database.set_metadata(request['metric'],
+                                                request['key'],
+                                                request['value'])
+        result = dict(old_value=old_value, new_value=request['value'])
+      except:
+        log.err()
+        result = dict(error=traceback.format_exc())
     else:
       result = dict(error="Invalid request type \"%s\"" % request['type'])
 

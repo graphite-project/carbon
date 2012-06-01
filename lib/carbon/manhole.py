@@ -21,6 +21,7 @@ class PublicKeyChecker(SSHPublicKeyDatabase):
       keyBlob = self.userKeys[credentials.username]
       return keyBlob == credentials.blob
 
+
 def createManholeListener():
   sshRealm = TerminalRealm()
   sshRealm.chainedProtocolFactory.protocolFactory = lambda _: Manhole(namespace)
@@ -37,7 +38,3 @@ def createManholeListener():
   sshPortal.registerChecker(credChecker)
   sessionFactory = ConchFactory(sshPortal)
   return sessionFactory
-
-def start():
-    sessionFactory = createManholeListener()
-    reactor.listenTCP(settings.MANHOLE_PORT, sessionFactory, interface=settings.MANHOLE_INTERFACE)

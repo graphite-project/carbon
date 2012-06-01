@@ -1,8 +1,9 @@
 import sys
 import os
 import pwd
-
-from os.path import abspath, basename, dirname, join
+import imp
+from optparse import OptionParser
+from os.path import abspath, basename, dirname, join, splitext
 try:
   from cStringIO import StringIO
 except ImportError:
@@ -31,29 +32,48 @@ def dropprivs(user):
 
 
 def run_twistd_plugin(filename):
-    from carbon.conf import get_parser
     from twisted.scripts.twistd import ServerOptions
 
     bin_dir = dirname(abspath(filename))
     root_dir = dirname(bin_dir)
     os.environ.setdefault('GRAPHITE_ROOT', root_dir)
 
-    program = basename(filename).split('.')[0]
-
     # First, parse command line options as the legacy carbon scripts used to
     # do.
-    parser = get_parser(program)
+    parser = OptionParser(usage="%prog [options] <instance> <start|stop|status>")
+    parser.add_option(
+        "--debug", action="store_true",
+        help="Run in the foreground, log to stdout")
+    parser.add_option(
+        "--profile",
+        help="Record performance profile data to the given file")
+    parser.add_option(
+        "--pidfile", default=None,
+        help="Write pid to the given file")
+    parser.add_option(
+        "--config",
+        default=None,
+        help="Use the given instance configuration directory")
+    parser.add_option(
+        "--logdir",
+        default=None,
+        help="Write logs in the given directory")
+
     (options, args) = parser.parse_args()
 
-    if not args:
-      parser.print_usage()
-      return
+    if len(args) != 2:
+        print "Exactly 2 arguments required, %d given" % len(args)
+        parser.print_usage()
+        raise SystemExit(1)
 
-    # This isn't as evil as you might think
-    __builtins__["instance"] = options.instance
-    __builtins__["program"] = program
+    instance, action = args
 
-    # Then forward applicable options to either twistd or to the plugin itself.
+    if action not in ("start", "stop", "status"):
+        print "Invalid action '%s'" % action
+        parser.print_usage()
+        raise SystemExit(1)
+
+    # Now forward applicable options to either twistd or to the plugin itself.
     twistd_options = ["--no_save"]
 
     # If no reactor was selected yet, try to use the epoll reactor if
@@ -67,12 +87,12 @@ def run_twistd_plugin(filename):
     if options.debug:
         twistd_options.extend(["--nodaemon"])
     if options.profile:
-        twistd_options.append("--profile")
+        twistd_options.append("--profile=%s" % options.profile)
     if options.pidfile:
         twistd_options.extend(["--pidfile", options.pidfile])
 
     # Now for the plugin-specific options.
-    twistd_options.append(program)
+    twistd_options.append('carbon-daemon')
 
     if options.debug:
         twistd_options.append("--debug")
@@ -109,6 +129,52 @@ def parseDestinations(destination_strings):
 
   return destinations
 
+
+# Yes this is duplicated in whisper. Yes, duplication is bad.
+# But the code is needed in both places and we do not want to create
+# a dependency on whisper especiaily as carbon moves toward being a more
+# generic storage service that can use various backends.
+UnitMultipliers = {
+  's' : 1,
+  'm' : 60,
+  'h' : 60 * 60,
+  'd' : 60 * 60 * 24,
+  'w' : 60 * 60 * 24 * 7,
+  'y' : 60 * 60 * 24 * 365,
+}
+
+def parseRetentionDefs(retentionDefs):
+  return [parseRetentionDef(d.strip()) for d in retentionDefs.split(',')]
+
+def parseRetentionDef(retentionDef):
+  (precision, points) = retentionDef.strip().split(':')
+
+  if precision.isdigit():
+    precisionUnit = 's'
+    precision = int(precision)
+  else:
+    precisionUnit = precision[-1]
+    precision = int( precision[:-1] )
+
+  if points.isdigit():
+    pointsUnit = None
+    points = int(points)
+  else:
+    pointsUnit = points[-1]
+    points = int( points[:-1] )
+
+  if precisionUnit not in UnitMultipliers:
+    raise ValueError("Invalid unit: '%s'" % precisionUnit)
+
+  if pointsUnit not in UnitMultipliers and pointsUnit is not None:
+    raise ValueError("Invalid unit: '%s'" % pointsUnit)
+
+  precision = precision * UnitMultipliers[precisionUnit]
+
+  if pointsUnit:
+    points = points * UnitMultipliers[pointsUnit] / precision
+
+  return (precision, points)
 
 
 # This whole song & dance is due to pickle being insecure
@@ -164,3 +230,27 @@ def get_unpickler(insecure=False):
     return pickle
   else:
     return SafeUnpickler
+
+
+class PluginRegistrar(type):
+  """Clever subclass detection hack that makes plugin loading trivial.
+  To use this, define an abstract base class for plugin implementations
+  that defines the plugin API. Give that base class a __metaclass__ of
+  PluginRegistrar, and define a 'plugins = {}' class member. Subclasses
+  defining a 'plugin_name' member will then appear in the plugins dict.
+  """
+  def __init__(classObj, name, bases, members):
+    super(PluginRegistrar, classObj).__init__(name, bases, members)
+    if hasattr(classObj, 'plugin_name'):
+      classObj.plugins[classObj.plugin_name] = classObj
+
+
+def load_module(module_path, member=None):
+  module_name = splitext(basename(module_path))[0]
+  module_file = open(module_path, 'U')
+  description = ('.py', 'U', imp.PY_SOURCE)
+  module = imp.load_module(module_name, module_file, module_path, description)
+  if member:
+    return getattr(module, member)
+  else:
+    return module

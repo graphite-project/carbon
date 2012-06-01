@@ -1,6 +1,6 @@
-import imp
 from carbon.relayrules import loadRelayRules
 from carbon.hashing import ConsistentHashRing
+from carbon import log, util
 
 
 class DatapointRouter:
@@ -19,9 +19,8 @@ class DatapointRouter:
 
 
 class RelayRulesRouter(DatapointRouter):
-  def __init__(self, rules_path):
-    self.rules_path = rules_path
-    self.rules = loadRelayRules(rules_path)
+  def __init__(self, config_file='relay-rules.conf'):
+    self.rules = loadRelayRules(config_file)
     self.destinations = set()
 
   def addDestination(self, destination):
@@ -36,6 +35,9 @@ class RelayRulesRouter(DatapointRouter):
         for destination in rule.destinations:
           if destination in self.destinations:
             yield destination
+          else:
+            log.msg("relay-rule destination \"" + str(destination) + "\" "
+                    "not configured in relay.conf DESTINATIONS")
         if not rule.continue_matching:
           return
 
@@ -83,8 +85,5 @@ class ConsistentHashingRouter(DatapointRouter):
 
   def setKeyFunctionFromModule(self, keyfunc_spec):
     module_path, func_name = keyfunc_spec.rsplit(':', 1)
-    module_file = open(module_path, 'U')
-    description = ('.py', 'U', imp.PY_SOURCE)
-    module = imp.load_module('keyfunc_module', module_file, module_path, description)
-    keyfunc = getattr(module, func_name)
+    keyfunc = util.load_module(module_path, member=func_name)
     self.setKeyFunction(keyfunc)

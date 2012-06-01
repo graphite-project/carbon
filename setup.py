@@ -12,9 +12,17 @@ else:
   setup_kwargs = dict()
 
 
-storage_dirs = [ ('storage/whisper',[]), ('storage/lists',[]),
-                 ('storage/log',[]), ('storage/rrd',[]) ]
-conf_files = [ ('conf', glob('conf/*.example')) ]
+storage_dirs = [
+  ('storage/ceres', []),
+  ('storage/whisper', []),
+  ('storage/rrd', []),
+  ('storage/log', []),
+  ('storage/lists', []),
+]
+conf_files = [
+  ('conf', glob('conf/*.example')),
+  ('conf/carbon-daemons/example', glob('conf/carbon-daemons/example/*.conf')),
+]
 #XXX Need a way to have these work for bdist_rpm but be left alone for everything else
 #init_scripts = [ ('/etc/init.d', ['distro/redhat/init.d/carbon-cache',
 #                                  'distro/redhat/init.d/carbon-relay',

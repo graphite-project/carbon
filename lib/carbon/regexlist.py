@@ -58,5 +58,3 @@ class RegexList:
     return bool(self.regex_list)
 
 
-WhiteList = RegexList()
-BlackList = RegexList()

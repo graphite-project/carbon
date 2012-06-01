@@ -2,19 +2,23 @@ import time
 import re
 from os.path import exists, getmtime
 from twisted.internet.task import LoopingCall
-from carbon import log
+from carbon.pipeline import Processor
+
+
+class RewriteProcessor(Processor):
+  plugin_name = 'rewrite'
+
+  def process(self, metric, datapoint):
+    for rule in RewriteRuleManager.rules:
+      metric = rule.apply(metric)
+    yield (metric, datapoint)
 
 
 class RewriteRuleManager:
   def __init__(self):
-    self.preRules = []
-    self.postRules = []
+    self.rules = []
     self.read_task = LoopingCall(self.read_rules)
     self.rules_last_read = 0.0
-
-  def clear(self):
-    self.preRules = []
-    self.postRules = []
 
   def read_from(self, rules_file):
     self.rules_file = rules_file
@@ -23,42 +27,31 @@ class RewriteRuleManager:
 
   def read_rules(self):
     if not exists(self.rules_file):
-      self.clear()
+      self.rules = []
       return
 
-    # Only read if the rules file has been modified
     try:
       mtime = getmtime(self.rules_file)
     except:
-      log.err("Failed to get mtime of %s" % self.rules_file)
       return
+
     if mtime <= self.rules_last_read:
       return
 
-    pre = []
-    post = []
+    rules = []
 
-    section = None
     for line in open(self.rules_file):
       line = line.strip()
       if line.startswith('#') or not line:
         continue
-
-      if line.startswith('[') and line.endswith(']'):
-        section = line[1:-1].lower()
-
+      elif line.startswith('[') and line.endswith(']'):
+        continue # just ignore it, no more sections
       else:
         pattern, replacement = line.split('=', 1)
         pattern, replacement = pattern.strip(), replacement.strip()
-        rule = RewriteRule(pattern, replacement)
+        rules.append(RewriteRule(pattern, replacement))
 
-        if section == 'pre':
-          pre.append(rule)
-        elif section == 'post':
-          post.append(rule)
-
-    self.preRules = pre
-    self.postRules = post
+    self.rules = rules
     self.rules_last_read = mtime
 
 

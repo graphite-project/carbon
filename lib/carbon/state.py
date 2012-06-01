@@ -6,3 +6,4 @@ several modules.
 metricReceiversPaused = False
 cacheTooFull = False
 connectedMetricReceiverProtocols = set()
+database = None

@@ -42,8 +42,10 @@ class MetricCache(dict):
   def store(self, metric, datapoint):
     self.lock.acquire()
     try:
-      self.setdefault(metric, {})[datapoint[0]] = datapoint
-      self.size += 1
+      self.setdefault(metric, {})
+      if datapoint[0] in self[metric]:
+        self.size += 1 # Not a duplicate, increment
+      self[metric][datapoint[0]] = datapoint
     finally:
       self.lock.release()
 

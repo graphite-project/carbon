@@ -20,24 +20,17 @@ class AggregationProcessor(Processor):
       filters = settings.read_filters('aggregation-filters.conf')
     else:
       filters = []
-    self.include_filters = [f for f in filters if f.action == 'include']
-    self.exclude_filters = [f for f in filters if f.action == 'exclude']
 
   def process(self, metric, datapoint):
-    for filter in self.exclude_filters:
-      if not filter.allow(metric):
-        instrumentation.increment('aggregation.datapoints_filtered')
-        yield (metric, datapoint)
-        return
-
-    if self.include_filters:
-      for filter in self.include_filters:
-        if filter.allow(metric):
+    for filter in self.filters:
+      if filter.action == 'allow':
+        if filter.matches(metric):
           break
-      else:
-        instrumentation.increment('aggregation.datapoints_filtered')
-        yield (metric, datapoint)
-        return
+      elif filter.action == 'exclude':
+        if filter.matches(metric):
+          instrumentation.increment('aggregation.datapoints_filtered')
+          yield (metric, datapoint)
+          return
 
     instrumentation.increment('aggregation.datapoints_analyzed')
     aggregate_metrics = set()

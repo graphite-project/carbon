@@ -29,7 +29,7 @@ if platform.dist()[0] == 'redhat':
 
 setup(
   name='carbon',
-  version='0.9.10_pre5',
+  version='0.9.10',
   url='https://launchpad.net/graphite',
   author='Chris Davis',
   author_email='chrismd@gmail.com',

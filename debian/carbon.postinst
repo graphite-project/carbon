@@ -1,0 +1,18 @@
+#!/bin/bash
+
+# Configure init scripts
+INIT_SCRIPTS="carbon-cache carbon-relay carbon-aggregator";
+for s in $INIT_SCRIPTS; do
+    /bin/chmod +x /etc/init.d/${s};
+    /usr/sbin/update-rc.d ${s} defaults
+done;
+
+GRAPHITE_PATH=/opt/graphite
+CONFFILES="carbon.conf relay-rules.conf storage-schemas.conf storage-aggregation.conf"
+for i in $CONFFILES; do
+    if [ ! -e ${GRAPHITE_PATH}/conf/$i ]; then
+        /bin/echo "No pre-existing $i - creating from example."
+        /bin/cp ${GRAPHITE_PATH}/conf/$i.example ${GRAPHITE_PATH}/conf/$i;
+    fi;
+done;
+

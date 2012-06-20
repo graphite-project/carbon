@@ -38,7 +38,7 @@ class RegexList:
     new_regex_list = []
     for line in open(self.list_file):
       pattern = line.strip()
-      if line.startswith('#') or not line:
+      if line.startswith('#') or not pattern:
         continue
       try:
         new_regex_list.append(re.compile(pattern))

@@ -179,6 +179,13 @@ def reloadAggregationSchemas():
     log.err()
 
 
+def shutdownModifyUpdateSpeed():
+    try:
+    	settings.MAX_UPDATES_PER_SECOND = settings.MAX_UPDATES_PER_SECOND_ON_SHUTDOWN
+        log.msg("Carbon shutting down.  Changed the update rate to: " + str(settings.MAX_UPDATES_PER_SECOND_ON_SHUTDOWN))
+    except KeyError:
+        log.msg("Carbon shutting down.  Update rate not changed")
+
 class WriterService(Service):
 
     def __init__(self):
@@ -188,6 +195,7 @@ class WriterService(Service):
     def startService(self):
         self.storage_reload_task.start(60, False)
         self.aggregation_reload_task.start(60, False)
+        reactor.addSystemEventTrigger('before', 'shutdown', shutdownModifyUpdateSpeed)
         reactor.callInThread(writeForever)
         Service.startService(self)
 

@@ -83,9 +83,10 @@ CACHE_QUERY_PORT = 7002
 # data until the cache size falls below 95% MAX_CACHE_SIZE.
 USE_FLOW_CONTROL = True
 
-# By default, carbon-cache will log every whisper update. This can be excessive and
+# By default, carbon-cache will log every whisper update and cache hit. This can be excessive and
 # degrade performance if logging on the same volume as the whisper data is stored.
 LOG_UPDATES = False
+LOG_CACHE_HITS = False
 
 # On some systems it is desirable for whisper to write synchronously.
 # Set this option to True if you'd like to try this. Basically it will

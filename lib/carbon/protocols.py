@@ -125,7 +125,8 @@ class CacheManagementHandler(Int32StringReceiver):
       metric = request['metric']
       datapoints = MetricCache.get(metric, [])
       result = dict(datapoints=datapoints)
-      log.query('[%s] cache query for \"%s\" returned %d values' % (self.peerAddr, metric, len(datapoints)))
+      if settings.LOG_CACHE_HITS is True:
+        log.query('[%s] cache query for \"%s\" returned %d values' % (self.peerAddr, metric, len(datapoints)))
       instrumentation.increment('cacheQueries')
 
     elif request['type'] == 'get-metadata':

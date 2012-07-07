@@ -136,8 +136,8 @@ def loadStorageSchemas():
     try:
       whisper.validateArchiveList(archiveList)
       schemaList.append(mySchema)
-    except InvalidConfiguration, e:
-      log.msg("Invalid schemas found in %s: %s" % (section, e.message) )
+    except whisper.InvalidConfiguration, e:
+      log.msg("Invalid schemas found in %s: %s" % (section, e) )
   
   schemaList.append(defaultSchema)
   return schemaList

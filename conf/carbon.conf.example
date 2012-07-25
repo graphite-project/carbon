@@ -101,6 +101,15 @@ WHISPER_AUTOFLUSH = False
 # depending on the underlying storage configuration.
 # WHISPER_SPARSE_CREATE = False
 
+# By default new Whisper files are created pre-allocated with the data region
+# filled with zeros to prevent fragmentation and speed up contiguous reads and
+# writes (which are common). Enabling this option will cause Whisper to create
+# fallocate the file instead.  Only beneficial on a filesystem that
+# supports fallocate.  It maintains the benefits of contiguous reads/writes.
+# but with a much faster creation speed. Enabling this option may
+# allow a large increase of MAX_CREATES_PER_MINUTE.
+# WHISPER_FALLOCATE_CREATE = False
+#
 # Enabling this option will cause Whisper to lock each Whisper file it writes
 # to with an exclusive lock (LOCK_EX, see: man 2 flock). This is useful when
 # multiple carbon-cache daemons are writing to the same files

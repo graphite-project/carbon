@@ -359,6 +359,7 @@ class CarbonRelayOptions(CarbonCacheOptions):
 
     optParameters = [
         ["rules", "", None, "Use the given relay rules file."],
+        ["aggregation-rules", "", None, "Use the given aggregation rules file."],
         ] + CarbonCacheOptions.optParameters
 
     def postOptions(self):
@@ -367,9 +368,13 @@ class CarbonRelayOptions(CarbonCacheOptions):
             self["rules"] = join(settings["CONF_DIR"], "relay-rules.conf")
         settings["relay-rules"] = self["rules"]
 
-        if settings["RELAY_METHOD"] not in ("rules", "consistent-hashing"):
+        if self["aggregation-rules"] is None:
+          self["aggregation-rules"] = join(settings["CONF_DIR"], "aggregation-rules.conf")
+        settings["aggregation-rules"] = self["aggregation-rules"]
+
+        if settings["RELAY_METHOD"] not in ("rules", "consistent-hashing", "aggregated-consistent-hashing"):
             print ("In carbon.conf, RELAY_METHOD must be either 'rules' or "
-                   "'consistent-hashing'. Invalid value: '%s'" %
+                   "'consistent-hashing' or 'aggregated-consistent-hashing'. Invalid value: '%s'" %
                    settings.RELAY_METHOD)
             sys.exit(1)
 

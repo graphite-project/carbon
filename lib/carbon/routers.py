@@ -88,3 +88,33 @@ class ConsistentHashingRouter(DatapointRouter):
     module = imp.load_module('keyfunc_module', module_file, module_path, description)
     keyfunc = getattr(module, func_name)
     self.setKeyFunction(keyfunc)
+
+class AggregatedConsistentHashingRouter(DatapointRouter):
+  def __init__(self, agg_rules_manager, replication_factor=1):
+    self.hash_router = ConsistentHashingRouter(replication_factor)
+    self.agg_rules_manager = agg_rules_manager
+
+  def addDestination(self, destination):
+    self.hash_router.addDestination(destination)
+
+  def removeDestination(self, destination):
+    self.hash_router.removeDestination(destination)
+
+  def getDestinations(self, key):
+    # resolve metric to aggregate forms
+    aggregate_metrics = []
+    for rule in self.agg_rules_manager.rules:
+      aggregate_metric = rule.get_aggregate_metric(key)
+      if aggregate_metric is None:
+        continue
+      else:
+        aggregate_metrics.append(aggregate_metric)
+
+    # get consistent hashing destinations based on aggregate forms
+    destinations = set()
+    for aggregate_metric in aggregate_metrics:
+      for destination in self.hash_router.getDestinations(aggregate_metric):
+        destinations.add(destination)
+
+    for destination in destinations:
+      yield destination

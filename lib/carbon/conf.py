@@ -45,6 +45,7 @@ defaults = dict(
   LOG_CACHE_HITS = True,
   WHISPER_AUTOFLUSH=False,
   WHISPER_SPARSE_CREATE=False,
+  WHISPER_FALLOCATE_CREATE=False,
   WHISPER_LOCK_WRITES=False,
   MAX_DATAPOINTS_PER_MESSAGE=500,
   MAX_AGGREGATION_INTERVALS=5,
@@ -208,6 +209,12 @@ class CarbonCacheOptions(usage.Options):
         if settings.WHISPER_AUTOFLUSH:
             log.msg("Enabling Whisper autoflush")
             whisper.AUTOFLUSH = True
+
+        if settings.WHISPER_FALLOCATE_CREATE:
+            if whisper.CAN_FALLOCATE:
+                log.msg("Enabling Whisper fallocate support")
+            else:
+                log.err("WHISPER_FALLOCATE_CREATE is enabled but linking failed.")
 
         if settings.WHISPER_LOCK_WRITES:
             if whisper.CAN_LOCK:

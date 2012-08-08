@@ -67,13 +67,12 @@ class RuleManager:
       raise
 
 
-def percentile(N, percent, key=lambda x:x):
+def percentile(N, percent):
     """
     Find the percentile of a list of values.
 
     @parameter N - is a list of values. N will be sorted.
     @parameter percent - a float value from 0.0 to 1.0.
-    @parameter key - optional key function to compute value from each element of N.
 
     @return - the percentile of the values
     """
@@ -84,9 +83,11 @@ def percentile(N, percent, key=lambda x:x):
     f = math.floor(k)
     c = math.ceil(k)
     if f == c:
-        return key(N[int(k)])
-    d0 = key(N[int(f)]) * (c-k)
-    d1 = key(N[int(c)]) * (k-f)
+      return N[int(k)]
+    # this interpolation seems kindof crazy to me, but hey
+    # I'm not a math major
+    d0 = N[int(f)] * (c-k)
+    d1 = N[int(c)] * (k-f)
     return d0+d1
 
 
@@ -121,7 +122,7 @@ class AggregationRule:
         except:
           log.err("Failed to interpolate template %s with fields %s" % (self.output_template, extracted_fields))
 
-        self.cache[metric_path] = (match.groupdict(), result)
+        self.cache[metric_path] = result
 
     return self.cache.get(metric_path)
 

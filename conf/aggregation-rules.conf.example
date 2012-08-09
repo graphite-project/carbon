@@ -27,8 +27,9 @@
 # by summing their values.
 #
 # Template components such as <env> will match everything up to the next dot.
-# To match metric multiple components including the dots, use <<metric>>:
+# To match metric multiple components including the dots, use <<metric>> in the
+# input template:
 #
-#   <env>.applications.<app>.all.<<app_metric>> (60) = sum <env>.applications.<app>.*.<<app_metric>>
+#   <env>.applications.<app>.all.<app_metric> (60) = sum <env>.applications.<app>.*.<<app_metric>>
 #
 # Note that any time this file is modified, it will be re-read automatically.

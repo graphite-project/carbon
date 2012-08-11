@@ -62,17 +62,15 @@ class ConsistentHashingRouter(DatapointRouter):
 
   def getDestinations(self, metric):
     key = self.getKey(metric)
-
-    used_servers = set()
-    for (server, instance) in self.ring.get_nodes(key):
-      if server in used_servers:
-        continue
-      else:
-        used_servers.add(server)
+    count = 0
+    node_iter = self.ring.get_nodes(key)
+    while count < self.replication_factor:
+      try:
+        (server, instance) = node_iter.next()
         port = self.instance_ports[ (server, instance) ]
+        count += 1
         yield (server, port, instance)
-
-      if len(used_servers) >= self.replication_factor:
+      except StopIteration:
         return
 
   def getKey(self, metric):

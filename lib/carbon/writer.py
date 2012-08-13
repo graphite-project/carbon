@@ -15,12 +15,13 @@ limitations under the License."""
 
 import os
 import time
-from os.path import join, exists, dirname, basename
+from os.path import exists, dirname
 
 import whisper
 from carbon import state
 from carbon.cache import MetricCache
-from carbon.storage import getFilesystemPath, loadStorageSchemas, loadAggregationSchemas
+from carbon.storage import getFilesystemPath, loadStorageSchemas,\
+    loadAggregationSchemas
 from carbon.conf import settings
 from carbon import log, events, instrumentation
 
@@ -37,13 +38,14 @@ CACHE_SIZE_LOW_WATERMARK = settings.MAX_CACHE_SIZE * 0.95
 
 
 def optimalWriteOrder():
-  "Generates metrics with the most cached values first and applies a soft rate limit on new metrics"
+  """Generates metrics with the most cached values first and applies a soft
+  rate limit on new metrics"""
   global lastCreateInterval
   global createCount
   metrics = MetricCache.counts()
 
   t = time.time()
-  metrics.sort(key=lambda item: item[1], reverse=True) # by queue size, descending
+  metrics.sort(key=lambda item: item[1], reverse=True)  # by queue size, descending
   log.msg("Sorted %d cache queues in %.6f seconds" % (len(metrics), time.time() - t))
 
   for metric, queueSize in metrics:
@@ -71,11 +73,11 @@ def optimalWriteOrder():
 
         continue
 
-    try: # metrics can momentarily disappear from the MetricCache due to the implementation of MetricCache.store()
+    try:  # metrics can momentarily disappear from the MetricCache due to the implementation of MetricCache.store()
       datapoints = MetricCache.pop(metric)
     except KeyError:
       log.msg("MetricCache contention, skipping %s update for now" % metric)
-      continue # we simply move on to the next metric when this race condition occurs
+      continue  # we simply move on to the next metric when this race condition occurs
 
     yield (metric, datapoints, dbFilePath, dbFileExists)
 
@@ -111,12 +113,13 @@ def writeCachedDataPoints():
           raise Exception("No storage schema matched the metric '%s', check your storage-schemas.conf file." % metric)
 
         dbDir = dirname(dbFilePath)
-        os.system("mkdir -p -m 755 '%s'" % dbDir)
-
-        log.creates("creating database file %s (archive=%s xff=%s agg=%s)" % 
+        try:
+            os.makedirs(dbDir, 0755)
+        except OSError as e:
+            log.err("%s" % e)
+        log.creates("creating database file %s (archive=%s xff=%s agg=%s)" %
                     (dbFilePath, archiveConfig, xFilesFactor, aggregationMethod))
         whisper.create(dbFilePath, archiveConfig, xFilesFactor, aggregationMethod, settings.WHISPER_SPARSE_CREATE)
-        os.chmod(dbFilePath, 0755)
         instrumentation.increment('creates')
 
       try:
@@ -145,7 +148,7 @@ def writeCachedDataPoints():
         else:
           updates += 1
           if updates >= settings.MAX_UPDATES_PER_SECOND:
-            time.sleep( int(t2 + 1) - t2 )
+            time.sleep(int(t2 + 1) - t2)
 
     # Avoid churning CPU when only new metrics are in the cache
     if not dataWritten:
@@ -159,7 +162,7 @@ def writeForever():
     except:
       log.err()
 
-    time.sleep(1) # The writer thread only sleeps when the cache is empty or an error occurs
+    time.sleep(1)  # The writer thread only sleeps when the cache is empty or an error occurs
 
 
 def reloadStorageSchemas():
@@ -170,10 +173,11 @@ def reloadStorageSchemas():
     log.msg("Failed to reload storage schemas")
     log.err()
 
+
 def reloadAggregationSchemas():
   global agg_schemas
   try:
-    schemas = loadAggregationSchemas()
+    agg_schemas = loadAggregationSchemas()
   except:
     log.msg("Failed to reload aggregation schemas")
     log.err()
@@ -185,6 +189,7 @@ def shutdownModifyUpdateSpeed():
         log.msg("Carbon shutting down.  Changed the update rate to: " + str(settings.MAX_UPDATES_PER_SECOND_ON_SHUTDOWN))
     except KeyError:
         log.msg("Carbon shutting down.  Update rate not changed")
+
 
 class WriterService(Service):
 

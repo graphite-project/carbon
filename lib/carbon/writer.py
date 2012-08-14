@@ -173,7 +173,7 @@ def reloadStorageSchemas():
 def reloadAggregationSchemas():
   global agg_schemas
   try:
-    schemas = loadAggregationSchemas()
+    agg_schemas = loadAggregationSchemas()
   except:
     log.msg("Failed to reload aggregation schemas")
     log.err()

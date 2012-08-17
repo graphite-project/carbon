@@ -15,7 +15,7 @@ limitations under the License."""
 import os, re
 import whisper
 
-from os.path import join, exists
+from os.path import join, exists, sep
 from carbon.conf import OrderedConfigParser, settings
 from carbon.util import pickle
 from carbon import log
@@ -26,7 +26,8 @@ STORAGE_AGGREGATION_CONFIG = join(settings.CONF_DIR, 'storage-aggregation.conf')
 STORAGE_LISTS_DIR = join(settings.CONF_DIR, 'lists')
 
 def getFilesystemPath(metric):
-  return join(settings.LOCAL_DATA_DIR, metric.replace('.','/')) + '.wsp'
+  metric_path = metric.replace('.',sep).lstrip(sep) + '.wsp'
+  return join(settings.LOCAL_DATA_DIR, metric_path)
 
 
 class Schema:

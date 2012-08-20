@@ -41,7 +41,7 @@ class CarbonLogObserver(object):
 
   # Default to stdout
   observer = stdout_observer
-   
+
 
 carbonLogObserver = CarbonLogObserver()
 

@@ -35,7 +35,6 @@ class CarbonRootService(MultiService):
       parent.setComponent(ILogObserver, carbonLogObserver)
 
 
-
 def createBaseService(config):
     from carbon.conf import settings
     from carbon.protocols import (MetricLineReceiver, MetricPickleReceiver,
@@ -52,11 +51,10 @@ def createBaseService(config):
         amqp_port = settings.get("AMQP_PORT", 5672)
         amqp_user = settings.get("AMQP_USER", "guest")
         amqp_password = settings.get("AMQP_PASSWORD", "guest")
-        amqp_verbose  = settings.get("AMQP_VERBOSE", False)
-        amqp_vhost    = settings.get("AMQP_VHOST", "/")
-        amqp_spec     = settings.get("AMQP_SPEC", None)
+        amqp_verbose = settings.get("AMQP_VERBOSE", False)
+        amqp_vhost = settings.get("AMQP_VHOST", "/")
+        amqp_spec = settings.get("AMQP_SPEC", None)
         amqp_exchange_name = settings.get("AMQP_EXCHANGE", "graphite")
-
 
     for interface, port, protocol in ((settings.LINE_RECEIVER_INTERFACE,
                                        settings.LINE_RECEIVER_PORT,
@@ -94,7 +92,7 @@ def createBaseService(config):
         service.setServiceParent(root_service)
 
     if settings.USE_WHITELIST:
-      from carbon.regexlist import WhiteList,BlackList
+      from carbon.regexlist import WhiteList, BlackList
       WhiteList.read_from(settings["whitelist"])
       BlackList.read_from(settings["blacklist"])
 

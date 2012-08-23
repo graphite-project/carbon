@@ -3,7 +3,7 @@ import os
 import pwd
 import __builtin__
 
-from os.path import abspath, basename, dirname, join
+from os.path import abspath, basename, dirname
 try:
   from cStringIO import StringIO
 except ImportError:
@@ -109,10 +109,9 @@ def parseDestinations(destination_strings):
     else:
       raise ValueError("Invalid destination string \"%s\"" % dest_string)
 
-    destinations.append( (server, int(port), instance) )
+    destinations.append((server, int(port), instance))
 
   return destinations
-
 
 
 # This whole song & dance is due to pickle being insecure
@@ -123,8 +122,8 @@ def parseDestinations(destination_strings):
 if USING_CPICKLE:
   class SafeUnpickler(object):
     PICKLE_SAFE = {
-      'copy_reg' : set(['_reconstructor']),
-      '__builtin__' : set(['object']),
+      'copy_reg': set(['_reconstructor']),
+      '__builtin__': set(['object']),
     }
 
     @classmethod
@@ -146,9 +145,10 @@ if USING_CPICKLE:
 else:
   class SafeUnpickler(pickle.Unpickler):
     PICKLE_SAFE = {
-      'copy_reg' : set(['_reconstructor']),
-      '__builtin__' : set(['object']),
+      'copy_reg': set(['_reconstructor']),
+      '__builtin__': set(['object']),
     }
+
     def find_class(self, module, name):
       if not module in self.PICKLE_SAFE:
         raise pickle.UnpicklingError('Attempting to unpickle unsafe module %s' % module)
@@ -157,11 +157,11 @@ else:
       if not name in self.PICKLE_SAFE[module]:
         raise pickle.UnpicklingError('Attempting to unpickle unsafe class %s' % name)
       return getattr(mod, name)
- 
+
     @classmethod
     def loads(cls, pickle_string):
       return cls(StringIO(pickle_string)).load()
- 
+
 
 def get_unpickler(insecure=False):
   if insecure:

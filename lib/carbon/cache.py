@@ -12,26 +12,21 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License."""
 
-from threading import Lock
+from collections import deque
 from carbon.conf import settings
 
 
 class MetricCache(dict):
-  def __init__(self):
-    self.size = 0
-    self.lock = Lock()
+
+  @property
+  def size(self):
+    return reduce(lambda x, y: x + len(y), self.values(), 0)
 
   def __setitem__(self, key, value):
     raise TypeError("Use store() method instead!")
 
   def store(self, metric, datapoint):
-    try:
-      self.lock.acquire()
-      self.setdefault(metric, []).append(datapoint)
-      self.size += 1
-    finally:
-      self.lock.release()
-
+    self.setdefault(metric, deque()).append(datapoint)
     if self.isFull():
       log.msg("MetricCache is full: self.size=%d" % self.size)
       state.events.cacheFull()
@@ -39,21 +34,16 @@ class MetricCache(dict):
   def isFull(self):
     return self.size >= settings.MAX_CACHE_SIZE
 
-  def pop(self, metric):
-    try:
-      self.lock.acquire()
-      datapoints = dict.pop(self, metric)
-      self.size -= len(datapoints)
-      return datapoints
-    finally:
-      self.lock.release()
+  def pop(self, metric=None):
+    if not self:
+      raise KeyError
+    if not metric:
+      metric = max(self.items(), key=lambda x: len(x[1]))[0]
+    datapoints = (metric, dict.pop(self, metric))
+    return datapoints
 
   def counts(self):
-    try:
-      self.lock.acquire()
-      return [ (metric, len(datapoints)) for (metric, datapoints) in self.items() ]
-    finally:
-      self.lock.release()
+    return [(metric, len(datapoints)) for (metric, datapoints) in self.items]
 
 
 # Ghetto singleton

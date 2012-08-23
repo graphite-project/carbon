@@ -2,7 +2,7 @@ import sys
 import os
 import pwd
 
-from os.path import abspath, basename, dirname, join
+from os.path import abspath, basename, dirname
 try:
   from cStringIO import StringIO
 except ImportError:
@@ -14,12 +14,13 @@ except:
   import pickle
   USING_CPICKLE = False
 
+from time import time
 from twisted.python.util import initgroups
 from twisted.scripts.twistd import runApp
 from twisted.scripts._twistd_unix import daemonize
 
 
-daemonize = daemonize # Backwards compatibility
+daemonize = daemonize  # Backwards compatibility
 
 
 def dropprivs(user):
@@ -105,10 +106,9 @@ def parseDestinations(destination_strings):
     else:
       raise ValueError("Invalid destination string \"%s\"" % dest_string)
 
-    destinations.append( (server, int(port), instance) )
+    destinations.append((server, int(port), instance))
 
   return destinations
-
 
 
 # This whole song & dance is due to pickle being insecure
@@ -119,8 +119,8 @@ def parseDestinations(destination_strings):
 if USING_CPICKLE:
   class SafeUnpickler(object):
     PICKLE_SAFE = {
-      'copy_reg' : set(['_reconstructor']),
-      '__builtin__' : set(['object']),
+      'copy_reg': set(['_reconstructor']),
+      '__builtin__': set(['object']),
     }
 
     @classmethod
@@ -142,9 +142,10 @@ if USING_CPICKLE:
 else:
   class SafeUnpickler(pickle.Unpickler):
     PICKLE_SAFE = {
-      'copy_reg' : set(['_reconstructor']),
-      '__builtin__' : set(['object']),
+      'copy_reg': set(['_reconstructor']),
+      '__builtin__': set(['object']),
     }
+
     def find_class(self, module, name):
       if not module in self.PICKLE_SAFE:
         raise pickle.UnpicklingError('Attempting to unpickle unsafe module %s' % module)
@@ -153,14 +154,49 @@ else:
       if not name in self.PICKLE_SAFE[module]:
         raise pickle.UnpicklingError('Attempting to unpickle unsafe class %s' % name)
       return getattr(mod, name)
- 
+
     @classmethod
     def loads(cls, pickle_string):
       return cls(StringIO(pickle_string)).load()
- 
+
 
 def get_unpickler(insecure=False):
   if insecure:
     return pickle
   else:
     return SafeUnpickler
+
+
+class TokenBucket(object):
+  '''This is a basic tokenbucket rate limiter implementation for use in
+  enforcing various configurable rate limits'''
+  def __init__(self, capacity, fill_rate):
+    '''Capacity is the total number of tokens the bucket can hold, fill rate is
+    the rate in tokens (or fractional tokens) to be added to the bucket per
+    second.'''
+    print "bingo"
+    self.capacity = float(capacity)
+    self._tokens = float(capacity)
+    self.fill_rate = float(fill_rate)
+    self.timestamp = time()
+
+  def drain(self, cost):
+    '''Given a number of tokens (or fractions) drain will return True and
+    drain the number of tokens from the bucket if the capacity allows,
+    otherwise we return false and leave the contents of the bucket.'''
+    if cost <= self.tokens:
+      self._tokens -= cost
+      return True
+    else:
+      return False
+
+  @property
+  def tokens(self):
+    '''The tokens property will return the current number of tokens in the
+    bucket.'''
+    if self._tokens < self.capacity:
+      now = time()
+      delta = self.fill_rate * (now - self.timestamp)
+      self._tokens = min(self.capacity, self._tokens + delta)
+      self.timestamp = now
+    return self._tokens

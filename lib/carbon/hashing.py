@@ -3,7 +3,6 @@ try:
 except ImportError:
   from md5 import md5
 import bisect
-from carbon.conf import settings
 
 
 class ConsistentHashRing:
@@ -33,14 +32,15 @@ class ConsistentHashRing:
 
   def get_node(self, key):
     assert self.ring
-    position = self.compute_ring_position(key)
-    search_entry = (position, None)
-    index = bisect.bisect_left(self.ring, search_entry) % len(self.ring)
-    entry = self.ring[index]
-    return entry[1]
+    node = None
+    node_iter = self.get_nodes(key)
+    node = node_iter.next()
+    node_iter.close()
+    return node
 
   def get_nodes(self, key):
-    nodes = []
+    assert self.ring
+    nodes = set()
     position = self.compute_ring_position(key)
     search_entry = (position, None)
     index = bisect.bisect_left(self.ring, search_entry) % len(self.ring)
@@ -49,8 +49,7 @@ class ConsistentHashRing:
       next_entry = self.ring[index]
       (position, next_node) = next_entry
       if next_node not in nodes:
-        nodes.append(next_node)
+        nodes.add(next_node)
+        yield next_node
 
       index = (index + 1) % len(self.ring)
-
-    return nodes

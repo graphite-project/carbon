@@ -63,17 +63,12 @@ class ConsistentHashingRouter(DatapointRouter):
   def getDestinations(self, metric):
     key = self.getKey(metric)
 
-    used_servers = set()
-    for (server, instance) in self.ring.get_nodes(key):
-      if server in used_servers:
-        continue
-      else:
-        used_servers.add(server)
-        port = self.instance_ports[ (server, instance) ]
-        yield (server, port, instance)
-
-      if len(used_servers) >= self.replication_factor:
+    for count,node in enumerate(self.ring.get_nodes(key)):
+      if count == self.replication_factor:
         return
+      (server, instance) = node
+      port = self.instance_ports[ (server, instance) ]
+      yield (server, port, instance)
 
   def getKey(self, metric):
     return metric
@@ -88,3 +83,38 @@ class ConsistentHashingRouter(DatapointRouter):
     module = imp.load_module('keyfunc_module', module_file, module_path, description)
     keyfunc = getattr(module, func_name)
     self.setKeyFunction(keyfunc)
+
+class AggregatedConsistentHashingRouter(DatapointRouter):
+  def __init__(self, agg_rules_manager, replication_factor=1):
+    self.hash_router = ConsistentHashingRouter(replication_factor)
+    self.agg_rules_manager = agg_rules_manager
+
+  def addDestination(self, destination):
+    self.hash_router.addDestination(destination)
+
+  def removeDestination(self, destination):
+    self.hash_router.removeDestination(destination)
+
+  def getDestinations(self, key):
+    # resolve metric to aggregate forms
+    resolved_metrics = []
+    for rule in self.agg_rules_manager.rules:
+      aggregate_metric = rule.get_aggregate_metric(key)
+      if aggregate_metric is None:
+        continue
+      else:
+        resolved_metrics.append(aggregate_metric)
+
+    # if the metric will not be aggregated, send it raw
+    # (will pass through aggregation)
+    if len(resolved_metrics) == 0:
+      resolved_metrics.append(key)
+
+    # get consistent hashing destinations based on aggregate forms
+    destinations = set()
+    for resolved_metric in resolved_metrics:
+      for destination in self.hash_router.getDestinations(resolved_metric):
+        destinations.add(destination)
+
+    for destination in destinations:
+      yield destination

@@ -392,6 +392,9 @@ def get_default_parser(usage="%prog [options] <start|stop|status>"):
         "--pidfile", default=None,
         help="Write pid to the given file")
     parser.add_option(
+        "--umask", default=None,
+        help="Use the given umask when creating files")
+    parser.add_option(
         "--config",
         default=None,
         help="Use the given config file")

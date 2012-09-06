@@ -92,9 +92,6 @@ defaults = dict(
 )
 
 
-def _umask(value):
-    return int(value, 8)
-
 def _process_alive(pid):
     if exists("/proc"):
         return exists("/proc/%d" % pid)

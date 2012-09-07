@@ -203,5 +203,4 @@ class WriterService(Service):
     def stopService(self):
         self.storage_reload_task.stop()
         self.aggregation_reload_task.stop()
-        self.writer.stop()
         Service.stopService(self)

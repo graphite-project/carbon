@@ -186,14 +186,24 @@ LINE_RECEIVER_PORT = 2013
 PICKLE_RECEIVER_INTERFACE = 0.0.0.0
 PICKLE_RECEIVER_PORT = 2014
 
-# To use consistent hashing instead of the user defined relay-rules.conf,
-# change this to:
-# RELAY_METHOD = consistent-hashing
+# Carbon-relay has several options for metric routing controlled by RELAY_METHOD
+#
+# Use relay-rules.conf to route metrics to destinations based on pattern rules
+#RELAY_METHOD = rules
+#
+# Use consistent-hashing for even distribution of metrics between destinations
+#RELAY_METHOD = consistent-hashing
+#
+# Use consistent-hashing but take into account an aggregation-rules.conf shared
+# by downstream carbon-aggregator daemons. This will ensure that all metrics
+# that map to a given aggregation rule are sent to the same carbon-aggregator
+# instance.
+# Enable this for carbon-relays that send to a group of carbon-aggregators
+#RELAY_METHOD = aggregated-consistent-hashing
 RELAY_METHOD = rules
 
-# If you use consistent-hashing you may want to add redundancy
-# of your data by replicating every datapoint to more than
-# one machine.
+# If you use consistent-hashing you can add redundancy by replicating every
+# datapoint to more than one machine.
 REPLICATION_FACTOR = 1
 
 # This is a list of carbon daemons we will send any relayed or

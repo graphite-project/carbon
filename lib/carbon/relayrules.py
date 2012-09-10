@@ -11,7 +11,7 @@ class RelayRule:
     self.continue_matching = continue_matching
 
   def matches(self, metric):
-    return bool( self.condition(metric) )
+    return bool(self.condition(metric))
 
 
 def loadRelayRules(path):
@@ -46,7 +46,7 @@ def loadRelayRules(path):
 
     if parser.has_option(section, 'default'):
       if not parser.getboolean(section, 'default'):
-        continue # just ignore default = false
+        continue  # just ignore default = false
       if defaultRule:
         raise CarbonConfigException("Only one default rule can be specified")
       defaultRule = RelayRule(condition=lambda metric: True,

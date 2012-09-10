@@ -169,7 +169,7 @@ class CarbonClientFactory(ReconnectingClientFactory):
     self.addr = (self.host, self.port)
     self.started = False
     # This factory maintains protocol state across reconnects
-    self.queue = deque() # Change to make this the sole source of metrics to be sent.
+    self.queue = deque()  # Change to make this the sole source of metrics to be sent.
     self.connectedProtocol = None
     self.queueEmpty = Deferred()
     self.queueFull = Deferred()
@@ -213,7 +213,7 @@ class CarbonClientFactory(ReconnectingClientFactory):
     self.connectedProtocol.factory = self
     return self.connectedProtocol
 
-  def startConnecting(self): # calling this startFactory yields recursion problems
+  def startConnecting(self):  # calling this startFactory yields recursion problems
     self.started = True
     self.connector = reactor.connectTCP(self.host, self.port, self)
 
@@ -332,7 +332,7 @@ class CarbonClientFactory(ReconnectingClientFactory):
 class CarbonClientManager(Service):
   def __init__(self, router):
     self.router = router
-    self.client_factories = {} # { destination : CarbonClientFactory() }
+    self.client_factories = {}  # { destination : CarbonClientFactory() }
 
   def startService(self):
     if 'signal' in globals().keys():
@@ -359,7 +359,7 @@ class CarbonClientManager(Service):
         fireOnOneCallback=True,
         fireOnOneErrback=True)
     if self.running:
-      factory.startConnecting() # this can trigger & replace connectFailed
+      factory.startConnecting()  # this can trigger & replace connectFailed
 
     return connectAttempted
 
@@ -382,7 +382,7 @@ class CarbonClientManager(Service):
   def stopAllClients(self):
     deferreds = []
     for destination in list(self.client_factories):
-      deferreds.append( self.stopClient(destination) )
+      deferreds.append(self.stopClient(destination))
     return DeferredList(deferreds)
 
   def sendDatapoint(self, metric, datapoint):

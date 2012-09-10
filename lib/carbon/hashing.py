@@ -14,7 +14,7 @@ class ConsistentHashRing:
       self.add_node(node)
 
   def compute_ring_position(self, key):
-    big_hash = md5( str(key) ).hexdigest()
+    big_hash = md5(str(key)).hexdigest()
     small_hash = int(big_hash[:4], 16)
     return small_hash
 

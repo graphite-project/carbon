@@ -1,7 +1,6 @@
 import traceback
 from carbon import log, state
 
-
 def getMetadata(metric, key):
   try:
     value = state.database.getMetadata(metric, key)

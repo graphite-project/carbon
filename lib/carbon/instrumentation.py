@@ -9,7 +9,7 @@ from carbon.conf import settings
 
 
 stats = {}
-HOSTNAME = socket.gethostname().replace('.','_')
+HOSTNAME = socket.gethostname().replace('.', '_')
 PAGESIZE = os.sysconf('SC_PAGESIZE')
 rusage = getrusage(RUSAGE_SELF)
 lastUsage = rusage.ru_utime + rusage.ru_stime
@@ -47,7 +47,7 @@ def getCpuUsage():
   usageDiff = currentUsage - lastUsage
   timeDiff = currentTime - lastUsageTime
 
-  if timeDiff == 0: #shouldn't be possible, but I've actually seen a ZeroDivisionError from this
+  if timeDiff == 0:  # shouldn't be possible, but I've actually seen a ZeroDivisionError from this
     timeDiff = 0.000001
 
   cpuUsagePercent = (usageDiff / timeDiff) * 100.0
@@ -59,7 +59,7 @@ def getCpuUsage():
 
 
 def getMemUsage():
-  rss_pages = int( open('/proc/self/statm').read().split()[1] )
+  rss_pages = int(open('/proc/self/statm').read().split()[1])
   return rss_pages * PAGESIZE
 
 
@@ -110,7 +110,7 @@ def recordMetrics():
   # common metrics
   record('metricsReceived', myStats.get('metricsReceived', 0))
   record('cpuUsage', getCpuUsage())
-  try: # This only works on Linux
+  try:  # This only works on Linux
     record('memUsage', getMemUsage())
   except:
     pass
@@ -125,6 +125,7 @@ def cache_record(metric, value):
     datapoint = (time.time(), value)
     cache.MetricCache.store(fullMetric, datapoint)
 
+
 def relay_record(metric, value):
     prefix = settings.CARBON_METRIC_PREFIX
     if settings.instance is None:
@@ -133,6 +134,7 @@ def relay_record(metric, value):
       fullMetric = '%s.relays.%s-%s.%s' % (prefix, HOSTNAME, settings.instance, metric)
     datapoint = (time.time(), value)
     events.metricGenerated(fullMetric, datapoint)
+
 
 def aggregator_record(metric, value):
     prefix = settings.CARBON_METRIC_PREFIX

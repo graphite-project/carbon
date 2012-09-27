@@ -32,5 +32,5 @@ def process(metric, datapoint):
   for rule in RewriteRuleManager.postRules:
     metric = rule.apply(metric)
 
-  if not settings['FORWARD_ALL'] and metric not in aggregate_metrics:
+  if settings['FORWARD_ALL'] and metric not in aggregate_metrics:
     events.metricGenerated(metric, datapoint)

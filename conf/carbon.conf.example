@@ -269,6 +269,11 @@ LINE_RECEIVER_PORT = 2023
 PICKLE_RECEIVER_INTERFACE = 0.0.0.0
 PICKLE_RECEIVER_PORT = 2024
 
+# If set true, metric received will be forwarded to DESTINATIONS in addition to
+# the output of the aggregation rules. If set false the carbon-aggregator will
+# only ever send the output of aggregation.
+FORWARD_ALL = True
+
 # This is a list of carbon daemons we will send any relayed or
 # generated metrics to. The default provided would send to a single
 # carbon-cache instance on the default port. However if you

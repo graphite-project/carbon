@@ -97,9 +97,13 @@ class MetricPickleReceiver(MetricReceiver, Int32StringReceiver):
       log.listener('invalid pickle received from %s, ignoring' % self.peerName)
       return
 
-    for dp in datapoints:
+    for raw in datapoints:
       try:
-        datapoint = (float(dp[1][0]), float(dp[1][1]))  # force proper types
+        (metric, (value, timestamp)) = raw
+      except Exception as e:
+        log.listener('Error decoding pickle: %s' % e)
+      try:
+        datapoint = (float(value), float(timestamp))  # force proper types
       except:
         continue
 

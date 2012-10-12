@@ -64,7 +64,7 @@ def run_twistd_plugin(filename):
     except:
         pass
 
-    if options.debug:
+    if options.debug or options.nodaemon:
         twistd_options.extend(["--nodaemon"])
     if options.profile:
         twistd_options.append("--profile")

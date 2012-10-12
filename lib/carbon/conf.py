@@ -373,6 +373,9 @@ def get_default_parser(usage="%prog [options] <start|stop|status>"):
         "--debug", action="store_true",
         help="Run in the foreground, log to stdout")
     parser.add_option(
+        "--nodaemon", action="store_true",
+        help="Run in the foreground")
+    parser.add_option(
         "--profile",
         help="Record performance profile data to the given file")
     parser.add_option(

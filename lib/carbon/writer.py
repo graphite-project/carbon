@@ -124,8 +124,7 @@ def writeCachedDataPoints():
             archiveConfig,
             xFilesFactor,
             aggregationMethod,
-            settings.WHISPER_SPARSE_CREATE,
-            settings.WHISPER_FALLOCATE_CREATE)
+            settings.WHISPER_SPARSE_CREATE)
         instrumentation.increment('creates')
       # If we've got a rate limit configured lets makes sure we enforce it with
       # a little busy loop.

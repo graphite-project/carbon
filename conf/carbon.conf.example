@@ -132,6 +132,11 @@ WHISPER_AUTOFLUSH = False
 # CARBON_METRIC_PREFIX = carbon
 # CARBON_METRIC_INTERVAL = 60
 
+# Set this if you'd like to forward all incoming metrics over UDP to a client
+# ENABLE_UDP_FORWARDING = True
+# UDP_PORT = 2020
+# UDP_IP = X.X.X.X
+
 # Enable AMQP if you want to receve metrics using an amqp broker
 # ENABLE_AMQP = False
 

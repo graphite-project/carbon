@@ -14,6 +14,18 @@ limitations under the License."""
 
 from threading import Lock
 from carbon.conf import settings
+import json
+import socket
+
+class UDPForward():
+  def sendDatapoint(self, metric, datapoint):
+    try:
+      ip = settings.UDP_IP
+      port = settings.UDP_PORT
+      sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+      sock.sendto(json.dumps([metric, datapoint]), (ip, port))
+    except Exception, e:
+      log.msg(e)
 
 
 class MetricCache(dict):

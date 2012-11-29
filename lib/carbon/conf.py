@@ -14,7 +14,7 @@ limitations under the License."""
 
 import os
 import sys
-import pwd
+import crossplatform
 import errno
 
 from os.path import join, dirname, normpath, exists, isdir
@@ -177,7 +177,9 @@ class CarbonCacheOptions(usage.Options):
         # Use provided pidfile (if any) as default for configuration. If it's
         # set to 'twistd.pid', that means no value was provided and the default
         # was used.
-        pidfile = self.parent["pidfile"]
+        pidfile = "twistd.pid"
+        if self.parent.has_key("pidfile"):
+            pidfile = self.parent["pidfile"]
         if pidfile.endswith("twistd.pid"):
             pidfile = None
         self["pidfile"] = pidfile

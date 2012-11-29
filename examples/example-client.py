@@ -23,21 +23,42 @@ from socket import socket
 CARBON_SERVER = '127.0.0.1'
 CARBON_PORT = 2003
 
-delay = 60 
+delay = 2
 if len(sys.argv) > 1:
   delay = int( sys.argv[1] )
 
 def get_loadavg():
-  # For more details, "man proc" and "man uptime"  
-  if platform.system() == "Linux":
+  if platform.system() == "Windows":
+    # idea from:
+    # http://stackoverflow.com/questions/9097067/get-cpu-usage-from-windows-command-prompt
+    load = 0
+    command = "wmic cpu get loadpercentage"
+    try:
+        process = subprocess.Popen(command, stdout=subprocess.PIPE)
+        process.wait()
+        output = process.stdout.read()
+    except:
+        output = ""
+    lines = output.split("\r\n")
+    if len(lines) > 1:
+        load = int(lines[1])
+    else:
+        load = 0
+        
+    output = [load, load, load]
+    return output
+  elif platform.system() == "Linux":
     return open('/proc/loadavg').read().strip().split()[:3]
-  else:   
+  else:
+    # For more details, "man proc" and "man uptime"
     command = "uptime"
     process = subprocess.Popen(command, stdout=subprocess.PIPE, shell=True)
     os.waitpid(process.pid, 0)
     output = process.stdout.read().replace(',', ' ').strip().split()
     length = len(output)
     return output[length - 3:length]
+
+get_loadavg()
 
 sock = socket()
 try:

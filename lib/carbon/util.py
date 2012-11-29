@@ -1,6 +1,6 @@
 import sys
 import os
-import pwd
+import crossplatform
 
 from os.path import abspath, basename, dirname, join
 try:
@@ -16,14 +16,14 @@ except:
 
 from twisted.python.util import initgroups
 from twisted.scripts.twistd import runApp
-from twisted.scripts._twistd_unix import daemonize
 
 
-daemonize = daemonize # Backwards compatibility
+# Backwards compatibility
+daemonize = crossplatform.daemonize
 
 
 def dropprivs(user):
-  uid, gid = pwd.getpwnam(user)[2:4]
+  uid, gid = platform.getpwnam(user)
   initgroups(uid, gid)
   os.setregid(gid, gid)
   os.setreuid(uid, uid)

@@ -178,7 +178,7 @@ class CarbonCacheOptions(usage.Options):
         # set to 'twistd.pid', that means no value was provided and the default
         # was used.
         pidfile = "twistd.pid"
-        if self.parent.has_key("pidfile"):
+        if "pidfile" in self.parent:
             pidfile = self.parent["pidfile"]
         if pidfile.endswith("twistd.pid"):
             pidfile = None

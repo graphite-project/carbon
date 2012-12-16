@@ -1,9 +1,29 @@
 import platform
 
 
+# global code for platform determination.
+# caches platform information for next call
+class Platform:
+    (Unknown, Linux, Windows, Other) = range(0, 4)
+_platform = Platform.Unknown
+
+
+def getPlatform():
+    global _platform
+    if _platform == Platform.Unknown:
+        if platform.system() == "Windows":
+            _platform = Platform.Windows
+        elif platform.system() == "Linux":
+            _platform = Platform.Linux
+        else:
+            _platform = Platform.Other
+            
+    return _platform
+
+        
 
 def daemonize():
-    if platform.system() == "Windows":
+    if getPlatform() == Platform.Windows:
         pass
     else:
         from twisted.scripts._twistd_unix import daemonize
@@ -11,10 +31,10 @@ def daemonize():
 
 
 def getpwnam(user):
-    if platform.system() == "Windows":
-        pass
+    if getPlatform() == Platform.Windows:
+        return "w"
     else:
-        pwd.getpwnam(user)[2:4]
+        return pwd.getpwnam(user)[2:4]
 
 
 class rusage_struct:
@@ -26,7 +46,7 @@ class rusage_struct:
     
 
 def getrusage(who):
-    if platform.system() == "Windows":
+    if getPlatform() == Platform.Windows:
         r = rusage_struct
         return r
     else:
@@ -34,10 +54,33 @@ def getrusage(who):
         return resource.getrusage(who)
 
 
+def getCpuUsage():
+    if getPlatform() == Platform.Windows:
+        return 1
+    else:
+        global lastUsage, lastUsageTime
+
+        rusage = getrusage(RUSAGE_SELF)
+        currentUsage = rusage.ru_utime + rusage.ru_stime
+        currentTime = time.time()
+
+        usageDiff = currentUsage - lastUsage
+        timeDiff = currentTime - lastUsageTime
+
+        if timeDiff == 0: #shouldn't be possible, but I've actually seen a ZeroDivisionError from this
+            timeDiff = 0.000001
+
+        cpuUsagePercent = (usageDiff / timeDiff) * 100.0
+
+        lastUsage = currentUsage
+        lastUsageTime = currentTime
+
+        return cpuUsagePercent
+
 RUSAGE_SELF = 0
 
 def sysconf(str):
-    if platform.system() == "Windows":
+    if getPlatform() == Platform.Windows:
         if str == "SC_PAGESIZE":
             return 16384
     else:
@@ -45,7 +88,7 @@ def sysconf(str):
 
 
 def log_to_syslog(self, prefix):
-    if platform.system() == "Windows":
+    if getPlatform() == Platform.Windows:
         pass
     else:
         from twisted.python.syslog import SyslogObserver

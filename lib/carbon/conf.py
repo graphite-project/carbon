@@ -50,6 +50,7 @@ defaults = dict(
   WHISPER_LOCK_WRITES=False,
   MAX_DATAPOINTS_PER_MESSAGE=500,
   MAX_AGGREGATION_INTERVALS=5,
+  FORWARD_ALL=False,
   MAX_QUEUE_SIZE=1000,
   ENABLE_AMQP=False,
   AMQP_VERBOSE=False,
@@ -67,7 +68,7 @@ defaults = dict(
   USE_WHITELIST=False,
   CARBON_METRIC_PREFIX='carbon',
   CARBON_METRIC_INTERVAL=60,
-  CACHE_WRITE_STRATEGY='sorted'
+  CACHE_WRITE_STRATEGY='sorted',
   WRITE_BACK_FREQUENCY=None,
 )
 
@@ -98,14 +99,14 @@ class OrderedConfigParser(ConfigParser):
       line = line.strip()
 
       if line.startswith('[') and line.endswith(']'):
-        sections.append( line[1:-1] )
+        sections.append(line[1:-1])
 
     self._ordered_sections = sections
 
     return result
 
   def sections(self):
-    return list( self._ordered_sections ) # return a copy for safety
+    return list(self._ordered_sections)  # return a copy for safety
 
 
 class Settings(dict):
@@ -159,7 +160,7 @@ class CarbonCacheOptions(usage.Options):
 
     optFlags = [
         ["debug", "", "Run in debug mode."],
-        ]
+    ]
 
     optParameters = [
         ["config", "c", None, "Use the given config file."],
@@ -167,7 +168,7 @@ class CarbonCacheOptions(usage.Options):
         ["logdir", "", None, "Write logs to the given directory."],
         ["whitelist", "", None, "List of metric patterns to allow."],
         ["blacklist", "", None, "List of metric patterns to disallow."],
-        ]
+    ]
 
     def postOptions(self):
         global settings

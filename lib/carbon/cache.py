@@ -56,7 +56,7 @@ class _MetricCache(defaultdict):
 
   def pop(self, metric=None):
     if not self:
-      raise KeyError
+      raise KeyError(metric)
     elif not metric and self.method == "max":
       metric = max(self.items(), key=lambda x: len(x[1]))[0]
     elif not metric and self.method == "naive":

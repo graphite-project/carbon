@@ -30,31 +30,24 @@ from twisted.internet.task import LoopingCall
 from twisted.application.service import Service
 
 
-lastCreateInterval = 0
-createCount = 0
-schemas = loadStorageSchemas()
-agg_schemas = loadAggregationSchemas()
+SCHEMAS = loadStorageSchemas()
+AGGREGATION_SCHEMAS = loadAggregationSchemas()
 CACHE_SIZE_LOW_WATERMARK = settings.MAX_CACHE_SIZE * 0.95
 
 
-# Inititalize a few buckets so that we can enforce rate limits on creates and
+# Inititalize token buckets so that we can enforce rate limits on creates and
 # updates if the config wants them.
+CREATE_BUCKET = None
+UPDATE_BUCKET = None
 if settings.MAX_CREATES_PER_MINUTE != float('inf'):
-  if settings.MAX_CREATES_PER_MINUTE < 1:
-    capacity = (1 / settings.MAX_CREATES_PER_MINUTE) * 60.0
-  else:
-    capacity = 60
-  create_bucket = TokenBucket(capacity, 1)
-  create_cost = 60.0 / settings.MAX_CREATES_PER_MINUTE
-else:
-  create_bucket = None
-
+  capacity = settings.MAX_CREATES_PER_MINUTE
+  fill_rate = settings.MAX_CREATES_PER_MINUTE / 60
+  CREATE_BUCKET = TokenBucket(capacity, fill_rate)
 
 if settings.MAX_UPDATES_PER_SECOND != float('inf'):
-  update_bucket = TokenBucket(60, 1)
-  update_cost = 1.0 / settings.MAX_UPDATES_PER_SECOND
-else:
-  update_bucket = None
+  capacity = settings.MAX_UPDATES_PER_SECOND
+  fill_rate = settings.MAX_UPDATES_PER_SECOND
+  UPDATE_BUCKET = TokenBucket(capacity, fill_rate)
 
 
 def optimalWriteOrder():
@@ -68,7 +61,7 @@ def optimalWriteOrder():
     dbFilePath = getFilesystemPath(metric)
     dbFileExists = exists(dbFilePath)
 
-    if not dbFileExists and create_bucket:
+    if not dbFileExists and CREATE_BUCKET:
       # If our tokenbucket has enough tokens available to create a new metric
       # file then yield the metric data to complete that operation. Otherwise
       # we'll just drop the metric on the ground and move on to the next
@@ -76,7 +69,7 @@ def optimalWriteOrder():
       # XXX This behavior should probably be configurable to no tdrop metrics
       # when rate limitng unless our cache is too big or some other legit
       # reason.
-      if create_bucket.drain(create_cost):
+      if CREATE_BUCKET.drain(1):
         yield (metric, datapoints, dbFilePath, dbFileExists)
       continue
 
@@ -96,13 +89,13 @@ def writeCachedDataPoints():
         archiveConfig = None
         xFilesFactor, aggregationMethod = None, None
 
-        for schema in schemas:
+        for schema in SCHEMAS:
           if schema.matches(metric):
             log.creates('new metric %s matched schema %s' % (metric, schema.name))
             archiveConfig = [archive.getTuple() for archive in schema.archives]
             break
 
-        for schema in agg_schemas:
+        for schema in AGGREGATION_SCHEMAS:
           if schema.matches(metric):
             log.creates('new metric %s matched aggregation schema %s' % (metric, schema.name))
             xFilesFactor, aggregationMethod = schema.archives
@@ -127,11 +120,9 @@ def writeCachedDataPoints():
             settings.WHISPER_SPARSE_CREATE,
             settings.WHISPER_FALLOCATE_CREATE)
         instrumentation.increment('creates')
-      # If we've got a rate limit configured lets makes sure we enforce it with
-      # a little busy loop.
-      if update_bucket:
-        while not update_bucket.drain(update_cost):
-          time.sleep(0.1)
+      # If we've got a rate limit configured lets makes sure we enforce it
+      if UPDATE_BUCKET:
+        UPDATE_BUCKET.drain(1, blocking=True)
       try:
         t1 = time.time()
         whisper.update_many(dbFilePath, datapoints)
@@ -162,20 +153,20 @@ def writeForever():
 
 
 def reloadStorageSchemas():
-  global schemas
+  global SCHEMAS
   try:
-    schemas = loadStorageSchemas()
+    SCHEMAS = loadStorageSchemas()
   except:
-    log.msg("Failed to reload storage schemas")
+    log.msg("Failed to reload storage SCHEMAS")
     log.err()
 
 
 def reloadAggregationSchemas():
-  global agg_schemas
+  global AGGREGATION_SCHEMAS
   try:
-    agg_schemas = loadAggregationSchemas()
+    AGGREGATION_SCHEMAS = loadAggregationSchemas()
   except:
-    log.msg("Failed to reload aggregation schemas")
+    log.msg("Failed to reload aggregation SCHEMAS")
     log.err()
 
 
@@ -203,5 +194,4 @@ class WriterService(Service):
     def stopService(self):
         self.storage_reload_task.stop()
         self.aggregation_reload_task.stop()
-        self.writer.stop()
         Service.stopService(self)

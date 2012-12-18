@@ -38,6 +38,7 @@ defaults = dict(
   MAX_AGGREGATION_INTERVALS=5,
   AGGREGATION_FREQUENCY_MULTIPLIER=1.0,
   ENABLE_AGGREGATION_FILTERING=False,
+  FORWARD_ALL=True,
 
   # amqp.conf
   ENABLE_AMQP=False,
@@ -83,11 +84,13 @@ defaults = dict(
   # writer.conf
   MAX_CACHE_SIZE=2000000,
   MAX_WRITES_PER_SECOND=600,
+  MAX_WRITES_PER_SECOND_SHUTDOWN=600,
   MAX_CREATES_PER_MINUTE=50,
   LOG_WRITES=True,
   CACHE_QUERY_PORT=7002,
   CACHE_QUERY_INTERFACE='0.0.0.0',
   WHITELISTS_DIR='/opt/graphite/storage/lists',
+  CACHE_WRITE_STRATEGY='sorted',
 )
 
 
@@ -535,5 +538,3 @@ def _process_alive(pid):
             return True
         except OSError, err:
             return err.errno == errno.EPERM
-
-

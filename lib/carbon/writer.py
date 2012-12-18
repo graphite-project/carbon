@@ -89,7 +89,8 @@ create_ratelimit = RateLimit(settings.MAX_CREATES_PER_MINUTE, 60)
 def write_cached_datapoints():
   database = state.database
 
-  for (metric, datapoints) in MetricCache.drain():
+  while MetricCache:
+    metric, datapoints = MetricCache.drain_metric()
     if write_ratelimit.exceeded:
       #log.writes("write ratelimit exceeded")
       instrumentation.increment('writer.write_ratelimit_exceeded')
@@ -101,7 +102,7 @@ def write_cached_datapoints():
         #log.creates("create ratelimit exceeded")
         # See if it's time to reset the counter in lieu of of a wait()
         create_ratelimit.check()
-        continue # we *do* want to drop the datapoint here.
+        continue  # we *do* want to drop the datapoint here.
 
       metadata = determine_metadata(metric)
       metadata_string = ' '.join(['%s=%s' % item for item in sorted(metadata.items())])
@@ -168,23 +169,22 @@ def reload_storage_rules():
 
 
 def shutdown_modify_update_speed():
-    try:
-        settings.MAX_UPDATES_PER_SECOND = settings.MAX_UPDATES_PER_SECOND_ON_SHUTDOWN
-        log.msg("Carbon shutting down.  Changed the update rate to: " + str(settings.MAX_UPDATES_PER_SECOND_ON_SHUTDOWN))
-    except KeyError:
-        log.msg("Carbon shutting down.  Update rate not changed")
+  global write_ratelimit
+  if settings.MAX_WRITES_PER_SECOND_SHUTDOWN != settings.MAX_WRITES_PER_SECOND:
+    write_ratelimit = RateLimit(settings.MAX_WRITES_PER_SECOND_SHUTDOWN, 1)
+    log.msg("Carbon shutting down.  Changed the update rate to: " + str(settings.MAX_UPDATES_PER_SECOND_ON_SHUTDOWN))
 
 
 class WriterService(Service):
-    def __init__(self):
-        self.reload_task = LoopingCall(reload_storage_rules)
+  def __init__(self):
+    self.reload_task = LoopingCall(reload_storage_rules)
 
-    def startService(self):
-        self.reload_task.start(60, False)
-        reactor.addSystemEventTrigger('before', 'shutdown', shutdown_modify_update_speed)
-        reactor.callInThread(write_forever)
-        Service.startService(self)
+  def startService(self):
+    self.reload_task.start(60, False)
+    reactor.addSystemEventTrigger('before', 'shutdown', shutdown_modify_update_speed)
+    reactor.callInThread(write_forever)
+    Service.startService(self)
 
-    def stopService(self):
-        self.reload_task.stop()
-        Service.stopService(self)
+  def stopService(self):
+    self.reload_task.stop()
+    Service.stopService(self)

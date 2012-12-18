@@ -59,7 +59,7 @@ class AggregationProcessor(Processor):
 
       buffer.input(datapoint)
 
-    if metric not in aggregate_metrics:
+    if settings['FORWARD_ALL'] and metric not in aggregate_metrics:
       duration_micros = (time.time() - t) * ONE_MILLION
       instrumentation.append('pipeline.aggregation_microseconds', duration_micros)
       yield (metric, datapoint)

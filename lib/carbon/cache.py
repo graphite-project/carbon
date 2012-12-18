@@ -13,17 +13,18 @@ See the License for the specific language governing permissions and
 limitations under the License."""
 
 import time
-from threading import Lock
+from operator import itemgetter
+
 from carbon.conf import settings
 from carbon import log, instrumentation
 from carbon.pipeline import Processor
 
-
 instrumentation.configure_stats('pipeline.cache_microseconds', ('total', 'min', 'max', 'avg'))
 
-ONE_MILLION = 1000000 # I hate counting zeroes
+ONE_MILLION = 1000000
 
-def by_timestamp((timestamp, value)): # useful sort key function
+
+def by_timestamp((timestamp, value)):  # useful sort key function
   return timestamp
 
 
@@ -38,74 +39,119 @@ class CacheFeedingProcessor(Processor):
     return Processor.NO_OUTPUT
 
 
-class MetricCache(dict):
-  def __init__(self):
+class DrainStrategy(object):
+  """Implements the strategy for writing metrics.
+  The strategy chooses what order (if any) metrics
+  will be popped from the backing cache"""
+  def __init__(self, cache):
+    self.cache = cache
+
+  def choose_item(self):
+    raise NotImplemented
+
+
+class MaxStrategy(DrainStrategy):
+  """Always pop the metric with the greatest number of points stored.
+  This method leads to less variance in pointsPerUpdate but may mean
+  that infrequently or irregularly updated metrics may not be written
+  until shutdown """
+  def choose_item(self):
+    metric_name, size = max(self.cache.items(), key=lambda x: len(itemgetter(1)(x)))
+    return metric_name
+
+
+class RandomStrategy(DrainStrategy):
+  """Pop points randomly"""
+  def choose_item(self):
+    return choice(self.cache.keys)
+
+
+class SortedStrategy(DrainStrategy):
+  """ The default strategy which prefers metrics with a greater number
+  of cached points but guarantees every point gets written exactly once during
+  a loop of the cache """
+  def __init__(self, cache):
+    super(SortedStrategy, self).__init__(cache)
+
+    def _generate_queue():
+      while True:
+        t = time.time()
+        metric_counts = sorted(self.cache.counts, key=lambda x: x[1])
+        log.debug("Sorted %d cache queues in %.6f seconds" % (len(metric_counts), time.time() - t))
+        while metric_counts:
+          yield itemgetter(0)(metric_counts.pop())
+
+    self.queue = _generate_queue()
+
+  def choose_item(self):
+    return self.queue.next()
+
+
+class _MetricCache(dict):
+  """A Singleton dictionary of metric names and lists of their datapoints"""
+  def __init__(self, strategy=SortedStrategy):
     self.size = 0
-    self.lock = Lock()
     self.MAX_CACHE_SIZE = settings.MAX_CACHE_SIZE
     self.CACHE_SIZE_LOW_WATERMARK = settings.CACHE_SIZE_LOW_WATERMARK
+    self.strategy = strategy(self)
 
   def __setitem__(self, key, value):
     raise TypeError("Use store() method instead!")
 
-  def store(self, metric, datapoint):
-    self.lock.acquire()
-    try:
-      self.setdefault(metric, {})
-      if datapoint[0] in self[metric]:
-        self.size += 1 # Not a duplicate, increment
-      self[metric][datapoint[0]] = datapoint
-    finally:
-      self.lock.release()
+  @property
+  def counts(self):
+    return [(metric, len(datapoints)) for (metric, datapoints) in self.items()]
 
-    if self.size >= self.MAX_CACHE_SIZE:
-      log.msg("MetricCache is full: self.size=%d" % self.size)
-      state.events.cacheFull()
+  @property
+  def full(self):
+    if settings.MAX_CACHE_SIZE != float('inf'):
+      return False
+    else:
+      return self.size >= settings.MAX_CACHE_SIZE
 
-  def getDatapoints(self, metric):
+  def _check_available_space(self):
+    if state.cacheTooFull and self.size < self.CACHE_SIZE_LOW_WATERMARK:
+      log.msg("cache size below watermark")
+      state.events.cacheSpaceAvailable()
+
+  def drain_metric(self):
+    """Returns a metric and it's datapoints in order determined by the
+    `DrainStrategy`_"""
+    metric = self.strategy.choose_item()
+    return (metric, self.pop(metric))
+
+  def get_datapoints(self, metric):
+    """Return a list of currently cached datapoints sorted by timestamp"""
     return sorted(self.get(metric, {}).values(), key=by_timestamp)
 
   def pop(self, metric):
-    self.lock.acquire()
-    try:
-      datapoint_index = dict.pop(self, metric)
-      self.size -= len(datapoint_index)
-    finally:
-      self.lock.release()
-    return sorted(datapoint_index.values(), key=by_timestamp)
+    datapoint_index = dict.pop(self, metric)
+    self.size -= len(datapoint_index)
+    self._check_available_space()
 
-  def drain(self):
-    "Removes and generates metrics in order of most cached values to least"
-    if not self:
-      return
+    return sorted(datapoint_index.items(), key=by_timestamp)
 
-    t = time.time()
-    self.lock.acquire()
-    try:
-      metric_queue_sizes = [ (metric, len(datapoints)) for metric,datapoints in self.items() ]
-    finally:
-      self.lock.release()
+  def store(self, metric, datapoint):
+    self.setdefault(metric, {})
+    timestamp, value = datapoint
+    if timestamp in self[metric]:
+      self.size += 1  # Not a duplicate, increment
+    self[metric][timestamp] = value
 
-    micros = int((time.time() - t) * 1000000)
-    log.debug("Generated %d cache queues in %d microseconds" %
-            (len(metric_queue_sizes), micros))
+    if self.full:
+      log.msg("MetricCache is full: self.size=%d" % self.size)
+      state.events.cacheFull()
 
-    t = time.time()
-    metric_queue_sizes.sort(key=lambda item: item[1], reverse=True)
-    micros = int((time.time() - t) * 1000000)
-    log.debug("Sorted %d cache queues in %d microseconds" %
-            (len(metric_queue_sizes), micros))
+# Initialize a singleton cache instance
+write_strategy = None
+if settings.CACHE_WRITE_STRATEGY == 'max':
+  write_strategy = MaxStrategy
+if settings.CACHE_WRITE_STRATEGY == 'sorted':
+  write_strategy = SortedStrategy
+if settings.CACHE_WRITE_STRATEGY == 'random':
+  write_strategy = RandomStrategy
 
-    for metric, queue_size in metric_queue_sizes:
-      yield (metric, self.pop(metric))
-
-      if state.cacheTooFull and self.size < self.CACHE_SIZE_LOW_WATERMARK:
-        log.msg("cache size below watermark")
-        state.events.cacheSpaceAvailable()
-
-
-# Ghetto singleton
-MetricCache = MetricCache()
+MetricCache = _MetricCache(write_strategy)
 
 # Avoid import circularities
 from carbon import log, state, instrumentation

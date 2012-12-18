@@ -15,6 +15,7 @@ except:
   import pickle
   USING_CPICKLE = False
 
+from time import sleep, time
 from twisted.python.util import initgroups
 from twisted.scripts.twistd import runApp
 from twisted.scripts._twistd_unix import daemonize

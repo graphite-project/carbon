@@ -30,6 +30,7 @@ def aggregate(node, datapoints):
 def node_found(node):
   archives = []
   t = int( time.time() )
+  metadata = node.readMetadata()
 
   for (precision, retention) in metadata['retentions']:
     archiveEnd =  t - (t % precision)

@@ -16,165 +16,244 @@ import os
 import sys
 import pwd
 import errno
+import re
 
-from os.path import join, dirname, normpath, exists, isdir
-from optparse import OptionParser
-from ConfigParser import ConfigParser
+from os.path import join, basename, dirname, normpath, exists, isdir
+from glob import glob
 
-import whisper
-from carbon import log
+from carbon.storage import StorageRule
+from carbon.database import TimeSeriesDatabase
+from carbon import log, util, state
 
 from twisted.python import usage
 
 
+LISTENER_TYPES = (
+  'plaintext-receiver',
+  'pickle-receiver',
+)
+
 defaults = dict(
-  USER="",
-  MAX_CACHE_SIZE=float('inf'),
-  MAX_UPDATES_PER_SECOND=500,
-  MAX_CREATES_PER_MINUTE=float('inf'),
-  LINE_RECEIVER_INTERFACE='0.0.0.0',
-  LINE_RECEIVER_PORT=2003,
-  ENABLE_UDP_LISTENER=False,
-  UDP_RECEIVER_INTERFACE='0.0.0.0',
-  UDP_RECEIVER_PORT=2003,
-  PICKLE_RECEIVER_INTERFACE='0.0.0.0',
-  PICKLE_RECEIVER_PORT=2004,
-  CACHE_QUERY_INTERFACE='0.0.0.0',
-  CACHE_QUERY_PORT=7002,
-  LOG_UPDATES=True,
-  LOG_CACHE_HITS = True,
-  WHISPER_AUTOFLUSH=False,
-  WHISPER_SPARSE_CREATE=False,
-  WHISPER_FALLOCATE_CREATE=False,
-  WHISPER_LOCK_WRITES=False,
-  MAX_DATAPOINTS_PER_MESSAGE=500,
+  # aggregation.conf
   MAX_AGGREGATION_INTERVALS=5,
-  MAX_QUEUE_SIZE=1000,
+  AGGREGATION_FREQUENCY_MULTIPLIER=1.0,
+  ENABLE_AGGREGATION_FILTERING=False,
+
+  # amqp.conf
   ENABLE_AMQP=False,
+  AMQP_HOST='localhost',
+  AMQP_PORT=5672,
+  AMQP_USER='guest',
+  AMQP_PASSWORD='guest',
+  AMQP_VHOST='/',
+  AMQP_EXCHANGE='graphite',
+  AMQP_METRIC_NAME_IN_BODY=False,
   AMQP_VERBOSE=False,
-  BIND_PATTERNS=['#'],
-  ENABLE_MANHOLE=False,
-  MANHOLE_INTERFACE='127.0.0.1',
-  MANHOLE_PORT=7222,
-  MANHOLE_USER="",
-  MANHOLE_PUBLIC_KEY="",
-  RELAY_METHOD='rules',
-  REPLICATION_FACTOR=1,
-  DESTINATIONS=[],
-  USE_FLOW_CONTROL=True,
+  BIND_PATTERNS='#',
+
+  # daemon.conf
+  USER='',
+  PIPELINE=[],
   USE_INSECURE_UNPICKLER=False,
-  USE_WHITELIST=False,
+
+  # db.conf
+  DATABASE='whisper',
+  LOCAL_DATA_DIR='/opt/graphite/storage/whisper',
+
+  # listeners.conf
+  LISTENERS=[],
+
+  # management.conf
   CARBON_METRIC_PREFIX='carbon',
   CARBON_METRIC_INTERVAL=60,
-  WRITE_BACK_FREQUENCY=None,
+  ENABLE_MANHOLE=False,
+  MANHOLE_INTERFACE='127.0.0.1',
+  MANHOLE_PORT= 7022,
+  MANHOLE_USER='admin',
+  MANHOLE_PUBLIC_KEY=None,
+
+  # relay.conf
+  DESTINATIONS=[],
+  MAX_DATAPOINTS_PER_MESSAGE=500,
+  MAX_QUEUE_SIZE=10000,
+  RELAY_METHOD='rules',
+  REPLICATION_FACTOR=1,
+  USE_FLOW_CONTROL=True,
+
+  # writer.conf
+  MAX_CACHE_SIZE=2000000,
+  MAX_WRITES_PER_SECOND=600,
+  MAX_CREATES_PER_MINUTE=50,
+  LOG_WRITES=True,
+  CACHE_QUERY_PORT=7002,
+  CACHE_QUERY_INTERFACE='0.0.0.0',
+  WHITELISTS_DIR='/opt/graphite/storage/lists',
 )
 
 
-def _umask(value):
-    return int(value, 8)
+class CarbonConfiguration(dict):
+  def __init__(self):
+    self.update(defaults)
+    self.config_dir = None
 
-def _process_alive(pid):
-    if exists("/proc"):
-        return exists("/proc/%d" % pid)
+  def __getitem__(self, key):
+    if key in self:
+      return dict.__getitem__(self, key)
     else:
-        try:
-            os.kill(int(pid), 0)
-            return True
-        except OSError, err:
-            return err.errno == errno.EPERM
+      raise ConfigError("Missing expected configuration \"%s\"" % key)
 
+  def __setitem__(self, key, value):
+    dict.__setitem__(self, key, value)
 
-class OrderedConfigParser(ConfigParser):
-  """Hacky workaround to ensure sections are always returned in the order
-   they are defined in. Note that this does *not* make any guarantees about
-   the order of options within a section or the order in which sections get
-   written back to disk on write()."""
-  _ordered_sections = []
+  def __getattribute__(self, attr):
+    try:
+      return object.__getattribute__(self, attr)
+    except AttributeError:
+      return self[attr]
 
-  def read(self, path):
-    result = ConfigParser.read(self, path)
+  def use_config_directory(self, config_dir):
+    self.config_dir = config_dir
+    config_paths = glob(join(config_dir, '*.conf'))
+    self.config_files = [basename(path) for path in config_paths]
 
-    sections = []
+  def file_exists(self, filename):
+    if self.config_dir is None:
+      raise ConfigError("use_config_directory() has not been called yet")
+    return filename in self.config_files
+
+  def get_path(self, filename):
+    if self.config_dir is None:
+      raise ConfigError("use_config_directory() has not been called yet")
+
+    path = join(self.config_dir, filename)
+    if not exists(path):
+      raise ConfigError("No such file %s" % path)
+    return path
+ 
+  def read_file(self, filename, ordered_items=False, store=True):
+    path = self.get_path(filename)
+    settings = {}
+    names = [] # keep track of order of global names
+    context = settings # start out in the global context
+
+    # Parsing logic
     for line in open(path):
       line = line.strip()
 
+      if line.startswith('#') or not line:
+        continue
+
       if line.startswith('[') and line.endswith(']'):
-        sections.append( line[1:-1] )
+        context_name = line[1:-1]
+        names.append(context_name)
+        context = settings[context_name] = {}
+        continue
 
-    self._ordered_sections = sections
+      elif '=' in line:
+        key, value = line.split('=', 1)
+        key, value = key.strip(), value.strip()
 
-    return result
+        if context is settings: # globals
+          names.append(key)
 
-  def sections(self):
-    return list( self._ordered_sections ) # return a copy for safety
+        if key in defaults:
+          valueType = type(defaults[key])
+        else:
+          valueType = str
 
+        if valueType is list:
+          value = [v.strip() for v in value.split(',')]
 
-class Settings(dict):
-  __getattr__ = dict.__getitem__
+        elif valueType is bool:
+          if value.lower() == 'true':
+            value = True
+          elif value.lower() == 'false':
+            value = False
+          else:
+            raise ConfigError("%s must be either \"true\" or \"false\"" % key, filename=filename)
 
-  def __init__(self):
-    dict.__init__(self)
-    self.update(defaults)
+        elif valueType in (int, long, float):
+          value = valueType(value)
 
-  def readFrom(self, path, section):
-    parser = ConfigParser()
-    if not parser.read(path):
-      raise Exception("Failed to read config file %s" % path)
-
-    if not parser.has_section(section):
-      return
-
-    for key,value in parser.items(section):
-      key = key.upper()
-
-      # Detect type from defaults dict
-      if key in defaults:
-        valueType = type( defaults[key] )
-      else:
-        valueType = str
-
-      if valueType is list:
-        value = [ v.strip() for v in value.split(',') ]
-
-      elif valueType is bool:
-        value = parser.getboolean(section, key)
+        context[key] = value
 
       else:
-        # Attempt to figure out numeric types automatically
-        try:
-          value = int(value)
-        except:
-          try:
-            value = float(value)
-          except:
-            pass
+        raise ConfigError("Invalid line: %s" % line, filename=filename)
 
-      self[key] = value
+    # Absorb settings from this file
+    if store:
+      self.update(settings)
+
+    # Return only what this file defined
+    if ordered_items:
+      return [(name, settings[name]) for name in names]
+    else:
+      return settings
+
+  def read_filters(self, filename):
+    path = self.get_path(filename)
+    filters = []
+    for line in open(path):
+      line = line.strip()
+      if line.startswith('#') or not line:
+        continue
+      try:
+        action, regex_pattern = line.split(None, 1)
+      except ValueError:
+        raise ConfigError("Invalid filter line: %s" % line)
+      else:
+        filters.append( Filter(action, regex_pattern) )
+
+    return filters
+
+class Filter(object):
+  def __init__(self, action, regex_pattern):
+    if action not in ('include', 'exclude'):
+      raise ValueError("Invalid filter action '%s'" % action)
+    self.action = action
+    self.regex = re.compile(regex_pattern)
+
+  def allow(self, metric):
+    if self.action == 'include':
+      return self.matches(metric)
+    else:
+      return not self.matches(metric)
+
+  def matches(self, metric):
+    return bool(self.regex.search(metric))
+
+# The global settings singleton
+settings = CarbonConfiguration()
+state.settings = settings
 
 
-settings = Settings()
-settings.update(defaults)
+class ConfigError(Exception):
+  def __init__(self, message, filename=None):
+    if filename:
+      self.message = "%s: %s" % (filename, message)
+    else:
+      self.message = message
+    self.filename = filename
+
+  def __repr__(self):
+    return '<ConfigError(%s)>' % self.message
+  __str__ = __repr__
 
 
-class CarbonCacheOptions(usage.Options):
 
+class CarbonDaemonOptions(usage.Options):
     optFlags = [
         ["debug", "", "Run in debug mode."],
+        ["nodaemon", "", "Run in the foreground"],
         ]
 
     optParameters = [
-        ["config", "c", None, "Use the given config file."],
-        ["instance", "", "a", "Manage a specific carbon instance."],
+        ["config", "c", None, "Use configs from the given directory"],
         ["logdir", "", None, "Write logs to the given directory."],
-        ["whitelist", "", None, "List of metric patterns to allow."],
-        ["blacklist", "", None, "List of metric patterns to disallow."],
+        ["umask", "", None, "Use the given umask when creating files"],
         ]
 
     def postOptions(self):
-        global settings
-
-        program = self.parent.subCommand
-
         # Use provided pidfile (if any) as default for configuration. If it's
         # set to 'twistd.pid', that means no value was provided and the default
         # was used.
@@ -188,9 +267,7 @@ class CarbonCacheOptions(usage.Options):
             self.parent["umask"] = 022
 
         # Read extra settings from the configuration file.
-        program_settings = read_config(program, self)
-        settings.update(program_settings)
-        settings["program"] = program
+        read_configs(self['instance'], self)
 
         # Set process uid/gid by changing the parent config, if a user was
         # provided in the configuration file.
@@ -199,38 +276,15 @@ class CarbonCacheOptions(usage.Options):
                 pwd.getpwnam(settings.USER)[2:4])
 
         # Set the pidfile in parent config to the value that was computed by
-        # C{read_config}.
+        # C{read_configs}.
         self.parent["pidfile"] = settings["pidfile"]
-
-        storage_schemas = join(settings["CONF_DIR"], "storage-schemas.conf")
-        if not exists(storage_schemas):
-            print "Error: missing required config %s" % storage_schemas
-            sys.exit(1)
-
-        if settings.WHISPER_AUTOFLUSH:
-            log.msg("Enabling Whisper autoflush")
-            whisper.AUTOFLUSH = True
-
-        if settings.WHISPER_FALLOCATE_CREATE:
-            if whisper.CAN_FALLOCATE:
-                log.msg("Enabling Whisper fallocate support")
-            else:
-                log.err("WHISPER_FALLOCATE_CREATE is enabled but linking failed.")
-
-        if settings.WHISPER_LOCK_WRITES:
-            if whisper.CAN_LOCK:
-                log.msg("Enabling Whisper file locking")
-                whisper.LOCK = True
-            else:
-                log.err("WHISPER_LOCK_WRITES is enabled but import of fcntl module failed.")
 
         if not "action" in self:
             self["action"] = "start"
         self.handleAction()
 
         # If we are not running in debug mode or non-daemon mode, then log to a
-        # directory, otherwise log output will go to stdout. If parent options
-        # are set to log to syslog, then use that instead.
+        # directory, otherwise log output will go to stdout.
         if not self["debug"]:
             if self.parent.get("syslog", None):
                 log.logToSyslog(self.parent["prefix"])
@@ -240,18 +294,10 @@ class CarbonCacheOptions(usage.Options):
                     os.makedirs(logdir)
                 log.logToDir(logdir)
 
-        if self["whitelist"] is None:
-            self["whitelist"] = join(settings["CONF_DIR"], "whitelist.conf")
-        settings["whitelist"] = self["whitelist"]
-
-        if self["blacklist"] is None:
-            self["blacklist"] = join(settings["CONF_DIR"], "blacklist.conf")
-        settings["blacklist"] = self["blacklist"]
-
-    def parseArgs(self, *action):
-        """If an action was provided, store it for further processing."""
-        if len(action) == 1:
-            self["action"] = action[0]
+    def parseArgs(self, *args):
+        if len(args) == 2:
+            self["instance"] = args[0]
+            self["action"] = args[1]
 
     def handleAction(self):
         """Handle extra argument for backwards-compatibility.
@@ -264,7 +310,6 @@ class CarbonCacheOptions(usage.Options):
         """
         action = self["action"]
         pidfile = self.parent["pidfile"]
-        program = settings["program"]
         instance = self["instance"]
 
         if action == "stop":
@@ -291,7 +336,7 @@ class CarbonCacheOptions(usage.Options):
 
         elif action == "status":
             if not exists(pidfile):
-                print "%s (instance %s) is not running" % (program, instance)
+                print "carbon-daemon %s is not running" % instance
                 raise SystemExit(1)
             pf = open(pidfile, "r")
             try:
@@ -302,11 +347,11 @@ class CarbonCacheOptions(usage.Options):
                 raise SystemExit(1)
 
             if _process_alive(pid):
-                print ("%s (instance %s) is running with pid %d" %
-                       (program, instance, pid))
+                print ("carbon-daemon %s is running with pid %d" %
+                       (instance, pid))
                 raise SystemExit(0)
             else:
-                print "%s (instance %s) is not running" % (program, instance)
+                print "carbon-daemon %s is not running" % instance
                 raise SystemExit(1)
 
         elif action == "start":
@@ -319,8 +364,8 @@ class CarbonCacheOptions(usage.Options):
                     print "Could not read pidfile %s" % pidfile
                     raise SystemExit(1)
                 if _process_alive(pid):
-                    print ("%s (instance %s) is already running with pid %d" %
-                           (program, instance, pid))
+                    print ("Carbon instance '%s' is already running with pid %d" %
+                           (instance, pid))
                     raise SystemExit(1)
                 else:
                     print "Removing stale pidfile %s" % pidfile
@@ -328,155 +373,18 @@ class CarbonCacheOptions(usage.Options):
                         os.unlink(pidfile)
                     except:
                         print "Could not remove pidfile %s" % pidfile
-
-            print "Starting %s (instance %s)" % (program, instance)
-
         else:
             print "Invalid action '%s'" % action
             print "Valid actions: start stop status"
             raise SystemExit(1)
 
 
-class CarbonAggregatorOptions(CarbonCacheOptions):
-
-    optParameters = [
-        ["rules", "", None, "Use the given aggregation rules file."],
-        ["rewrite-rules", "", None, "Use the given rewrite rules file."],
-        ] + CarbonCacheOptions.optParameters
-
-    def postOptions(self):
-        CarbonCacheOptions.postOptions(self)
-        if self["rules"] is None:
-            self["rules"] = join(settings["CONF_DIR"], "aggregation-rules.conf")
-        settings["aggregation-rules"] = self["rules"]
-
-        if self["rewrite-rules"] is None:
-            self["rewrite-rules"] = join(settings["CONF_DIR"],
-                                         "rewrite-rules.conf")
-        settings["rewrite-rules"] = self["rewrite-rules"]
-
-
-class CarbonRelayOptions(CarbonCacheOptions):
-
-    optParameters = [
-        ["rules", "", None, "Use the given relay rules file."],
-        ["aggregation-rules", "", None, "Use the given aggregation rules file."],
-        ] + CarbonCacheOptions.optParameters
-
-    def postOptions(self):
-        CarbonCacheOptions.postOptions(self)
-        if self["rules"] is None:
-            self["rules"] = join(settings["CONF_DIR"], "relay-rules.conf")
-        settings["relay-rules"] = self["rules"]
-
-        if self["aggregation-rules"] is None:
-          self["aggregation-rules"] = join(settings["CONF_DIR"], "aggregation-rules.conf")
-        settings["aggregation-rules"] = self["aggregation-rules"]
-
-        if settings["RELAY_METHOD"] not in ("rules", "consistent-hashing", "aggregated-consistent-hashing"):
-            print ("In carbon.conf, RELAY_METHOD must be either 'rules' or "
-                   "'consistent-hashing' or 'aggregated-consistent-hashing'. Invalid value: '%s'" %
-                   settings.RELAY_METHOD)
-            sys.exit(1)
-
-
-def get_default_parser(usage="%prog [options] <start|stop|status>"):
-    """Create a parser for command line options."""
-    parser = OptionParser(usage=usage)
-    parser.add_option(
-        "--debug", action="store_true",
-        help="Run in the foreground, log to stdout")
-    parser.add_option(
-        "--nodaemon", action="store_true",
-        help="Run in the foreground")
-    parser.add_option(
-        "--profile",
-        help="Record performance profile data to the given file")
-    parser.add_option(
-        "--pidfile", default=None,
-        help="Write pid to the given file")
-    parser.add_option(
-        "--umask", default=None,
-        help="Use the given umask when creating files")
-    parser.add_option(
-        "--config",
-        default=None,
-        help="Use the given config file")
-    parser.add_option(
-      "--whitelist",
-      default=None,
-      help="Use the given whitelist file")
-    parser.add_option(
-      "--blacklist",
-      default=None,
-      help="Use the given blacklist file")
-    parser.add_option(
-        "--logdir",
-        default=None,
-        help="Write logs in the given directory")
-    parser.add_option(
-        "--instance",
-        default='a',
-        help="Manage a specific carbon instance")
-
-    return parser
-
-
-def get_parser(name):
-    parser = get_default_parser()
-    if name == "carbon-aggregator":
-        parser.add_option(
-            "--rules",
-            default=None,
-            help="Use the given aggregation rules file.")
-        parser.add_option(
-            "--rewrite-rules",
-            default=None,
-            help="Use the given rewrite rules file.")
-    elif name == "carbon-relay":
-        parser.add_option(
-            "--rules",
-            default=None,
-            help="Use the given relay rules file.")
-    return parser
-
-
-def parse_options(parser, args):
+def read_configs(instance, options):
     """
-    Parse command line options and print usage message if no arguments were
-    provided for the command.
-    """
-    (options, args) = parser.parse_args(args)
-
-    if not args:
-        parser.print_usage()
-        raise SystemExit(1)
-
-    if args[0] not in ("start", "stop", "status"):
-        parser.print_usage()
-        raise SystemExit(1)
-
-    return options, args
-
-
-def read_config(program, options, **kwargs):
-    """
-    Read settings for 'program' from configuration file specified by
+    Read settings for 'instance' from configuration dir specified by
     'options["config"]', with missing values provided by 'defaults'.
     """
-    settings = Settings()
-    settings.update(defaults)
-
-    # Initialize default values if not set yet.
-    for name, value in kwargs.items():
-        settings.setdefault(name, value)
-
-    graphite_root = kwargs.get("ROOT_DIR")
-    if graphite_root is None:
-        graphite_root = os.environ.get('GRAPHITE_ROOT')
-    if graphite_root is None:
-        raise ValueError("Either ROOT_DIR or GRAPHITE_ROOT "
-                         "needs to be provided.")
+    graphite_root = os.environ['GRAPHITE_ROOT']
 
     # Default config directory to root-relative, unless overriden by the
     # 'GRAPHITE_CONF_DIR' environment variable.
@@ -484,7 +392,7 @@ def read_config(program, options, **kwargs):
                         os.environ.get("GRAPHITE_CONF_DIR",
                                        join(graphite_root, "conf")))
     if options["config"] is None:
-        options["config"] = join(settings["CONF_DIR"], "carbon.conf")
+        options["config"] = join(settings["CONF_DIR"], "carbon-daemons", instance)
     else:
         # Set 'CONF_DIR' to the parent directory of the 'carbon.conf' config
         # file.
@@ -501,39 +409,131 @@ def read_config(program, options, **kwargs):
     settings.setdefault(
         "PID_DIR", settings["STORAGE_DIR"])
     settings.setdefault(
-        "LOG_DIR", join(settings["STORAGE_DIR"], "log", program))
-    settings.setdefault(
-        "LOCAL_DATA_DIR", join(settings["STORAGE_DIR"], "whisper"))
-    settings.setdefault(
-        "WHITELISTS_DIR", join(settings["STORAGE_DIR"], "lists"))
+        "LOG_DIR", join(settings["STORAGE_DIR"], "log", "carbon-daemons", instance))
 
-    # Read configuration options from program-specific section.
-    section = program[len("carbon-"):]
-    config = options["config"]
+    # Read --config options
+    config_dir = options["config"]
+    if not exists(config_dir):
+        raise ValueError("Config directory %s does not exist" % config_dir)
 
-    if not exists(config):
-        raise ValueError("Error: missing required config %r" % config)
+    # Start reading config files
+    settings.use_config_directory(config_dir)
 
-    settings.readFrom(config, section)
-    settings.setdefault("instance", options["instance"])
+    daemon_settings = settings.read_file('daemon.conf')
+    pipeline = daemon_settings['PIPELINE']
+    if not pipeline:
+      raise ConfigError("Empty pipeline? You lazy bastard...")
 
-    # If a specific instance of the program is specified, augment the settings
-    # with the instance-specific settings and provide sane defaults for
-    # optional settings.
-    if options["instance"]:
-        settings.readFrom(config,
-                          "%s:%s" % (section, options["instance"]))
-        settings["pidfile"] = (
-            options["pidfile"] or
-            join(settings["PID_DIR"], "%s-%s.pid" %
-                 (program, options["instance"])))
-        settings["LOG_DIR"] = (options["logdir"] or
-                              join(settings["LOG_DIR"],
-                                "%s-%s" % (program ,options["instance"])))
+    if pipeline.count('write') + pipeline.count('relay') != 1:
+      raise ConfigError("Exactly one 'write' or 'relay' must exist "
+                        "in PIPELINE", filename='daemon.conf')
+
+    settings['LISTENERS'] = settings.read_file('listeners.conf').values()
+    if not settings['LISTENERS']:
+      raise ConfigError("At least one listener must be defined "
+                        "in listeners.conf")
+
+    # Apply listener defaults
+    for listener in settings['LISTENERS']:
+        listener['port'] = int(listener['port'])
+        listener.setdefault('interface', '0.0.0.0')
+        listener.setdefault('protocol', 'tcp')
+        if listener['protocol'] not in ('tcp', 'udp'):
+           raise ConfigError("Invalid protocol \"%s\"" % listener['protocol'])
+        if listener['type'] not in LISTENER_TYPES:
+            raise ConfigError("Invalid listener type \"%s\"" % listener['type'])
+        if listener['protocol'] == 'udp' and listener['type'] != 'plaintext-receiver':
+            raise ConfigError("UDP listeners only support type=plaintext-receiver")
+
+    # Type-specific configs
+    destiny = pipeline[-1]
+    if destiny == 'write':
+      settings['DAEMON_TYPE'] = 'write'
+      read_writer_configs()
+    elif destiny == 'relay':
+      settings['DAEMON_TYPE'] = 'relay'
+      read_relay_configs()
     else:
-        settings["pidfile"] = (
-            options["pidfile"] or
-            join(settings["PID_DIR"], '%s.pid' % program))
-        settings["LOG_DIR"] = (options["logdir"] or settings["LOG_DIR"])
+      raise ConfigError("Invalid pipeline destination \"" + destiny +
+                        "\" must be \"write\" or \"relay\"")
+
+    # Pull in optional configs
+    optional_configs = [
+      'aggregation.conf',
+      'amqp.conf',
+      'management.conf',
+    ]
+    for filename in optional_configs:
+      if settings.file_exists(filename):
+        settings.read_file(filename)
+
+    settings["pidfile"] = (
+        options["pidfile"] or
+        join(settings["PID_DIR"], '%s.pid' % instance))
+    settings["LOG_DIR"] = (options["logdir"] or settings["LOG_DIR"])
 
     return settings
+
+
+def read_writer_configs():
+  db_settings = settings.read_file('db.conf')
+  writer_settings = settings.read_file('writer.conf')
+
+  db = db_settings['DATABASE']
+
+  settings['STORAGE_RULES'] = load_storage_rules(settings)
+  settings['CACHE_SIZE_LOW_WATERMARK'] = settings.MAX_CACHE_SIZE * 0.95
+
+  # Database-specific settings
+  if db not in TimeSeriesDatabase.plugins:
+    raise ConfigError("No database plugin implemented for '%s'" % db)
+
+  DatabasePlugin = TimeSeriesDatabase.plugins[db]
+  state.database = DatabasePlugin(settings)
+
+
+def load_storage_rules(settings):
+  storage_rules = settings.read_file('storage-rules.conf', ordered_items=True)
+  if [k for (k,v) in storage_rules if not isinstance(v, dict)]:
+    raise ConfigError("Global settings not allowed in storage-rules.conf")
+
+  # There is almost certainly a better way to set this up.
+  default_storage_rule = {
+    'match-all' : 'true',
+    'retentions' : '1m:1w', # minutely data for a week
+    'xfilesfactor' : 0.5,
+    'aggregation-method' : 'average',
+  }
+
+  if 'default' in storage_rules:
+    default_storage_rule.update(storage_rules.pop('default'))
+
+  storage_rules.append(('default', default_storage_rule))
+  return [StorageRule(values) for name, values in storage_rules]
+
+
+def read_relay_configs():
+  relay_settings = settings.read_file('relay.conf')
+
+  method = relay_settings['RELAY_METHOD']
+  if method not in ('consistent-hashing', 'aggregated-consistent-hashing', 'relay-rules'):
+    raise ConfigError("Invalid RELAY_METHOD \"" + method + "\" must be "
+                      "one of: consistent-hashing, aggregated-consistent-hashing, relay-rules")
+
+  if not relay_settings['DESTINATIONS']:
+    raise ConfigError("relay.conf DESTINATIONS cannot be empty")
+
+  settings['DESTINATIONS'] = util.parseDestinations(relay_settings['DESTINATIONS'])
+
+
+def _process_alive(pid):
+    if exists("/proc"):
+        return exists("/proc/%d" % pid)
+    else:
+        try:
+            os.kill(int(pid), 0)
+            return True
+        except OSError, err:
+            return err.errno == errno.EPERM
+
+

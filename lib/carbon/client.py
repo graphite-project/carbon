@@ -5,7 +5,7 @@ from twisted.internet.protocol import ReconnectingClientFactory
 from twisted.protocols.basic import Int32StringReceiver
 from carbon.conf import settings
 from carbon.util import pickle
-from carbon import log, state, instrumentation
+from carbon import log, state, instrumentation, pipeline
 
 
 SEND_QUEUE_LOW_WATERMARK = settings.MAX_QUEUE_SIZE * 0.8
@@ -19,8 +19,8 @@ class CarbonClientProtocol(Int32StringReceiver):
     self.transport.registerProducer(self, streaming=True)
     # Define internal metric names
     self.destinationName = self.factory.destinationName
-    self.queuedUntilReady = 'destinations.%s.queuedUntilReady' % self.destinationName
-    self.sent = 'destinations.%s.sent' % self.destinationName
+    self.queuedUntilReady = 'destinations.%s.queued_until_destination_ready' % self.destinationName
+    self.sent = 'destinations.%s.datapoints_sent' % self.destinationName
 
     self.factory.connectionMade.callback(self)
     self.factory.connectionMade = Deferred()
@@ -99,9 +99,9 @@ class CarbonClientFactory(ReconnectingClientFactory):
     self.connectionMade = Deferred()
     self.connectionLost = Deferred()
     # Define internal metric names
-    self.attemptedRelays = 'destinations.%s.attemptedRelays' % self.destinationName
-    self.fullQueueDrops = 'destinations.%s.fullQueueDrops' % self.destinationName
-    self.queuedUntilConnected = 'destinations.%s.queuedUntilConnected' % self.destinationName
+    self.attemptedRelays = 'destinations.%s.attempted_relays' % self.destinationName
+    self.fullQueueDrops = 'destinations.%s.full_queue_drops' % self.destinationName
+    self.queuedUntilConnected = 'destinations.%s.queued_until_connected' % self.destinationName
 
   def queueFullCallback(self, result):
     state.events.cacheFull()
@@ -258,3 +258,11 @@ class CarbonClientManager(Service):
 
   def __str__(self):
     return "<%s[%x]>" % (self.__class__.__name__, id(self))
+
+
+class RelayProcessor(pipeline.Processor):
+  plugin_name = 'relay'
+
+  def process(self, metric, datapoint):
+    state.client_manager.sendDatapoint(metric, datapoint)
+    return pipeline.Processor.NO_OUTPUT

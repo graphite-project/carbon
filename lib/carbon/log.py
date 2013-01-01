@@ -78,8 +78,8 @@ def creates(message, **context):
   context['type'] = 'creates'
   msg(message, **context)
 
-def updates(message, **context):
-  context['type'] = 'updates'
+def writes(message, **context):
+  context['type'] = 'writes'
   msg(message, **context)
 
 def listener(message, **context):
@@ -92,6 +92,10 @@ def relay(message, **context):
 
 def aggregator(message, **context):
   context['type'] = 'aggregator'
+  msg(message, **context)
+
+def filter(message, **context):
+  context['type'] = 'filter'
   msg(message, **context)
 
 def query(message, **context):

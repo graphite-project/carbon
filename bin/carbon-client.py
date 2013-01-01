@@ -15,8 +15,9 @@ limitations under the License."""
 
 import sys
 import imp
-from os.path import dirname, join, abspath, exists
+from os.path import dirname, join, abspath, exists, split
 from optparse import OptionParser
+import os, time
 
 # Figure out where we're installed
 BIN_DIR = dirname(abspath(__file__))
@@ -36,15 +37,18 @@ except ImportError:
   pass
 
 from twisted.internet import stdio, reactor, defer
+from twisted.internet.task import LoopingCall
 from twisted.protocols.basic import LineReceiver
 from carbon.routers import ConsistentHashingRouter, RelayRulesRouter
 from carbon.client import CarbonClientManager
+from carbon.conf import settings
 from carbon import log, events
 
 
 option_parser = OptionParser(usage="%prog [options] <host:port:instance> <host:port:instance> ...")
 option_parser.add_option('--debug', action='store_true', help="Log debug info to stdout")
 option_parser.add_option('--keyfunc', help="Use a custom key function (path/to/module.py:myFunc)")
+option_parser.add_option('--datadir', help="Directory containing files to load", default=None)
 option_parser.add_option('--replication', type='int', default=1, help='Replication factor')
 option_parser.add_option('--routing', default='consistent-hashing',
   help='Routing method: "consistent-hashing" (default) or "relay"')
@@ -84,7 +88,9 @@ if options.routing == 'consistent-hashing':
   router = ConsistentHashingRouter(options.replication)
 elif options.routing == 'relay':
   if exists(options.relayrules):
-    router = RelayRulesRouter(options.relayrules)
+    config_dir, relayrules = split(abspath(options.relayrules))
+    settings.use_config_directory(config_dir)
+    router = RelayRulesRouter(relayrules)
   else:
     print "relay rules file %s does not exist" % options.relayrules
     raise SystemExit(1)
@@ -120,7 +126,57 @@ class StdinMetricsReader(LineReceiver):
       allStopped.addCallback(shutdown)
     firstConnectsAttempted.addCallback(startShutdown)
 
-stdio.StandardIO( StdinMetricsReader() )
+  def startShutdown(results):
+    log.msg("startShutdown(%s)" % str(results))
+    allStopped = client_manager.stopAllClients()
+    allStopped.addCallback(shutdown) 
+    firstConnectsAttempted.addCallback(startShutdown)
+
+
+class FileLoader(object):
+  def __init__(self, datadir):
+    self.filelist = []
+    self.datadir = datadir
+
+  def getNextFile(self):
+    if len(self.filelist) == 0:
+      self.filelist = os.listdir(self.datadir)[-100:]
+      if len(self.filelist) < 10:
+        # relax if there is not that much data
+        time.sleep(1)
+    return os.path.join(self.datadir, self.filelist.pop())
+
+  def loadMetricsFile(self):
+    try:
+      fname = self.getNextFile()
+      if os.path.splitext(fname)[1] == '.log':
+        log.msg("Feeding %s" % fname)
+        f = open(fname)
+        while True:
+          line = f.readline()
+          if not line:
+            break
+          try:
+            (metric, value, timestamp) = line.strip().split()
+            datapoint = (float(timestamp), float(value))
+            client_manager.sendDatapoint(metric, datapoint)
+          except:
+            log.err(None, 'Dropping invalid line: %s' % line)
+        f.close()
+        try:
+          os.remove(fname)
+        except OSError:
+          pass
+    except IndexError:
+      log.debug("No data, sleeping 1 sec")
+      time.sleep(1)
+ 
+if options.datadir is None:
+  stdio.StandardIO( StdinMetricsReader() )
+else:
+  fl = FileLoader(options.datadir)
+  lc = LoopingCall(fl.loadMetricsFile)
+  lc.start(0)
 
 exitCode = 0
 def shutdown(results):

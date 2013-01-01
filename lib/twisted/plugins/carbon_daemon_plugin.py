@@ -7,19 +7,18 @@ from carbon import service
 from carbon import conf
 
 
-class CarbonRelayServiceMaker(object):
-
+class CarbonDaemonServiceMaker(object):
     implements(IServiceMaker, IPlugin)
-    tapname = "carbon-relay"
-    description = "Relay stats for graphite."
-    options = conf.CarbonRelayOptions
+    tapname = "carbon-daemon"
+    description = "Graphite's Backend"
+    options = conf.CarbonDaemonOptions
 
     def makeService(self, options):
         """
-        Construct a C{carbon-relay} service.
+        Construct a C{carbon-daemon} service.
         """
-        return service.createRelayService(options)
+        return service.createDaemonService(options)
 
 
 # Now construct an object which *provides* the relevant interfaces
-serviceMaker = CarbonRelayServiceMaker()
+serviceMaker = CarbonDaemonServiceMaker()

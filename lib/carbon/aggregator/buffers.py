@@ -1,8 +1,11 @@
 import time
 from twisted.internet.task import LoopingCall
 from carbon.conf import settings
-from carbon import log
+from carbon import log, instrumentation
 
+instrumentation.configure_stats('aggregation.compute_value_microseconds', ('total', 'min', 'max', 'avg'))
+
+ONE_MILLION = 1000000 # I hate counting zeroes
 
 class BufferManager:
   def __init__(self):
@@ -51,7 +54,7 @@ class MetricBuffer:
     self.aggregation_frequency = int(frequency)
     self.aggregation_func = func
     self.compute_task = LoopingCall(self.compute_value)
-    self.compute_task.start(settings['WRITE_BACK_FREQUENCY'] or frequency, now=False)
+    self.compute_task.start(settings['AGGREGATION_WRITE_BACK_FREQUENCY'] or int(frequency), now=False)
     self.configured = True
 
   def compute_value(self):
@@ -60,15 +63,25 @@ class MetricBuffer:
     age_threshold = current_interval - (settings['MAX_AGGREGATION_INTERVALS'] * self.aggregation_frequency)
 
     for buffer in self.interval_buffers.values():
+      # If the interval is the current one, then skip computing it for now.
+      #  People get antsy about computed values being "wrong" when not enough data points are in
+      if buffer.interval == current_interval:
+        continue
+
+      # If interval is too old, then delete it.
+      if buffer.interval < age_threshold:
+        del self.interval_buffers[buffer.interval]
+        continue
+
+      # If buffer is active, then compute it.
       if buffer.active:
         value = self.aggregation_func(buffer.values)
         datapoint = (buffer.interval, value)
         state.events.metricGenerated(self.metric_path, datapoint)
-        state.instrumentation.increment('aggregateDatapointsSent')
+        instrumentation.increment('aggregation.datapoints_generated')
         buffer.mark_inactive()
-
-      if buffer.interval < age_threshold:
-        del self.interval_buffers[buffer.interval]
+    duration_micros = (time.time() - now) * ONE_MILLION
+    instrumentation.append('aggregation.compute_value_microseconds', duration_micros)
 
   def close(self):
     if self.compute_task and self.compute_task.running:
@@ -97,6 +110,15 @@ class IntervalBuffer:
 
 # Shared importable singleton
 BufferManager = BufferManager()
+
+instrumentation.configure_metric_function(
+  'aggregation.allocated_buffers',
+  lambda: len(BufferManager)
+)
+instrumentation.configure_metric_function(
+  'aggregation.buffered_datapoints',
+  lambda: sum([b.size for b in BufferManager.buffers.values()])
+)
 
 # Avoid import circularity
 from carbon import state

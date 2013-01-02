@@ -1,354 +1,353 @@
+import errno
 import os
+import re
 from os import makedirs
 from os.path import dirname, join
 from unittest import TestCase
-from mocker import MockerTestCase
-from carbon.conf import get_default_parser, parse_options, read_config
+from mock import Mock, mock_open, patch
+
+from twisted.python.usage import Options
+from carbon.conf import CarbonConfiguration, CarbonDaemonOptions, ConfigError, Filter
 
 
-class FakeParser(object):
+def mock_open_iter(mock=None, read_data=None):
+    """Allow the mocked file handle to be iterated over. Unfortunately, this
+    allows the data in read_data to be read multiple times (once with read(),
+    once iteratively)."""
+    open_mock = mock_open(mock, read_data)
+    if read_data:
+        lines_with_endings = [l + '\n' for l in read_data.split('\n')]
+        open_mock.return_value.__iter__.return_value = lines_with_endings
+        # context open
+        open_mock.return_value.__enter__.return_value.__iter__.return_value = lines_with_endings
+    return open_mock
 
-    def __init__(self):
-        self.called = []
+class CarbonConfigurationTest(TestCase):
+    sample_config = {
+        "global": """
+GLOBAL_KEY = global_foo
+[foo_section]
+FOO_KEY = foo_value
+""",
+        "section": """
+[foo_section]
+FOO_KEY = foo_value
+""",
+        "types": """
+INT = 1
+FLOAT = 1.0
+BOOL = true
+STRING = string
+DEFAULT = false""",
+        "comments": """
+# A comment
+#[commented_section]
+#COMMENTED_SETTING = value
+  \t # Comment with prepending whitespace
+""",
+        "ordered_sections": """
+        [section_one]
+        [section_two]
+        [section_three]
+"""
+    }
 
-    def parse_args(self, args):
-        return object(), args
+    def setUp(self):
+        self.carbon_config = CarbonConfiguration()
 
-    def print_usage(self):
-        self.called.append("print_usage")
+    def test_missing_item(self):
+        self.assertRaises(ConfigError, self.carbon_config.__getitem__, 'foo')
+
+    def test_missing_attribute(self):
+        self.assertRaises(ConfigError, self.carbon_config.__getattribute__, 'foo')
+
+    def test_attribute_access(self):
+        self.carbon_config['foo'] = 'bar'
+        self.assertEqual('bar', self.carbon_config.foo)
+
+    @patch('carbon.conf.glob')
+    def test_get_config_files(self, glob_mock):
+        glob_mock.return_value = ['/test-instance/daemon.conf',
+                                  '/test-instance/listeners.conf']
+        self.carbon_config.use_config_directory('/test-instance')
+        glob_mock.assert_called_with('/test-instance/*.conf')
+        self.assertEquals(['daemon.conf', 'listeners.conf'], self.carbon_config.config_files)
+
+    def test_file_exists_unconfigured(self):
+        self.assertRaises(ConfigError, self.carbon_config.file_exists, 'daemon.conf')
+
+    def test_file_exists(self):
+        self.carbon_config.config_dir = '/test-instance'
+        self.carbon_config.config_files = ['daemon.conf', 'listeners.conf']
+        self.assertTrue(self.carbon_config.file_exists('daemon.conf'))
+        self.assertTrue(self.carbon_config.file_exists('listeners.conf'))
+        self.assertFalse(self.carbon_config.file_exists('bar.conf'))
+
+    def test_get_path_unconfigured(self):
+        self.assertRaises(ConfigError, self.carbon_config.get_path, 'daemon.conf')
+
+    @patch('carbon.conf.exists', new=Mock(return_value=False))
+    def test_get_path_nonexistent(self):
+        self.carbon_config.config_dir = '/test-instance'
+        self.assertRaises(ConfigError, self.carbon_config.get_path, 'foo.conf')
+
+    @patch('carbon.conf.exists', new=Mock(return_value=True))
+    def test_get_path_existing(self):
+        self.carbon_config.config_dir = '/test-instance'
+        self.assertEqual(join('/test-instance', 'daemon.conf'), self.carbon_config.get_path('daemon.conf'))
+
+    @patch('carbon.conf.exists', new=Mock(return_value=True))
+    def test_read_empty_file(self):
+        from carbon.conf import defaults
+        open_mock = mock_open_iter()
+        self.carbon_config.use_config_directory('/test-instance')
+        with patch('__builtin__.open', open_mock):
+            result = self.carbon_config.read_file('foo')
+        self.assertEqual({}, result)
+        self.assertEqual(defaults, self.carbon_config)
+
+    @patch('carbon.conf.exists', new=Mock(return_value=True))
+    def test_ignore_comments(self):
+        from carbon.conf import defaults
+        open_mock = mock_open_iter(read_data=self.sample_config['comments'])
+        self.carbon_config.use_config_directory('/test-instance')
+        with patch('__builtin__.open', open_mock):
+            result = self.carbon_config.read_file('foo')
+        self.assertEqual({}, result)
+        self.assertEqual(defaults, self.carbon_config)
+
+    @patch('carbon.conf.exists', new=Mock(return_value=True))
+    def test_read_globals(self):
+        open_mock = mock_open_iter(read_data=self.sample_config['global'])
+        self.carbon_config.use_config_directory('/test-instance')
+        with patch('__builtin__.open', open_mock):
+            result = self.carbon_config.read_file('foo')
+            self.assertEqual('global_foo', result['GLOBAL_KEY'])
+            self.assertEqual('global_foo', self.carbon_config['GLOBAL_KEY'])
+            self.assertFalse(result.has_key('FOO_KEY'))
+            self.assertFalse(self.carbon_config.has_key('FOO_KEY'))
+
+    @patch('carbon.conf.exists', new=Mock(return_value=True))
+    def test_read_section(self):
+        open_mock = mock_open_iter(read_data=self.sample_config['section'])
+        self.carbon_config.use_config_directory('/test-instance')
+        with patch('__builtin__.open', open_mock):
+            result = self.carbon_config.read_file('foo')
+            self.assertEqual({'FOO_KEY': 'foo_value'}, result['foo_section'])
+            self.assertEqual({'FOO_KEY': 'foo_value'}, self.carbon_config['foo_section'])
+
+    @patch('carbon.conf.exists', new=Mock(return_value=True))
+    def test_type_coercion(self):
+        open_mock = mock_open_iter(read_data=self.sample_config['types'])
+        self.carbon_config.use_config_directory('/test-instance')
+        with patch.dict('carbon.conf.defaults', {
+            'INT': int(2),
+            'FLOAT': float(2.0),
+            'BOOL': bool(True),
+            'STRING': str('string')
+        }):
+            with patch('__builtin__.open', open_mock):
+                result = self.carbon_config.read_file('foo')
+                self.assertEqual(int, type(result['INT']))
+                self.assertEqual(float, type(result['FLOAT']))
+                self.assertEqual(bool, type(result['BOOL']))
+                self.assertEqual(str, type(result['STRING']))
+                # Default is string
+                self.assertEqual(str, type(result['DEFAULT']))
+
+    @patch('carbon.conf.exists', new=Mock(return_value=True))
+    def test_no_store(self):
+        from carbon.conf import defaults
+        open_mock = mock_open_iter(read_data=self.sample_config['section'])
+        self.carbon_config.use_config_directory('/test-instance')
+        with patch('__builtin__.open', open_mock):
+            result = self.carbon_config.read_file('foo', store=False)
+            self.assertEqual({'FOO_KEY': 'foo_value'}, result['foo_section'])
+            self.assertEqual(defaults, self.carbon_config)
+
+    @patch('carbon.conf.exists', new=Mock(return_value=True))
+    def test_ordered_items(self):
+        open_mock = mock_open_iter(read_data=self.sample_config['ordered_sections'])
+        self.carbon_config.use_config_directory('/test-instance')
+        with patch('__builtin__.open', open_mock):
+            result = self.carbon_config.read_file('foo', ordered_items=True)
+            self.assertEqual(list, type(result))
+            self.assertEqual('section_one', result[0][0])
+            self.assertEqual('section_two', result[1][0])
+            self.assertEqual('section_three', result[2][0])
 
 
-class FakeOptions(object):
+class FilterTest(TestCase):
+    def test_action_init(self):
+        self.assertEqual('include', Filter('include', '').action)
+        self.assertEqual('exclude', Filter('exclude', '').action)
+        self.assertRaises(ValueError, lambda: Filter('foo', ''))
 
-    def __init__(self, **kwargs):
-        self.__dict__.update(kwargs)
+    def test_regex_init(self):
+        self.assertEqual(re.compile('.*'), Filter('include', '.*').regex)
+        self.assertRaises(re.error, lambda: Filter('include', '('))
 
-    def __getitem__(self, name):
-        return self.__dict__[name]
+    def test_matches(self):
+        self.assertTrue(Filter('include', '.*').matches('anything'))
+        self.assertTrue(Filter('exclude', '.*').matches('anything'))
+        self.assertFalse(Filter('include', '[123]').matches('abc'))
 
-    def __setitem__(self, name, value):
-        self.__dict__[name] = value
+    def test_include_allow_on_match(self):
+        with patch.object(Filter, 'matches', return_value=True):
+            self.assertTrue(Filter('include', '').allow(''))
 
+    def test_include_disallow_no_match(self):
+        with patch.object(Filter, 'matches', return_value=False):
+            self.assertFalse(Filter('include', '').allow(''))
 
-class DefaultParserTest(TestCase):
+    def test_exclude_allow_no_match(self):
+        with patch.object(Filter, 'matches', return_value=False):
+            self.assertTrue(Filter('exclude', '').allow(''))
 
-    def test_default_parser(self):
-        """Check default parser settings."""
-        parser = get_default_parser()
-        self.assertTrue(parser.has_option("--debug"))
-        self.assertEqual(None, parser.defaults["debug"])
-        self.assertTrue(parser.has_option("--profile"))
-        self.assertEqual(None, parser.defaults["profile"])
-        self.assertTrue(parser.has_option("--pidfile"))
-        self.assertEqual(None, parser.defaults["pidfile"])
-        self.assertTrue(parser.has_option("--config"))
-        self.assertEqual(None, parser.defaults["config"])
-        self.assertTrue(parser.has_option("--logdir"))
-        self.assertEqual(None, parser.defaults["logdir"])
-        self.assertTrue(parser.has_option("--instance"))
-        self.assertEqual("a", parser.defaults["instance"])
-
-
-class ParseOptionsTest(TestCase):
-
-    def test_no_args_prints_usage_and_exit(self):
-        """
-        If no arguments are provided, the usage help will be printed and a
-        SystemExit exception will be raised.
-        """
-        parser = FakeParser()
-        self.assertRaises(SystemExit, parse_options, parser, ())
-        self.assertEqual(["print_usage"], parser.called)
-
-    def test_no_valid_args_prints_usage_and_exit(self):
-        """
-        If an argument which isn't a valid command was provided, 'print_usage'
-        will be called and a SystemExit exception will be raised.
-        """
-        parser = FakeParser()
-        self.assertRaises(SystemExit, parse_options, parser, ("bazinga!",))
-        self.assertEqual(["print_usage"], parser.called)
-
-    def test_valid_args(self):
-        """
-        If a valid argument is provided, it will be returned along with
-        options.
-        """
-        parser = FakeParser()
-        options, args = parser.parse_args(("start",))
-        self.assertEqual(("start",), args)
+    def test_exclude_disallow_on_match(self):
+        with patch.object(Filter, 'matches', return_value=True):
+            self.assertFalse(Filter('exclude', '').allow(''))
 
 
-class ReadConfigTest(MockerTestCase):
+class CarbonOptionsTest(TestCase):
+    def setUp(self):
+        self.daemon_options = CarbonDaemonOptions()
 
-    def test_root_dir_is_required(self):
-        """
-        At minimum, the caller must provide a 'ROOT_DIR' setting.
-        """
-        try:
-            read_config("carbon-foo", FakeOptions(config=None))
-        except ValueError, e:
-            self.assertEqual("Either ROOT_DIR or GRAPHITE_ROOT "
-                             "needs to be provided.", e.message)
-        else:
-            self.fail("Did not raise exception.")
+    def test_long_options(self):
+        self.assertTrue('debug' in self.daemon_options.longOpt)
+        self.assertTrue('nodaemon' in self.daemon_options.longOpt)
+        self.assertTrue('config=' in self.daemon_options.longOpt)
+        self.assertTrue('logdir=' in self.daemon_options.longOpt)
+        self.assertTrue('umask=' in self.daemon_options.longOpt)
 
-    def test_config_is_not_required(self):
-        """
-        If the '--config' option is not provided, it defaults to
-        ROOT_DIR/conf/carbon.conf.
-        """
-        root_dir = self.makeDir()
-        conf_dir = join(root_dir, "conf")
-        makedirs(conf_dir)
-        self.makeFile(content="[foo]",
-                      basename="carbon.conf",
-                      dirname=conf_dir)
-        options = FakeOptions(config=None, instance=None,
-                              pidfile=None, logdir=None)
-        read_config("carbon-foo", options, ROOT_DIR=root_dir)
-        self.assertEqual(join(root_dir, "conf", "carbon.conf"),
-                         options["config"])
+    def test_short_options(self):
+        self.assertTrue('c' in self.daemon_options.shortOpt)
 
-    def test_config_dir_from_environment(self):
-        """
-        If the 'GRAPHITE_CONFIG_DIR' variable is set in the environment, then
-        'CONFIG_DIR' will be set to that directory.
-        """
-        root_dir = self.makeDir()
-        conf_dir = join(root_dir, "configs", "production")
-        makedirs(conf_dir)
-        self.makeFile(content="[foo]",
-                      basename="carbon.conf",
-                      dirname=conf_dir)
-        orig_value = os.environ.get("GRAPHITE_CONF_DIR", None)
-        if orig_value is not None:
-            self.addCleanup(os.environ.__setitem__,
-                            "GRAPHITE_CONF_DIR",
-                            orig_value)
-        else:
-            self.addCleanup(os.environ.__delitem__, "GRAPHITE_CONF_DIR")
-        os.environ["GRAPHITE_CONF_DIR"] = conf_dir
-        settings = read_config("carbon-foo",
-                               FakeOptions(config=None, instance=None,
-                                           pidfile=None, logdir=None),
-                               ROOT_DIR=root_dir)
-        self.assertEqual(conf_dir, settings.CONF_DIR)
 
-    def test_conf_dir_defaults_to_config_dirname(self):
-        """
-        The 'CONF_DIR' setting defaults to the parent directory of the
-        provided configuration file.
-        """
-        config = self.makeFile(content="[foo]")
-        settings = read_config(
-            "carbon-foo",
-            FakeOptions(config=config, instance=None,
-                        pidfile=None, logdir=None),
-            ROOT_DIR="foo")
-        self.assertEqual(dirname(config), settings.CONF_DIR)
+class HandleActionTest(TestCase):
+    def setUp(self):
+        self.daemon_options = CarbonDaemonOptions()
+        self.daemon_options['instance'] = 'a'
+        self.daemon_options.parent = Options()
+        self.daemon_options.parent['pidfile'] = 'pidfile_path/carbon.pid'
 
-    def test_storage_dir_relative_to_root_dir(self):
-        """
-        The 'STORAGE_DIR' setting defaults to the 'storage' directory relative
-        to the 'ROOT_DIR' setting.
-        """
-        config = self.makeFile(content="[foo]")
-        settings = read_config(
-            "carbon-foo",
-            FakeOptions(config=config, instance=None,
-                        pidfile=None, logdir=None),
-            ROOT_DIR="foo")
-        self.assertEqual(join("foo", "storage"), settings.STORAGE_DIR)
+    def test_invalid_action(self):
+        self.daemon_options['action'] = 'foo'
+        self.assertRaisesRegexp(SystemExit, '1', self.daemon_options.handleAction)
 
-    def test_log_dir_relative_to_storage_dir(self):
-        """
-        The 'LOG_DIR' setting defaults to a program-specific directory relative
-        to the 'STORAGE_DIR' setting.
-        """
-        config = self.makeFile(content="[foo]")
-        settings = read_config(
-            "carbon-foo",
-            FakeOptions(config=config, instance=None,
-                        pidfile=None, logdir=None),
-            ROOT_DIR="foo")
-        self.assertEqual(join("foo", "storage", "log", "carbon-foo"),
-                         settings.LOG_DIR)
+    @patch('carbon.conf.exists', new=Mock(return_value=False))
+    def test_stop_no_pidfile(self):
+        self.daemon_options['action'] = 'stop'
+        self.assertRaisesRegexp(SystemExit, '0', self.daemon_options.handleAction)
 
-    def test_log_dir_relative_to_provided_storage_dir(self):
-        """
-        Providing a different 'STORAGE_DIR' in defaults overrides the default
-        of being relative to 'ROOT_DIR'.
-        """
-        config = self.makeFile(content="[foo]")
-        settings = read_config(
-            "carbon-foo",
-            FakeOptions(config=config, instance=None,
-                        pidfile=None, logdir=None),
-            ROOT_DIR="foo", STORAGE_DIR="bar")
-        self.assertEqual(join("bar", "log", "carbon-foo"),
-                         settings.LOG_DIR)
+    @patch('carbon.conf.exists', new=Mock(return_value=True))
+    def test_stop_error_reading_pidfile(self):
+        open_mock = mock_open()
+        open_mock.return_value.read.side_effect = OSError
+        open_mock.return_value.__enter__.read.side_effect = OSError
+        with patch('__builtin__.open', open_mock):
+            self.daemon_options['action'] = 'stop'
+            self.assertRaisesRegexp(SystemExit, '1', self.daemon_options.handleAction)
+            open_mock.assert_called_once_with('pidfile_path/carbon.pid', 'r')
 
-    def test_log_dir_for_instance_relative_to_storage_dir(self):
-        """
-        The 'LOG_DIR' setting defaults to a program-specific directory relative
-        to the 'STORAGE_DIR' setting. In the case of an instance, the instance
-        name is appended to the directory.
-        """
-        config = self.makeFile(content="[foo]")
-        settings = read_config(
-            "carbon-foo",
-            FakeOptions(config=config, instance="x",
-                        pidfile=None, logdir=None),
-            ROOT_DIR="foo")
-        self.assertEqual(join("foo", "storage", "log",
-                              "carbon-foo", "carbon-foo-x"),
-                         settings.LOG_DIR)
+    @patch('carbon.conf.exists', new=Mock(return_value=True))
+    @patch('os.kill')
+    def test_stop_pid_not_exist(self, kill_mock):
+        kill_mock.side_effect = OSError(errno.ESRCH, None)
+        open_mock = mock_open(read_data='123456')
+        with patch('__builtin__.open', open_mock):
+            self.daemon_options['action'] = 'stop'
+            self.assertRaisesRegexp(SystemExit, '0', self.daemon_options.handleAction)
+            kill_mock.assert_called_once_with(123456, 15)
+            open_mock.assert_called_once_with('pidfile_path/carbon.pid', 'r')
 
-    def test_log_dir_for_instance_relative_to_provided_storage_dir(self):
-        """
-        Providing a different 'STORAGE_DIR' in defaults overrides the default
-        of being relative to 'ROOT_DIR'. In the case of an instance, the
-        instance name is appended to the directory.
-        """
-        config = self.makeFile(content="[foo]")
-        settings = read_config(
-            "carbon-foo",
-            FakeOptions(config=config, instance="x",
-                        pidfile=None, logdir=None),
-            ROOT_DIR="foo", STORAGE_DIR="bar")
-        self.assertEqual(join("bar", "log", "carbon-foo", "carbon-foo-x"),
-                         settings.LOG_DIR)
+    @patch('carbon.conf.exists', new=Mock(return_value=True))
+    @patch('os.kill')
+    def test_stop_pid_no_permission(self, kill_mock):
+        kill_mock.side_effect = OSError(errno.EPERM)
+        open_mock = mock_open(read_data='123456')
+        with patch('__builtin__.open', open_mock):
+            self.daemon_options['action'] = 'stop'
+            self.assertRaises(OSError, self.daemon_options.handleAction)
+            kill_mock.assert_called_once_with(123456, 15)
+            open_mock.assert_called_once_with('pidfile_path/carbon.pid', 'r')
 
-    def test_pidfile_relative_to_storage_dir(self):
-        """
-        The 'pidfile' setting defaults to a program-specific filename relative
-        to the 'STORAGE_DIR' setting.
-        """
-        config = self.makeFile(content="[foo]")
-        settings = read_config(
-            "carbon-foo",
-            FakeOptions(config=config, instance=None,
-                        pidfile=None, logdir=None),
-            ROOT_DIR="foo")
-        self.assertEqual(join("foo", "storage", "carbon-foo.pid"),
-                         settings.pidfile)
+    @patch('carbon.conf.exists', new=Mock(return_value=True))
+    @patch('os.kill')
+    def test_stop_pid_exists(self, kill_mock):
+        open_mock = mock_open(read_data='123456')
+        with patch('__builtin__.open', open_mock):
+            self.daemon_options['action'] = 'stop'
+            self.assertRaisesRegexp(SystemExit,'0', self.daemon_options.handleAction)
+            kill_mock.assert_called_once_with(123456, 15)
+            open_mock.assert_called_once_with('pidfile_path/carbon.pid', 'r')
 
-    def test_pidfile_in_options_has_precedence(self):
-        """
-        The 'pidfile' option from command line overrides the default setting.
-        """
-        config = self.makeFile(content="[foo]")
-        settings = read_config(
-            "carbon-foo",
-            FakeOptions(config=config, instance=None,
-                        pidfile="foo.pid", logdir=None),
-            ROOT_DIR="foo")
-        self.assertEqual("foo.pid", settings.pidfile)
+    @patch('carbon.conf.exists', new=Mock(return_value=False))
+    def test_status_no_pidfile(self):
+        self.daemon_options['action'] = 'status'
+        self.assertRaisesRegexp(SystemExit, '1', self.daemon_options.handleAction)
 
-    def test_pidfile_for_instance_in_options_has_precedence(self):
-        """
-        The 'pidfile' option from command line overrides the default setting
-        for the instance, if one is specified.
-        """
-        config = self.makeFile(content="[foo]")
-        settings = read_config(
-            "carbon-foo",
-            FakeOptions(config=config, instance="x",
-                        pidfile="foo.pid", logdir=None),
-            ROOT_DIR="foo")
-        self.assertEqual("foo.pid", settings.pidfile)
+    @patch('carbon.conf.exists', new=Mock(return_value=True))
+    def test_status_error_reading_pidfile(self):
+        open_mock = mock_open()
+        open_mock.return_value.read.side_effect = OSError
+        open_mock.return_value.__enter__.read.side_effect = OSError
+        with patch('__builtin__.open', open_mock):
+            self.daemon_options['action'] = 'status'
+            self.assertRaisesRegexp(SystemExit, '1', self.daemon_options.handleAction)
+            open_mock.assert_called_once_with('pidfile_path/carbon.pid', 'r')
 
-    def test_storage_dir_as_provided(self):
-        """
-        Providing a 'STORAGE_DIR' in defaults overrides the root-relative
-        default.
-        """
-        config = self.makeFile(content="[foo]")
-        settings = read_config(
-            "carbon-foo",
-            FakeOptions(config=config, instance=None,
-                        pidfile=None, logdir=None),
-            ROOT_DIR="foo", STORAGE_DIR="bar")
-        self.assertEqual("bar", settings.STORAGE_DIR)
+    @patch('carbon.conf.exists', new=Mock(return_value=True))
+    @patch('carbon.conf._process_alive')
+    def test_status_not_running(self, process_alive_mock):
+        process_alive_mock.return_value = False
+        open_mock = mock_open(read_data='123456')
+        with patch('__builtin__.open', open_mock):
+            self.daemon_options['action'] = 'status'
+            self.assertRaisesRegexp(SystemExit, '1', self.daemon_options.handleAction)
+            process_alive_mock.assert_called_once_with(123456)
+            open_mock.assert_called_once_with('pidfile_path/carbon.pid', 'r')
 
-    def test_log_dir_as_provided(self):
-        """
-        Providing a 'LOG_DIR' in defaults overrides the storage-relative
-        default.
-        """
-        config = self.makeFile(content="[foo]")
-        settings = read_config(
-            "carbon-foo",
-            FakeOptions(config=config, instance=None,
-                        pidfile=None, logdir=None),
-            ROOT_DIR="foo", STORAGE_DIR="bar", LOG_DIR='baz')
-        self.assertEqual("baz", settings.LOG_DIR)
+    @patch('carbon.conf.exists', new=Mock(return_value=True))
+    @patch('carbon.conf._process_alive')
+    def test_status_running(self, process_alive_mock):
+        process_alive_mock.return_value = True
+        open_mock = mock_open(read_data='123456')
+        with patch('__builtin__.open', open_mock):
+            self.daemon_options['action'] = 'status'
+            self.assertRaisesRegexp(SystemExit, '0', self.daemon_options.handleAction)
+            process_alive_mock.assert_called_once_with(123456)
+            open_mock.assert_called_once_with('pidfile_path/carbon.pid', 'r')
 
-    def test_log_dir_from_options(self):
-        """
-        Providing a 'LOG_DIR' in the command line overrides the
-        storage-relative default.
-        """
-        config = self.makeFile(content="[foo]")
-        settings = read_config(
-            "carbon-foo",
-            FakeOptions(config=config, instance=None,
-                        pidfile=None, logdir="baz"),
-            ROOT_DIR="foo")
-        self.assertEqual("baz", settings.LOG_DIR)
+    @patch('carbon.conf.exists', new=Mock(return_value=False))
+    def test_start_no_pidfile(self):
+        with patch('__builtin__.open', mock_open()) as open_mock:
+            self.daemon_options['action'] = 'start'
+            self.assertEqual(None, self.daemon_options.handleAction())
+            self.assertFalse(open_mock.called)
 
-    def test_log_dir_for_instance_from_options(self):
-        """
-        Providing a 'LOG_DIR' in the command line overrides the
-        storage-relative default for the instance.
-        """
-        config = self.makeFile(content="[foo]")
-        settings = read_config(
-            "carbon-foo",
-            FakeOptions(config=config, instance="x",
-                        pidfile=None, logdir="baz"),
-            ROOT_DIR="foo")
-        self.assertEqual("baz", settings.LOG_DIR)
+    @patch('carbon.conf.exists', new=Mock(return_value=True))
+    @patch('os.unlink')
+    @patch('carbon.conf._process_alive')
+    def test_start_with_active_pidfile(self, process_alive_mock, unlink_mock):
+        process_alive_mock.return_value = True
+        open_mock = mock_open(read_data='123456')
+        with patch('__builtin__.open', open_mock):
+            self.daemon_options['action'] = 'start'
+            self.assertRaisesRegexp(SystemExit, '1', self.daemon_options.handleAction)
+            process_alive_mock.assert_called_once_with(123456)
+            self.assertFalse(unlink_mock.called)
+            open_mock.assert_called_once_with('pidfile_path/carbon.pid', 'r')
 
-    def test_storage_dir_from_config(self):
-        """
-        Providing a 'STORAGE_DIR' in the configuration file overrides the
-        root-relative default.
-        """
-        config = self.makeFile(content="[foo]\nSTORAGE_DIR = bar")
-        settings = read_config(
-            "carbon-foo",
-            FakeOptions(config=config, instance=None,
-                        pidfile=None, logdir=None),
-            ROOT_DIR="foo")
-        self.assertEqual("bar", settings.STORAGE_DIR)
-
-    def test_log_dir_from_config(self):
-        """
-        Providing a 'LOG_DIR' in the configuration file overrides the
-        storage-relative default.
-        """
-        config = self.makeFile(content="[foo]\nLOG_DIR = baz")
-        settings = read_config(
-            "carbon-foo",
-            FakeOptions(config=config, instance=None,
-                        pidfile=None, logdir=None),
-            ROOT_DIR="foo")
-        self.assertEqual("baz", settings.LOG_DIR)
-
-    def test_log_dir_from_instance_config(self):
-        """
-        Providing a 'LOG_DIR' for the specific instance in the configuration
-        file overrides the storage-relative default. The actual value will have
-        the instance name appended to it and ends with a forward slash.
-        """
-        config = self.makeFile(
-            content=("[foo]\nLOG_DIR = baz\n"
-                     "[foo:x]\nLOG_DIR = boo"))
-        settings = read_config(
-            "carbon-foo",
-            FakeOptions(config=config, instance="x",
-                        pidfile=None, logdir=None),
-            ROOT_DIR="foo")
-        self.assertEqual("boo/carbon-foo-x", settings.LOG_DIR)
+    @patch('carbon.conf.exists', new=Mock(return_value=True))
+    @patch('os.unlink')
+    @patch('carbon.conf._process_alive')
+    def test_start_with_inactive_pidfile(self, process_alive_mock, unlink_mock):
+        process_alive_mock.return_value = False
+        open_mock = mock_open(read_data='123456')
+        with patch('__builtin__.open', open_mock):
+            self.daemon_options['action'] = 'start'
+            self.daemon_options.handleAction()
+            process_alive_mock.assert_called_once_with(123456)
+            unlink_mock.assert_called_once_with('pidfile_path/carbon.pid')
+            open_mock.assert_called_once_with('pidfile_path/carbon.pid', 'r')

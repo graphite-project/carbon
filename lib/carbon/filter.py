@@ -23,7 +23,7 @@ class FilterProcessor(Processor):
 
   def process(self, metric, datapoint):
     t = time.time()
-    for action, metric_filters in FilterRuleManager.filters:
+    for action, metric_filters in FilterRuleManager.filters.iteritems():
       for metric_filter in metric_filters:
         if action == 'include':
           if metric_filter.matches(metric):

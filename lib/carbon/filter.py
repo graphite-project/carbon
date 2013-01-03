@@ -23,21 +23,20 @@ class FilterProcessor(Processor):
 
   def process(self, metric, datapoint):
     t = time.time()
-    for action, metric_filters in FilterRuleManager.filters.iteritems():
-      for metric_filter in metric_filters:
-        if action == 'include':
-          if metric_filter.match(metric):
-            instrumentation.increment('filter.datapoints_passed_include')
-            duration_micros = (time.time() - t) * ONE_MILLION
-            instrumentation.append('pipeline.filter_microseconds', duration_micros)
-            yield (metric, datapoint)
-            return
-        elif action == 'exclude':
-          if metric_filter.match(metric):
-            instrumentation.increment('filter.datapoints_filtered')
-            duration_micros = (time.time() - t) * ONE_MILLION
-            instrumentation.append('pipeline.filter_microseconds', duration_micros)
-            return
+    for action, metric_filter in FilterRuleManager.filters:
+      if action == 'include':
+        if metric_filter.match(metric):
+          instrumentation.increment('filter.datapoints_passed_include')
+          duration_micros = (time.time() - t) * ONE_MILLION
+          instrumentation.append('pipeline.filter_microseconds', duration_micros)
+          yield (metric, datapoint)
+          return
+      elif action == 'exclude':
+        if metric_filter.match(metric):
+          instrumentation.increment('filter.datapoints_filtered')
+          duration_micros = (time.time() - t) * ONE_MILLION
+          instrumentation.append('pipeline.filter_microseconds', duration_micros)
+          return
     instrumentation.increment('filter.datapoints_passed_default')
     duration_micros = (time.time() - t) * ONE_MILLION
     instrumentation.append('pipeline.filter_microseconds', duration_micros)
@@ -58,7 +57,7 @@ class FilterRuleManager:
 
   def read_filters_from_file(self, filename):
     path = settings.get_path(filename)
-    filters = {}
+    filters = []
     for line in open(path):
       line = line.strip()
       if line.startswith('#') or not line:
@@ -68,7 +67,7 @@ class FilterRuleManager:
       except:
         raise ConfigError("Invalid filter line: %s" % line)
       else:
-        filters.setdefault(action, []).append(re.compile(regex_pattern))
+        filters.append((action, re.compile(regex_pattern)))
 
     return filters
 

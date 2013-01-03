@@ -26,14 +26,14 @@ class FilterProcessor(Processor):
     for action, metric_filters in FilterRuleManager.filters.iteritems():
       for metric_filter in metric_filters:
         if action == 'include':
-          if metric_filter.matches(metric):
+          if metric_filter.match(metric):
             instrumentation.increment('filter.datapoints_passed_include')
             duration_micros = (time.time() - t) * ONE_MILLION
             instrumentation.append('pipeline.filter_microseconds', duration_micros)
             yield (metric, datapoint)
             return
         elif action == 'exclude':
-          if metric_filter.matches(metric):
+          if metric_filter.match(metric):
             instrumentation.increment('filter.datapoints_filtered')
             duration_micros = (time.time() - t) * ONE_MILLION
             instrumentation.append('pipeline.filter_microseconds', duration_micros)
@@ -68,7 +68,7 @@ class FilterRuleManager:
       except:
         raise ConfigError("Invalid filter line: %s" % line)
       else:
-        filters.setdefault(action, []).append( regex_pattern )
+        filters.setdefault(action, []).append(re.compile(regex_pattern))
 
     return filters
 

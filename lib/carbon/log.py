@@ -2,8 +2,8 @@ import time
 from sys import stdout, stderr
 from zope.interface import implements
 from twisted.python.log import startLoggingWithObserver, textFromEventDict, msg, err, ILogObserver
-from twisted.python.syslog import SyslogObserver
 from twisted.python.logfile import DailyLogFile
+import crossplatform
 
 class CarbonLogObserver(object):
   implements(ILogObserver)
@@ -15,11 +15,7 @@ class CarbonLogObserver(object):
     self.observer = self.logdir_observer
 
   def log_to_syslog(self, prefix):
-    observer = SyslogObserver(prefix).emit
-    def syslog_observer(event):
-      event["system"] = event.get("type", "console")
-      observer(event)
-    self.observer = syslog_observer
+    crossplatform.log_to_syslog(self, prefix)
 
   def __call__(self, event):
     return self.observer(event)

@@ -1,7 +1,10 @@
 import os
 import time
 import socket
-from resource import getrusage, RUSAGE_SELF
+import platform
+import crossplatform
+from crossplatform import getrusage, RUSAGE_SELF
+
 
 from twisted.application.service import Service
 from twisted.internet.task import LoopingCall
@@ -10,7 +13,7 @@ from carbon.conf import settings
 
 stats = {}
 HOSTNAME = socket.gethostname().replace('.','_')
-PAGESIZE = os.sysconf('SC_PAGESIZE')
+PAGESIZE = crossplatform.sysconf('SC_PAGESIZE')
 rusage = getrusage(RUSAGE_SELF)
 lastUsage = rusage.ru_utime + rusage.ru_stime
 lastUsageTime = time.time()

@@ -57,8 +57,6 @@ def setupPipeline(root_service, settings):
             setupAggregatorProcessor(root_service, settings)
         elif processor == 'rewrite':
             setupRewriterProcessor(root_service, settings)
-        elif processor == 'whitelist':
-            setupWhitelistProcessor(root_service, settings)
         elif processor == 'filter':
             setupFilterProcessor(root_service, settings)
         elif processor == 'relay':
@@ -100,7 +98,6 @@ def setupFilterProcessor(root_service, settings):
         raise IOError(ENOENT, "%s file does not exist")
     FilterRuleManager.read_from(filter_rules_path)
 
-
 def setupRewriterProcessor(root_service, settings):
     from carbon.rewrite import RewriteRuleManager
 
@@ -108,14 +105,6 @@ def setupRewriterProcessor(root_service, settings):
     if not exists(rewrite_rules_path):
         raise IOError(ENOENT, "%s file does not exist")
     RewriteRuleManager.read_from(rewrite_rules_path)
-
-def setupWhitelistProcessor(root_service, settings):
-    from carbon.whitelist import WhitelistProcessor, WhiteList, BlackList
-
-    whitelist_path = join(settings.config_dir, "whitelist.conf")
-    blacklist_path = join(settings.config_dir, "blacklist.conf")
-    WhiteList.read_from(whitelist_path)
-    BlackList.read_from(blacklist_path)
 
 def setupRelayProcessor(root_service, settings):
     from carbon.routers import ConsistentHashingRouter, RelayRulesRouter

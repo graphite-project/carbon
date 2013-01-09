@@ -2,7 +2,7 @@ from carbon.instrumentation import increment
 from carbon.aggregator.rules import RuleManager
 from carbon.aggregator.buffers import BufferManager
 from carbon.rewrite import RewriteRuleManager
-from carbon import events
+from carbon import events, log
 
 
 def process(metric, datapoint):
@@ -32,4 +32,5 @@ def process(metric, datapoint):
     metric = rule.apply(metric)
 
   if metric not in aggregate_metrics:
+    log.msg("Couldn't match metric %s with any aggregation rule. Passing on un-aggregated." % metric)
     events.metricGenerated(metric, datapoint)

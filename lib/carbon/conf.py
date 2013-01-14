@@ -72,6 +72,7 @@ defaults = dict(
   CACHE_WRITE_STRATEGY='sorted',
   WRITE_BACK_FREQUENCY=None,
   ENABLE_LOGROTATION=True,
+  LOG_LISTENER_CONNECTIONS=True,
 )
 
 

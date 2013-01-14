@@ -178,6 +178,9 @@ WHISPER_AUTOFLUSH = False
 # from [carbon] section.
 # You can then specify the --instance=b option to manage this instance
 
+# In order to turn off logging of successful connections for the line
+# receiver, set this to False
+# LOG_LISTENER_CONN_SUCCESS = True
 
 
 [relay]
@@ -246,6 +249,9 @@ USE_FLOW_CONTROL = True
 # CARBON_METRIC_PREFIX = carbon
 # CARBON_METRIC_INTERVAL = 60
 
+# In order to turn off logging of successful connections for the line
+# receiver, set this to False
+# LOG_LISTENER_CONN_SUCCESS = True
 
 [aggregator]
 LINE_RECEIVER_INTERFACE = 0.0.0.0
@@ -312,3 +318,7 @@ MAX_AGGREGATION_INTERVALS = 5
 # seconds. Set CARBON_METRIC_INTERVAL to 0 to disable instrumentation
 # CARBON_METRIC_PREFIX = carbon
 # CARBON_METRIC_INTERVAL = 60
+
+# In order to turn off logging of successful connections for the line
+# receiver, set this to False
+# LOG_LISTENER_CONN_SUCCESS = True

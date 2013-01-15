@@ -87,13 +87,13 @@ class MetricCache(dict):
       self.lock.release()
 
     micros = int((time.time() - t) * 1000000)
-    log.msg("Generated %d cache queues in %d microseconds" %
+    log.debug("Generated %d cache queues in %d microseconds" %
             (len(metric_queue_sizes), micros))
 
     t = time.time()
     metric_queue_sizes.sort(key=lambda item: item[1], reverse=True)
     micros = int((time.time() - t) * 1000000)
-    log.msg("Sorted %d cache queues in %d microseconds" %
+    log.debug("Sorted %d cache queues in %d microseconds" %
             (len(metric_queue_sizes), micros))
 
     for metric, queue_size in metric_queue_sizes:

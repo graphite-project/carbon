@@ -45,6 +45,9 @@ def run_twistd_plugin(filename):
         "--debug", action="store_true",
         help="Run in the foreground, log to stdout")
     parser.add_option(
+        "--nodaemon", action="store_true",
+        help="Run in the foreground")
+    parser.add_option(
         "--profile",
         help="Record performance profile data to the given file")
     parser.add_option(
@@ -56,6 +59,9 @@ def run_twistd_plugin(filename):
     parser.add_option(
         "--pidfile", default=None,
         help="Write pid to the given file")
+    parser.add_option(
+        "--umask", default=None,
+        help="Use the given umask when creating files")
     parser.add_option(
         "--config",
         default=None,

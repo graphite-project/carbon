@@ -1,5 +1,6 @@
 #TODO(chrismd): unify this with the webapp's storage plugin system after the 1.1 merge
 
+import errno
 import os
 from os.path import join, exists, dirname
 from carbon.util import PluginRegistrar
@@ -64,7 +65,11 @@ else:
     def create(self, metric, **options):
       path = self._get_filesystem_path(metric)
       directory = dirname(path)
-      os.system("(umask u=rwx,go=rx; mkdir -p -m 755 '%s')" % directory)
+      try:
+        os.makedirs(directory, 0755)
+      except OSError, e:
+        if e.errno != errno.EEXIST:
+          raise
 
       # convert argument naming convention
       options['archiveList'] = options.pop('retentions')

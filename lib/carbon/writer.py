@@ -27,99 +27,6 @@ from twisted.internet.task import LoopingCall
 from twisted.application.service import Service
 
 
-lastCreateInterval = 0
-createCount = 0
-schemas = loadStorageSchemas()
-agg_schemas = loadAggregationSchemas()
-CACHE_SIZE_LOW_WATERMARK = settings.MAX_CACHE_SIZE * 0.95
-
-
-def optimalWriteOrder():
-  """Generates metrics with the most cached values first and applies a soft
-  rate limit on new metrics"""
-  global lastCreateInterval
-  global createCount
-  metrics = MetricCache.counts()
-
-  t = time.time()
-  metrics.sort(key=lambda item: item[1], reverse=True)  # by queue size, descending
-  log.debug("Sorted %d cache queues in %.6f seconds" % (len(metrics),
-                                                        time.time() - t))
-
-  for metric, queueSize in metrics:
-    if state.cacheTooFull and MetricCache.size < CACHE_SIZE_LOW_WATERMARK:
-      events.cacheSpaceAvailable()
-
-    dbFilePath = getFilesystemPath(metric)
-    dbFileExists = exists(dbFilePath)
-
-    if not dbFileExists:
-      createCount += 1
-      now = time.time()
-
-      if now - lastCreateInterval >= 60:
-        lastCreateInterval = now
-        createCount = 1
-
-      elif createCount >= settings.MAX_CREATES_PER_MINUTE:
-        # dropping queued up datapoints for new metrics prevents filling up the entire cache
-        # when a bunch of new metrics are received.
-        try:
-          MetricCache.pop(metric)
-        except KeyError:
-          pass
-
-        continue
-
-    try:  # metrics can momentarily disappear from the MetricCache due to the implementation of MetricCache.store()
-      datapoints = MetricCache.pop(metric)
-    except KeyError:
-      log.msg("MetricCache contention, skipping %s update for now" % metric)
-      continue  # we simply move on to the next metric when this race condition occurs
-
-    yield (metric, datapoints, dbFilePath, dbFileExists)
-
-
-def writeCachedDataPoints():
-  "Write datapoints until the MetricCache is completely empty"
-  updates = 0
-  lastSecond = 0
-
-  while MetricCache:
-    dataWritten = False
-
-    for (metric, datapoints, dbFilePath, dbFileExists) in optimalWriteOrder():
-      dataWritten = True
-
-      if not dbFileExists:
-        archiveConfig = None
-        xFilesFactor, aggregationMethod = None, None
-
-        for schema in schemas:
-          if schema.matches(metric):
-            log.creates('new metric %s matched schema %s' % (metric, schema.name))
-            archiveConfig = [archive.getTuple() for archive in schema.archives]
-            break
-
-        for schema in agg_schemas:
-          if schema.matches(metric):
-            log.creates('new metric %s matched aggregation schema %s' % (metric, schema.name))
-            xFilesFactor, aggregationMethod = schema.archives
-            break
-
-        if not archiveConfig:
-          raise Exception("No storage schema matched the metric '%s', check your storage-schemas.conf file." % metric)
-
-        dbDir = dirname(dbFilePath)
-        try:
-            os.makedirs(dbDir, 0755)
-        except OSError as e:
-            log.err("%s" % e)
-        log.creates("creating database file %s (archive=%s xff=%s agg=%s)" %
-                    (dbFilePath, archiveConfig, xFilesFactor, aggregationMethod))
-        whisper.create(dbFilePath, archiveConfig, xFilesFactor, aggregationMethod, settings.WHISPER_SPARSE_CREATE, settings.WHISPER_FALLOCATE_CREATE)
-        instrumentation.increment('creates')
-
 stats = ('total', 'min', 'max', 'avg')
 instrumentation.configure_stats('writer.create_microseconds', stats)
 instrumentation.configure_stats('writer.write_microseconds', stats)
@@ -274,7 +181,7 @@ class WriterService(Service):
 
     def startService(self):
         self.reload_task.start(60, False)
-        reactor.addSystemEventTrigger('before', 'shutdown', shutdownModifyUpdateSpeed)
+        reactor.addSystemEventTrigger('before', 'shutdown', shutdown_modify_update_speed)
         reactor.callInThread(write_forever)
         Service.startService(self)
 

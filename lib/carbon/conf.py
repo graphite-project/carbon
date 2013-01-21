@@ -132,7 +132,7 @@ class CarbonConfiguration(dict):
     if not exists(path):
       raise ConfigError("No such file %s" % path)
     return path
- 
+
   def read_file(self, filename, ordered_items=False, store=True):
     path = self.get_path(filename)
     settings = {}
@@ -245,237 +245,237 @@ class ConfigError(Exception):
 
 
 class CarbonDaemonOptions(usage.Options):
-    optFlags = [
-        ["debug", "", "Run in debug mode."],
-        ["nodaemon", "", "Run in the foreground"],
-        ]
+  optFlags = [
+      ["debug", "", "Run in debug mode."],
+      ["nodaemon", "", "Run in the foreground"],
+      ]
 
-    optParameters = [
-        ["config", "c", None, "Use configs from the given directory"],
-        ["logdir", "", None, "Write logs to the given directory."],
-        ["umask", "", None, "Use the given umask when creating files"],
-        ]
+  optParameters = [
+      ["config", "c", None, "Use configs from the given directory"],
+      ["logdir", "", None, "Write logs to the given directory."],
+      ["umask", "", None, "Use the given umask when creating files"],
+      ]
 
-    def postOptions(self):
+  def postOptions(self):
         # Use provided pidfile (if any) as default for configuration. If it's
         # set to 'twistd.pid', that means no value was provided and the default
         # was used.
-        pidfile = self.parent["pidfile"]
-        if pidfile.endswith("twistd.pid"):
-            pidfile = None
-        self["pidfile"] = pidfile
+    pidfile = self.parent["pidfile"]
+    if pidfile.endswith("twistd.pid"):
+      pidfile = None
+    self["pidfile"] = pidfile
 
-        # Enforce a default umask of '022' if none was set.
-        if not self.parent.has_key("umask") or self.parent["umask"] is None:
-            self.parent["umask"] = 022
+    # Enforce a default umask of '022' if none was set.
+    if not self.parent.has_key("umask") or self.parent["umask"] is None:
+      self.parent["umask"] = 022
 
-        # Read extra settings from the configuration file.
-        read_configs(self['instance'], self)
+    # Read extra settings from the configuration file.
+    read_configs(self['instance'], self)
 
-        # Set process uid/gid by changing the parent config, if a user was
-        # provided in the configuration file.
-        if settings.USER:
-            self.parent["uid"], self.parent["gid"] = (
-                pwd.getpwnam(settings.USER)[2:4])
+    # Set process uid/gid by changing the parent config, if a user was
+    # provided in the configuration file.
+    if settings.USER:
+      self.parent["uid"], self.parent["gid"] = (
+          pwd.getpwnam(settings.USER)[2:4])
 
-        # Set the pidfile in parent config to the value that was computed by
-        # C{read_configs}.
-        self.parent["pidfile"] = settings["pidfile"]
+    # Set the pidfile in parent config to the value that was computed by
+    # C{read_configs}.
+    self.parent["pidfile"] = settings["pidfile"]
 
-        if not "action" in self:
-            self["action"] = "start"
-        self.handleAction()
+    if not "action" in self:
+      self["action"] = "start"
+    self.handleAction()
 
-        # If we are not running in debug mode or non-daemon mode, then log to a
-        # directory, otherwise log output will go to stdout.
-        if not self["debug"]:
-            if self.parent.get("syslog", None):
-                log.logToSyslog(self.parent["prefix"])
-            elif not self.parent["nodaemon"]:
-                logdir = settings.LOG_DIR
-                if not isdir(logdir):
-                    os.makedirs(logdir)
-                log.logToDir(logdir)
+    # If we are not running in debug mode or non-daemon mode, then log to a
+    # directory, otherwise log output will go to stdout.
+    if not self["debug"]:
+      if self.parent.get("syslog", None):
+        log.logToSyslog(self.parent["prefix"])
+      elif not self.parent["nodaemon"]:
+        logdir = settings.LOG_DIR
+        if not isdir(logdir):
+          os.makedirs(logdir)
+        log.logToDir(logdir)
 
-    def parseArgs(self, *args):
-        if len(args) == 2:
-            self["instance"] = args[0]
-            self["action"] = args[1]
+  def parseArgs(self, *args):
+    if len(args) == 2:
+      self["instance"] = args[0]
+      self["action"] = args[1]
 
-    def handleAction(self):
-        """Handle extra argument for backwards-compatibility.
+  def handleAction(self):
+    """Handle extra argument for backwards-compatibility.
 
-        * C{start} will simply do minimal pid checking and otherwise let twistd
-              take over.
-        * C{stop} will kill an existing running process if it matches the
-              C{pidfile} contents.
-        * C{status} will simply report if the process is up or not.
-        """
-        action = self["action"]
-        pidfile = self.parent["pidfile"]
-        instance = self["instance"]
+    * C{start} will simply do minimal pid checking and otherwise let twistd
+          take over.
+    * C{stop} will kill an existing running process if it matches the
+          C{pidfile} contents.
+    * C{status} will simply report if the process is up or not.
+    """
+    action = self["action"]
+    pidfile = self.parent["pidfile"]
+    instance = self["instance"]
 
-        if action == "stop":
-            if not exists(pidfile):
-                print "Pidfile %s does not exist" % pidfile
-                raise SystemExit(0)
-            pf = open(pidfile, 'r')
-            try:
-                pid = int(pf.read().strip())
-                pf.close()
-            except:
-                print "Could not read pidfile %s" % pidfile
-                raise SystemExit(1)
-            print "Sending kill signal to pid %d" % pid
-            try:
-                os.kill(pid, 15)
-            except OSError, e:
-                if e.errno == errno.ESRCH:
-                    print "No process with pid %d running" % pid
-                else:
-                    raise
-
-            raise SystemExit(0)
-
-        elif action == "status":
-            if not exists(pidfile):
-                print "carbon-daemon %s is not running" % instance
-                raise SystemExit(1)
-            pf = open(pidfile, "r")
-            try:
-                pid = int(pf.read().strip())
-                pf.close()
-            except:
-                print "Failed to read pid from %s" % pidfile
-                raise SystemExit(1)
-
-            if _process_alive(pid):
-                print ("carbon-daemon %s is running with pid %d" %
-                       (instance, pid))
-                raise SystemExit(0)
-            else:
-                print "carbon-daemon %s is not running" % instance
-                raise SystemExit(1)
-
-        elif action == "start":
-            if exists(pidfile):
-                pf = open(pidfile, 'r')
-                try:
-                    pid = int(pf.read().strip())
-                    pf.close()
-                except:
-                    print "Could not read pidfile %s" % pidfile
-                    raise SystemExit(1)
-                if _process_alive(pid):
-                    print ("Carbon instance '%s' is already running with pid %d" %
-                           (instance, pid))
-                    raise SystemExit(1)
-                else:
-                    print "Removing stale pidfile %s" % pidfile
-                    try:
-                        os.unlink(pidfile)
-                    except:
-                        print "Could not remove pidfile %s" % pidfile
+    if action == "stop":
+      if not exists(pidfile):
+        print "Pidfile %s does not exist" % pidfile
+        raise SystemExit(0)
+      pf = open(pidfile, 'r')
+      try:
+        pid = int(pf.read().strip())
+        pf.close()
+      except:
+        print "Could not read pidfile %s" % pidfile
+        raise SystemExit(1)
+      print "Sending kill signal to pid %d" % pid
+      try:
+        os.kill(pid, 15)
+      except OSError, e:
+        if e.errno == errno.ESRCH:
+          print "No process with pid %d running" % pid
         else:
-            print "Invalid action '%s'" % action
-            print "Valid actions: start stop status"
-            raise SystemExit(1)
+          raise
+
+      raise SystemExit(0)
+
+    elif action == "status":
+      if not exists(pidfile):
+        print "carbon-daemon %s is not running" % instance
+        raise SystemExit(1)
+      pf = open(pidfile, "r")
+      try:
+        pid = int(pf.read().strip())
+        pf.close()
+      except:
+        print "Failed to read pid from %s" % pidfile
+        raise SystemExit(1)
+
+      if _process_alive(pid):
+        print ("carbon-daemon %s is running with pid %d" %
+               (instance, pid))
+        raise SystemExit(0)
+      else:
+        print "carbon-daemon %s is not running" % instance
+        raise SystemExit(1)
+
+    elif action == "start":
+      if exists(pidfile):
+        pf = open(pidfile, 'r')
+        try:
+          pid = int(pf.read().strip())
+          pf.close()
+        except:
+          print "Could not read pidfile %s" % pidfile
+          raise SystemExit(1)
+        if _process_alive(pid):
+          print ("Carbon instance '%s' is already running with pid %d" %
+                 (instance, pid))
+          raise SystemExit(1)
+        else:
+          print "Removing stale pidfile %s" % pidfile
+          try:
+            os.unlink(pidfile)
+          except:
+            print "Could not remove pidfile %s" % pidfile
+    else:
+      print "Invalid action '%s'" % action
+      print "Valid actions: start stop status"
+      raise SystemExit(1)
 
 
 def read_configs(instance, options):
-    """
-    Read settings for 'instance' from configuration dir specified by
-    'options["config"]', with missing values provided by 'defaults'.
-    """
-    graphite_root = os.environ['GRAPHITE_ROOT']
+  """
+  Read settings for 'instance' from configuration dir specified by
+  'options["config"]', with missing values provided by 'defaults'.
+  """
+  graphite_root = os.environ['GRAPHITE_ROOT']
 
-    # Default config directory to root-relative, unless overriden by the
-    # 'GRAPHITE_CONF_DIR' environment variable.
-    settings.setdefault("CONF_DIR",
-                        os.environ.get("GRAPHITE_CONF_DIR",
-                                       join(graphite_root, "conf")))
-    if options["config"] is None:
-        options["config"] = join(settings["CONF_DIR"], "carbon-daemons", instance)
-    else:
-        # Set 'CONF_DIR' to the parent directory of the 'carbon.conf' config
-        # file.
-        settings["CONF_DIR"] = dirname(normpath(options["config"]))
+  # Default config directory to root-relative, unless overriden by the
+  # 'GRAPHITE_CONF_DIR' environment variable.
+  settings.setdefault("CONF_DIR",
+                      os.environ.get("GRAPHITE_CONF_DIR",
+                                     join(graphite_root, "conf")))
+  if options["config"] is None:
+    options["config"] = join(settings["CONF_DIR"], "carbon-daemons", instance)
+  else:
+    # Set 'CONF_DIR' to the parent directory of the 'carbon.conf' config
+    # file.
+    settings["CONF_DIR"] = dirname(normpath(options["config"]))
 
-    # Storage directory can be overriden by the 'GRAPHITE_STORAGE_DIR'
-    # environment variable. It defaults to a path relative to GRAPHITE_ROOT
-    # for backwards compatibility though.
-    settings.setdefault("STORAGE_DIR",
-                        os.environ.get("GRAPHITE_STORAGE_DIR",
-                                       join(graphite_root, "storage")))
+  # Storage directory can be overriden by the 'GRAPHITE_STORAGE_DIR'
+  # environment variable. It defaults to a path relative to GRAPHITE_ROOT
+  # for backwards compatibility though.
+  settings.setdefault("STORAGE_DIR",
+                      os.environ.get("GRAPHITE_STORAGE_DIR",
+                                     join(graphite_root, "storage")))
 
-    # By default, everything is written to subdirectories of the storage dir.
-    settings.setdefault(
-        "PID_DIR", settings["STORAGE_DIR"])
-    settings.setdefault(
-        "LOG_DIR", join(settings["STORAGE_DIR"], "log", "carbon-daemons", instance))
+  # By default, everything is written to subdirectories of the storage dir.
+  settings.setdefault(
+      "PID_DIR", settings["STORAGE_DIR"])
+  settings.setdefault(
+      "LOG_DIR", join(settings["STORAGE_DIR"], "log", "carbon-daemons", instance))
 
-    # Read --config options
-    config_dir = options["config"]
-    if not exists(config_dir):
-        raise ValueError("Config directory %s does not exist" % config_dir)
+  # Read --config options
+  config_dir = options["config"]
+  if not exists(config_dir):
+    raise ValueError("Config directory %s does not exist" % config_dir)
 
-    # Start reading config files
-    settings.use_config_directory(config_dir)
+  # Start reading config files
+  settings.use_config_directory(config_dir)
 
-    daemon_settings = settings.read_file('daemon.conf')
-    pipeline = daemon_settings['PIPELINE']
-    if not pipeline:
-      raise ConfigError("Empty pipeline? You lazy bastard...")
+  daemon_settings = settings.read_file('daemon.conf')
+  pipeline = daemon_settings['PIPELINE']
+  if not pipeline:
+    raise ConfigError("Empty pipeline? You lazy bastard...")
 
-    if pipeline.count('write') + pipeline.count('relay') != 1:
-      raise ConfigError("Exactly one 'write' or 'relay' must exist "
-                        "in PIPELINE", filename='daemon.conf')
+  if pipeline.count('write') + pipeline.count('relay') != 1:
+    raise ConfigError("Exactly one 'write' or 'relay' must exist "
+                      "in PIPELINE", filename='daemon.conf')
 
-    settings['LISTENERS'] = settings.read_file('listeners.conf').values()
-    if not settings['LISTENERS']:
-      raise ConfigError("At least one listener must be defined "
-                        "in listeners.conf")
+  settings['LISTENERS'] = settings.read_file('listeners.conf').values()
+  if not settings['LISTENERS']:
+    raise ConfigError("At least one listener must be defined "
+                      "in listeners.conf")
 
-    # Apply listener defaults
-    for listener in settings['LISTENERS']:
-        listener['port'] = int(listener['port'])
-        listener.setdefault('interface', '0.0.0.0')
-        listener.setdefault('protocol', 'tcp')
-        if listener['protocol'] not in ('tcp', 'udp'):
-           raise ConfigError("Invalid protocol \"%s\"" % listener['protocol'])
-        if listener['type'] not in LISTENER_TYPES:
-            raise ConfigError("Invalid listener type \"%s\"" % listener['type'])
-        if listener['protocol'] == 'udp' and listener['type'] != 'plaintext-receiver':
-            raise ConfigError("UDP listeners only support type=plaintext-receiver")
+  # Apply listener defaults
+  for listener in settings['LISTENERS']:
+    listener['port'] = int(listener['port'])
+    listener.setdefault('interface', '0.0.0.0')
+    listener.setdefault('protocol', 'tcp')
+    if listener['protocol'] not in ('tcp', 'udp'):
+      raise ConfigError("Invalid protocol \"%s\"" % listener['protocol'])
+    if listener['type'] not in LISTENER_TYPES:
+      raise ConfigError("Invalid listener type \"%s\"" % listener['type'])
+    if listener['protocol'] == 'udp' and listener['type'] != 'plaintext-receiver':
+      raise ConfigError("UDP listeners only support type=plaintext-receiver")
 
-    # Type-specific configs
-    destiny = pipeline[-1]
-    if destiny == 'write':
-      settings['DAEMON_TYPE'] = 'write'
-      read_writer_configs()
-    elif destiny == 'relay':
-      settings['DAEMON_TYPE'] = 'relay'
-      read_relay_configs()
-    else:
-      raise ConfigError("Invalid pipeline destination \"" + destiny +
-                        "\" must be \"write\" or \"relay\"")
+  # Type-specific configs
+  destiny = pipeline[-1]
+  if destiny == 'write':
+    settings['DAEMON_TYPE'] = 'write'
+    read_writer_configs()
+  elif destiny == 'relay':
+    settings['DAEMON_TYPE'] = 'relay'
+    read_relay_configs()
+  else:
+    raise ConfigError("Invalid pipeline destination \"" + destiny +
+                      "\" must be \"write\" or \"relay\"")
 
-    # Pull in optional configs
-    optional_configs = [
-      'aggregation.conf',
-      'amqp.conf',
-      'management.conf',
-    ]
-    for filename in optional_configs:
-      if settings.file_exists(filename):
-        settings.read_file(filename)
+  # Pull in optional configs
+  optional_configs = [
+    'aggregation.conf',
+    'amqp.conf',
+    'management.conf',
+  ]
+  for filename in optional_configs:
+    if settings.file_exists(filename):
+      settings.read_file(filename)
 
-    settings["pidfile"] = (
-        options["pidfile"] or
-        join(settings["PID_DIR"], '%s.pid' % instance))
-    settings["LOG_DIR"] = (options["logdir"] or settings["LOG_DIR"])
+  settings["pidfile"] = (
+      options["pidfile"] or
+      join(settings["PID_DIR"], '%s.pid' % instance))
+  settings["LOG_DIR"] = (options["logdir"] or settings["LOG_DIR"])
 
-    return settings
+  return settings
 
 
 def read_writer_configs():
@@ -530,11 +530,11 @@ def read_relay_configs():
 
 
 def _process_alive(pid):
-    if exists("/proc"):
-        return exists("/proc/%d" % pid)
-    else:
-        try:
-            os.kill(int(pid), 0)
-            return True
-        except OSError, err:
-            return err.errno == errno.EPERM
+  if exists("/proc"):
+    return exists("/proc/%d" % pid)
+  else:
+    try:
+      os.kill(int(pid), 0)
+      return True
+    except OSError, err:
+      return err.errno == errno.EPERM

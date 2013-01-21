@@ -129,7 +129,7 @@ class StdinMetricsReader(LineReceiver):
   def startShutdown(results):
     log.msg("startShutdown(%s)" % str(results))
     allStopped = client_manager.stopAllClients()
-    allStopped.addCallback(shutdown) 
+    allStopped.addCallback(shutdown)
     firstConnectsAttempted.addCallback(startShutdown)
 
 
@@ -170,7 +170,7 @@ class FileLoader(object):
     except IndexError:
       log.debug("No data, sleeping 1 sec")
       time.sleep(1)
- 
+
 if options.datadir is None:
   stdio.StandardIO( StdinMetricsReader() )
 else:

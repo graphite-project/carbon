@@ -33,102 +33,102 @@ def dropprivs(user):
 
 
 def run_twistd_plugin(filename):
-    from twisted.scripts.twistd import ServerOptions
+  from twisted.scripts.twistd import ServerOptions
 
-    bin_dir = dirname(abspath(filename))
-    root_dir = dirname(bin_dir)
-    os.environ.setdefault('GRAPHITE_ROOT', root_dir)
+  bin_dir = dirname(abspath(filename))
+  root_dir = dirname(bin_dir)
+  os.environ.setdefault('GRAPHITE_ROOT', root_dir)
 
-    # First, parse command line options as the legacy carbon scripts used to
-    # do.
-    parser = OptionParser(usage="%prog [options] <instance> <start|stop|status>")
-    parser.add_option(
-        "--debug", action="store_true",
-        help="Run in the foreground, log to stdout")
-    parser.add_option(
-        "--nodaemon", action="store_true",
-        help="Run in the foreground")
-    parser.add_option(
-        "--profile",
-        help="Record performance profile data to the given file")
-    parser.add_option(
-        "--profiler",
-        help="Choose the profiler to use")
-    parser.add_option(
-        "--savestats", action="store_true",
-        help="Save raw performance profile data instead of parsed output")
-    parser.add_option(
-        "--pidfile", default=None,
-        help="Write pid to the given file")
-    parser.add_option(
-        "--umask", default=None,
-        help="Use the given umask when creating files")
-    parser.add_option(
-        "--config",
-        default=None,
-        help="Use the given instance configuration directory")
-    parser.add_option(
-        "--logdir",
-        default=None,
-        help="Write logs in the given directory")
+  # First, parse command line options as the legacy carbon scripts used to
+  # do.
+  parser = OptionParser(usage="%prog [options] <instance> <start|stop|status>")
+  parser.add_option(
+      "--debug", action="store_true",
+      help="Run in the foreground, log to stdout")
+  parser.add_option(
+      "--nodaemon", action="store_true",
+      help="Run in the foreground")
+  parser.add_option(
+      "--profile",
+      help="Record performance profile data to the given file")
+  parser.add_option(
+      "--profiler",
+      help="Choose the profiler to use")
+  parser.add_option(
+      "--savestats", action="store_true",
+      help="Save raw performance profile data instead of parsed output")
+  parser.add_option(
+      "--pidfile", default=None,
+      help="Write pid to the given file")
+  parser.add_option(
+      "--umask", default=None,
+      help="Use the given umask when creating files")
+  parser.add_option(
+      "--config",
+      default=None,
+      help="Use the given instance configuration directory")
+  parser.add_option(
+      "--logdir",
+      default=None,
+      help="Write logs in the given directory")
 
-    (options, args) = parser.parse_args()
+  (options, args) = parser.parse_args()
 
-    if len(args) != 2:
-        print "Exactly 2 arguments required, %d given" % len(args)
-        parser.print_usage()
-        raise SystemExit(1)
+  if len(args) != 2:
+    print "Exactly 2 arguments required, %d given" % len(args)
+    parser.print_usage()
+    raise SystemExit(1)
 
-    instance, action = args
+  instance, action = args
 
-    if action not in ("start", "stop", "status"):
-        print "Invalid action '%s'" % action
-        parser.print_usage()
-        raise SystemExit(1)
+  if action not in ("start", "stop", "status"):
+    print "Invalid action '%s'" % action
+    parser.print_usage()
+    raise SystemExit(1)
 
-    # Now forward applicable options to either twistd or to the plugin itself.
-    twistd_options = ["--no_save"]
+  # Now forward applicable options to either twistd or to the plugin itself.
+  twistd_options = ["--no_save"]
 
-    # If no reactor was selected yet, try to use the epoll reactor if
-    # available.
-    try:
-        from twisted.internet import epollreactor
-        twistd_options.append("--reactor=epoll")
-    except:
-        pass
+  # If no reactor was selected yet, try to use the epoll reactor if
+  # available.
+  try:
+    from twisted.internet import epollreactor
+    twistd_options.append("--reactor=epoll")
+  except:
+    pass
 
-    if options.debug or options.nodaemon:
-        twistd_options.extend(["--nodaemon"])
-    if options.profile:
-        twistd_options.append("--profile=%s" % options.profile)
-    if options.profiler:
-        twistd_options.append("--profiler=%s" % options.profiler)
-    if options.savestats:
-        twistd_options.append("--savestats")
-    if options.pidfile:
-        twistd_options.extend(["--pidfile", options.pidfile])
-    if options.umask:
-        twistd_options.extend(["--umask", options.umask])
+  if options.debug or options.nodaemon:
+    twistd_options.extend(["--nodaemon"])
+  if options.profile:
+    twistd_options.append("--profile=%s" % options.profile)
+  if options.profiler:
+    twistd_options.append("--profiler=%s" % options.profiler)
+  if options.savestats:
+    twistd_options.append("--savestats")
+  if options.pidfile:
+    twistd_options.extend(["--pidfile", options.pidfile])
+  if options.umask:
+    twistd_options.extend(["--umask", options.umask])
 
-    # Now for the plugin-specific options.
-    twistd_options.append('carbon-daemon')
+  # Now for the plugin-specific options.
+  twistd_options.append('carbon-daemon')
 
-    if options.debug:
-        twistd_options.append("--debug")
+  if options.debug:
+    twistd_options.append("--debug")
 
-    for option_name, option_value in vars(options).items():
-        if (option_value is not None and
-            option_name not in ("debug", "profile", "pidfile", "savestats", "profiler", "umask", "nodaemon")):
-            twistd_options.extend(["--%s" % option_name.replace("_", "-"),
-                                   option_value])
+  for option_name, option_value in vars(options).items():
+    if (option_value is not None and
+        option_name not in ("debug", "profile", "pidfile", "savestats", "profiler", "umask", "nodaemon")):
+      twistd_options.extend(["--%s" % option_name.replace("_", "-"),
+                             option_value])
 
-    # Finally, append extra args so that twistd has a chance to process them.
-    twistd_options.extend(args)
+  # Finally, append extra args so that twistd has a chance to process them.
+  twistd_options.extend(args)
 
-    config = ServerOptions()
-    config.parseOptions(twistd_options)
+  config = ServerOptions()
+  config.parseOptions(twistd_options)
 
-    runApp(config)
+  runApp(config)
 
 
 def parseDestinations(destination_strings):

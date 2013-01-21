@@ -90,4 +90,3 @@ class FilterRuleManager:
 
 # Importable singleton
 FilterRuleManager = FilterRuleManager()
-

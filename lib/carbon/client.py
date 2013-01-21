@@ -59,9 +59,9 @@ class CarbonClientProtocol(Int32StringReceiver):
       self._sendDatapoints([(metric, datapoint)])
 
   def _sendDatapoints(self, datapoints):
-      self.sendString(pickle.dumps(datapoints, protocol=-1))
-      instrumentation.increment(self.sent, len(datapoints))
-      self.factory.checkQueue()
+    self.sendString(pickle.dumps(datapoints, protocol=-1))
+    instrumentation.increment(self.sent, len(datapoints))
+    self.factory.checkQueue()
 
   def sendQueued(self):
     while (not self.paused) and self.factory.hasQueuedDatapoints():

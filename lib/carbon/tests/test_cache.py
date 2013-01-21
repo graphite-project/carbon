@@ -231,4 +231,3 @@ class RandomStrategyTest(TestCase):
       item = strategy.choose_item()
       self.assertTrue(item in self.metric_cache)
       self.metric_cache.pop(item)
-

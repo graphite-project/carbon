@@ -24,6 +24,7 @@ from carbon import log, events, instrumentation
 
 from twisted.internet import reactor
 from twisted.internet.task import LoopingCall
+from twisted.internet.threads import blockingCallFromThread
 from twisted.application.service import Service
 
 
@@ -90,7 +91,8 @@ def write_cached_datapoints():
   database = state.database
 
   while MetricCache:
-    metric, datapoints = MetricCache.drain_metric()
+    # Only modify the cache on the main reactor thread
+    metric, datapoints = blockingCallFromThread(reactor, MetricCache.drain_metric)
     if write_ratelimit.exceeded:
       #log.writes("write ratelimit exceeded")
       instrumentation.increment('writer.write_ratelimit_exceeded')

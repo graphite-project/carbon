@@ -233,12 +233,22 @@ class HandleActionTest(TestCase):
 
     def test_invalid_action(self):
         self.daemon_options['action'] = 'foo'
-        self.assertRaisesRegexp(SystemExit, '1', self.daemon_options.handleAction)
+        try:
+            self.daemon_options.handleAction()
+        except SystemExit, e:
+            self.assertEqual(1, e.code)
+        except Exception, e:
+            self.fail("Unexpected exception type: %s" % e)
 
     @patch('carbon.conf.exists', new=Mock(return_value=False))
     def test_stop_no_pidfile(self):
         self.daemon_options['action'] = 'stop'
-        self.assertRaisesRegexp(SystemExit, '0', self.daemon_options.handleAction)
+        try:
+            self.daemon_options.handleAction()
+        except SystemExit, e:
+            self.assertEqual(0, e.code)
+        except Exception, e:
+            self.fail("Unexpected exception type: %s" % e)
 
     @patch('carbon.conf.exists', new=Mock(return_value=True))
     def test_stop_error_reading_pidfile(self):
@@ -247,7 +257,12 @@ class HandleActionTest(TestCase):
         open_mock.return_value.__enter__.read.side_effect = OSError
         with patch('__builtin__.open', open_mock):
             self.daemon_options['action'] = 'stop'
-            self.assertRaisesRegexp(SystemExit, '1', self.daemon_options.handleAction)
+            try:
+                self.daemon_options.handleAction()
+            except SystemExit, e:
+                self.assertEqual(1, e.code)
+            except Exception, e:
+                self.fail("Unexpected exception type: %s" % e)
             open_mock.assert_called_once_with('pidfile_path/carbon.pid', 'r')
 
     @patch('carbon.conf.exists', new=Mock(return_value=True))
@@ -257,7 +272,12 @@ class HandleActionTest(TestCase):
         open_mock = mock_open(read_data='123456')
         with patch('__builtin__.open', open_mock):
             self.daemon_options['action'] = 'stop'
-            self.assertRaisesRegexp(SystemExit, '0', self.daemon_options.handleAction)
+            try:
+                self.daemon_options.handleAction()
+            except SystemExit, e:
+                self.assertEqual(0, e.code)
+            except Exception, e:
+                self.fail("Unexpected exception type: %s" % e)
             kill_mock.assert_called_once_with(123456, 15)
             open_mock.assert_called_once_with('pidfile_path/carbon.pid', 'r')
 
@@ -278,14 +298,24 @@ class HandleActionTest(TestCase):
         open_mock = mock_open(read_data='123456')
         with patch('__builtin__.open', open_mock):
             self.daemon_options['action'] = 'stop'
-            self.assertRaisesRegexp(SystemExit,'0', self.daemon_options.handleAction)
+            try:
+                self.daemon_options.handleAction()
+            except SystemExit, e:
+                self.assertEqual(0, e.code)
+            except Exception, e:
+                self.fail("Unexpected exception type: %s" % e)
             kill_mock.assert_called_once_with(123456, 15)
             open_mock.assert_called_once_with('pidfile_path/carbon.pid', 'r')
 
     @patch('carbon.conf.exists', new=Mock(return_value=False))
     def test_status_no_pidfile(self):
         self.daemon_options['action'] = 'status'
-        self.assertRaisesRegexp(SystemExit, '1', self.daemon_options.handleAction)
+        try:
+            self.daemon_options.handleAction()
+        except SystemExit, e:
+            self.assertEqual(1, e.code)
+        except Exception, e:
+            self.fail("Unexpected exception type: %s" % e)
 
     @patch('carbon.conf.exists', new=Mock(return_value=True))
     def test_status_error_reading_pidfile(self):
@@ -294,7 +324,12 @@ class HandleActionTest(TestCase):
         open_mock.return_value.__enter__.read.side_effect = OSError
         with patch('__builtin__.open', open_mock):
             self.daemon_options['action'] = 'status'
-            self.assertRaisesRegexp(SystemExit, '1', self.daemon_options.handleAction)
+            try:
+                self.daemon_options.handleAction()
+            except SystemExit, e:
+                self.assertEqual(1, e.code)
+            except Exception, e:
+                self.fail("Unexpected exception type: %s" % e)
             open_mock.assert_called_once_with('pidfile_path/carbon.pid', 'r')
 
     @patch('carbon.conf.exists', new=Mock(return_value=True))
@@ -304,7 +339,12 @@ class HandleActionTest(TestCase):
         open_mock = mock_open(read_data='123456')
         with patch('__builtin__.open', open_mock):
             self.daemon_options['action'] = 'status'
-            self.assertRaisesRegexp(SystemExit, '1', self.daemon_options.handleAction)
+            try:
+                self.daemon_options.handleAction()
+            except SystemExit, e:
+                self.assertEqual(1, e.code)
+            except Exception, e:
+                self.fail("Unexpected exception type: %s" % e)
             process_alive_mock.assert_called_once_with(123456)
             open_mock.assert_called_once_with('pidfile_path/carbon.pid', 'r')
 
@@ -315,7 +355,12 @@ class HandleActionTest(TestCase):
         open_mock = mock_open(read_data='123456')
         with patch('__builtin__.open', open_mock):
             self.daemon_options['action'] = 'status'
-            self.assertRaisesRegexp(SystemExit, '0', self.daemon_options.handleAction)
+            try:
+                self.daemon_options.handleAction()
+            except SystemExit, e:
+                self.assertEqual(0, e.code)
+            except Exception, e:
+                self.fail("Unexpected exception type: %s" % e)
             process_alive_mock.assert_called_once_with(123456)
             open_mock.assert_called_once_with('pidfile_path/carbon.pid', 'r')
 
@@ -334,7 +379,12 @@ class HandleActionTest(TestCase):
         open_mock = mock_open(read_data='123456')
         with patch('__builtin__.open', open_mock):
             self.daemon_options['action'] = 'start'
-            self.assertRaisesRegexp(SystemExit, '1', self.daemon_options.handleAction)
+            try:
+                self.daemon_options.handleAction()
+            except SystemExit, e:
+                self.assertEqual(1, e.code)
+            except Exception, e:
+                self.fail("Unexpected exception type: %s" % e)
             process_alive_mock.assert_called_once_with(123456)
             self.assertFalse(unlink_mock.called)
             open_mock.assert_called_once_with('pidfile_path/carbon.pid', 'r')

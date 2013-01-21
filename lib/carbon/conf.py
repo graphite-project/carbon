@@ -90,7 +90,7 @@ defaults = dict(
   CACHE_QUERY_PORT=7002,
   CACHE_QUERY_INTERFACE='0.0.0.0',
   WHITELISTS_DIR='/opt/graphite/storage/lists',
-  CACHE_WRITE_STRATEGY='sorted',
+  CACHE_DRAIN_STRATEGY='sorted',
 )
 
 

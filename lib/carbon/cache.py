@@ -149,11 +149,11 @@ class _MetricCache(dict):
 
 # Initialize a singleton cache instance
 write_strategy = None
-if settings.CACHE_WRITE_STRATEGY == 'max':
+if settings.CACHE_DRAIN_STRATEGY == 'max':
   write_strategy = MaxStrategy
-if settings.CACHE_WRITE_STRATEGY == 'sorted':
+if settings.CACHE_DRAIN_STRATEGY == 'sorted':
   write_strategy = SortedStrategy
-if settings.CACHE_WRITE_STRATEGY == 'random':
+if settings.CACHE_DRAIN_STRATEGY == 'random':
   write_strategy = RandomStrategy
 
 MetricCache = _MetricCache(write_strategy)

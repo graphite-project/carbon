@@ -36,7 +36,6 @@ class CarbonRootService(MultiService):
       parent.setComponent(ILogObserver, carbonLogObserver)
 
 
-
 def createDaemonService(options):
   from carbon.conf import settings
 
@@ -90,6 +89,7 @@ def setupAggregatorProcessor(root_service, settings):
     raise IOError(ENOENT, "%s file does not exist")
   RuleManager.read_from(aggregation_rules_path)
 
+
 def setupFilterProcessor(root_service, settings):
   from carbon.filter import FilterRuleManager
 
@@ -97,6 +97,7 @@ def setupFilterProcessor(root_service, settings):
   if not exists(filter_rules_path):
     raise IOError(ENOENT, "%s file does not exist")
   FilterRuleManager.read_from(filter_rules_path)
+
 
 def setupRewriterProcessor(root_service, settings):
   from carbon.rewrite import RewriteRuleManager
@@ -106,8 +107,10 @@ def setupRewriterProcessor(root_service, settings):
     raise IOError(ENOENT, "%s file does not exist")
   RewriteRuleManager.read_from(rewrite_rules_path)
 
+
 def setupRelayProcessor(root_service, settings):
-  from carbon.routers import ConsistentHashingRouter, RelayRulesRouter
+  from carbon.routers import AggregatedConsistentHashingRouter, \
+      ConsistentHashingRouter, RelayRulesRouter
   from carbon.client import CarbonClientManager
 
   if settings.RELAY_METHOD == 'consistent-hashing':
@@ -127,7 +130,7 @@ def setupRelayProcessor(root_service, settings):
 
 
 def setupWriterProcessor(root_service, settings):
-  import carbon.cache # important side-effect: registration of CacheFeedingProcessor
+  import carbon.cache  # important side-effect: registration of CacheFeedingProcessor
   from carbon.protocols import CacheManagementHandler
   from carbon.writer import WriterService
   from carbon import events
@@ -151,8 +154,8 @@ def setupReceivers(root_service, settings):
                                 MetricDatagramReceiver)
 
   receiver_protocols = {
-    'plaintext-receiver' : MetricLineReceiver,
-    'pickle-receiver' : MetricPickleReceiver,
+    'plaintext-receiver': MetricLineReceiver,
+    'pickle-receiver': MetricPickleReceiver,
   }
 
   if settings.ENABLE_AMQP:
@@ -161,9 +164,9 @@ def setupReceivers(root_service, settings):
     amqp_port = settings.AMQP_PORT
     amqp_user = settings.AMQP_USER
     amqp_password = settings.AMQP_PASSWORD
-    amqp_verbose  = settings.AMQP_VERBOSE
-    amqp_vhost    = settings.AMQP_VHOST
-    amqp_spec     = settings.AMQP_SPEC
+    amqp_verbose = settings.AMQP_VERBOSE
+    amqp_vhost = settings.AMQP_VHOST
+    amqp_spec = settings.AMQP_SPEC
     amqp_exchange_name = settings.AMQP_EXCHANGE
 
     factory = amqp_listener.createAMQPListener(

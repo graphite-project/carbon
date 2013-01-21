@@ -14,6 +14,7 @@ limitations under the License."""
 
 import time
 from operator import itemgetter
+from random import choice
 
 from carbon.conf import settings
 from carbon import log, instrumentation
@@ -63,7 +64,7 @@ class MaxStrategy(DrainStrategy):
 class RandomStrategy(DrainStrategy):
   """Pop points randomly"""
   def choose_item(self):
-    return choice(self.cache.keys)
+    return choice(self.cache.keys())
 
 
 class SortedStrategy(DrainStrategy):
@@ -89,11 +90,11 @@ class SortedStrategy(DrainStrategy):
 
 class _MetricCache(dict):
   """A Singleton dictionary of metric names and lists of their datapoints"""
-  def __init__(self, strategy=SortedStrategy):
+  def __init__(self, strategy=None):
     self.size = 0
-    self.MAX_CACHE_SIZE = settings.MAX_CACHE_SIZE
-    self.CACHE_SIZE_LOW_WATERMARK = settings.CACHE_SIZE_LOW_WATERMARK
-    self.strategy = strategy(self)
+    self.strategy = None
+    if strategy:
+      self.strategy = strategy(self)
 
   def __setitem__(self, key, value):
     raise TypeError("Use store() method instead!")
@@ -103,26 +104,30 @@ class _MetricCache(dict):
     return [(metric, len(datapoints)) for (metric, datapoints) in self.items()]
 
   @property
-  def full(self):
-    if settings.MAX_CACHE_SIZE != float('inf'):
+  def is_full(self):
+    if settings.MAX_CACHE_SIZE == float('inf'):
       return False
     else:
       return self.size >= settings.MAX_CACHE_SIZE
 
   def _check_available_space(self):
-    if state.cacheTooFull and self.size < self.CACHE_SIZE_LOW_WATERMARK:
+    if state.cacheTooFull and self.size < settings.CACHE_SIZE_LOW_WATERMARK:
       log.msg("cache size below watermark")
       state.events.cacheSpaceAvailable()
 
   def drain_metric(self):
     """Returns a metric and it's datapoints in order determined by the
     `DrainStrategy`_"""
-    metric = self.strategy.choose_item()
+    if self.strategy:
+      metric = self.strategy.choose_item()
+    else:
+      # Avoid .keys() as it dumps the whole list
+      metric = self.iterkeys().next()
     return (metric, self.pop(metric))
 
   def get_datapoints(self, metric):
     """Return a list of currently cached datapoints sorted by timestamp"""
-    return sorted(self.get(metric, {}).values(), key=by_timestamp)
+    return sorted(self.get(metric, {}).items(), key=by_timestamp)
 
   def pop(self, metric):
     datapoint_index = dict.pop(self, metric)
@@ -134,11 +139,11 @@ class _MetricCache(dict):
   def store(self, metric, datapoint):
     self.setdefault(metric, {})
     timestamp, value = datapoint
-    if timestamp in self[metric]:
+    if timestamp not in self[metric]:
       self.size += 1  # Not a duplicate, increment
     self[metric][timestamp] = value
 
-    if self.full:
+    if self.is_full:
       log.msg("MetricCache is full: self.size=%d" % self.size)
       state.events.cacheFull()
 

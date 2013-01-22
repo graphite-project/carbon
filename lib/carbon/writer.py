@@ -13,18 +13,15 @@ See the License for the specific language governing permissions and
 limitations under the License."""
 
 
-import os
 import time
-from os.path import exists, dirname
 
-from carbon import state
+from carbon import log, instrumentation, state
 from carbon.cache import MetricCache
 from carbon.conf import settings, load_storage_rules
-from carbon import log, events, instrumentation
+from carbon.decorators import synchronizedInThread
 
 from twisted.internet import reactor
 from twisted.internet.task import LoopingCall
-from twisted.internet.threads import blockingCallFromThread
 from twisted.application.service import Service
 
 
@@ -44,7 +41,7 @@ instrumentation.configure_counters([
   'writer.cache_queries',
 ])
 
-ONE_MILLION = 1000000 # I hate counting zeroes
+ONE_MILLION = 1000000  # I hate counting zeroes
 
 
 class RateLimit(object):
@@ -56,9 +53,10 @@ class RateLimit(object):
 
   @property
   def exceeded(self):
+    self._check()
     return self.counter > self.limit
 
-  def check(self):
+  def _check(self):
     if time.time() >= self.next_reset:
       self.reset()
 
@@ -72,11 +70,11 @@ class RateLimit(object):
     self.next_reset = current_interval + self.seconds
 
   def increment(self, value=1):
-    self.check()
+    self._check()
     self.counter += value
 
   def wait(self):
-    self.check()
+    self._check()
     delay = self.next_reset - time.time()
     if delay > 0:
       time.sleep(delay)
@@ -87,12 +85,19 @@ write_ratelimit = RateLimit(settings.MAX_WRITES_PER_SECOND, 1)
 create_ratelimit = RateLimit(settings.MAX_CREATES_PER_MINUTE, 60)
 
 
+@synchronizedInThread(reactor)
+def _drain_metric():
+  return MetricCache.drain_metric()
+
+
 def write_cached_datapoints():
   database = state.database
 
-  while MetricCache:
+  while True:
     # Only modify the cache on the main reactor thread
-    metric, datapoints = blockingCallFromThread(reactor, MetricCache.drain_metric)
+    metric, datapoints = _drain_metric()
+    if not metric:
+      break
     if write_ratelimit.exceeded:
       #log.writes("write ratelimit exceeded")
       instrumentation.increment('writer.write_ratelimit_exceeded')
@@ -103,7 +108,6 @@ def write_cached_datapoints():
         instrumentation.increment('writer.create_ratelimit_exceeded')
         #log.creates("create ratelimit exceeded")
         # See if it's time to reset the counter in lieu of of a wait()
-        create_ratelimit.check()
         continue  # we *do* want to drop the datapoint here.
 
       metadata = determine_metadata(metric)

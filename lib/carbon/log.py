@@ -4,9 +4,12 @@ from zope.interface import implements
 from twisted.python.log import startLoggingWithObserver, textFromEventDict, msg, err, ILogObserver
 from twisted.python.syslog import SyslogObserver
 from twisted.python.logfile import DailyLogFile
+from twisted.python.threadable import synchronize
+
 
 class CarbonLogObserver(object):
   implements(ILogObserver)
+  synchronized = ['__call__']
 
   def log_to_dir(self, logdir):
     self.logdir = logdir
@@ -37,12 +40,11 @@ class CarbonLogObserver(object):
 
     logfile = self.custom_logs.get(log_type, self.console_logfile)
     logfile.write(message + '\n')
-    logfile.flush()
 
   # Default to stdout
   observer = stdout_observer
 
-
+synchronize(CarbonLogObserver)
 carbonLogObserver = CarbonLogObserver()
 
 

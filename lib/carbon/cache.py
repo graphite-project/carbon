@@ -118,6 +118,8 @@ class _MetricCache(dict):
   def drain_metric(self):
     """Returns a metric and it's datapoints in order determined by the
     `DrainStrategy`_"""
+    if not self:
+      return (None, [])
     if self.strategy:
       metric = self.strategy.choose_item()
     else:

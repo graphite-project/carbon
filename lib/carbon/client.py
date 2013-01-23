@@ -6,7 +6,7 @@ from twisted.protocols.basic import Int32StringReceiver
 
 from carbon.conf import settings
 from carbon.util import pickle
-from carbon import log, state, instrumentation, pipeline
+from carbon import events, instrumentation, log, pipeline, state
 
 from collections import deque
 
@@ -125,7 +125,7 @@ class CarbonClientFactory(ReconnectingClientFactory):
     self.queuedUntilConnected = 'destinations.%s.queued_until_connected' % self.destinationName
 
   def queueFullCallback(self, result):
-    state.events.cacheFull()
+    events.cacheFull()
     log.clients('%s send queue is full (%d datapoints)' % (self, result))
 
   def queueSpaceCallback(self, result):
@@ -133,7 +133,7 @@ class CarbonClientFactory(ReconnectingClientFactory):
       log.clients('%s send queue has space available' % self.connectedProtocol)
       self.queueFull = Deferred()
       self.queueFull.addCallback(self.queueFullCallback)
-      state.events.cacheSpaceAvailable()
+      events.cacheSpaceAvailable()
     self.queueHasSpace = Deferred()
     self.queueHasSpace.addCallback(self.queueSpaceCallback)
 

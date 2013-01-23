@@ -5,7 +5,7 @@ from twisted.internet.protocol import ReconnectingClientFactory
 from twisted.protocols.basic import Int32StringReceiver
 from carbon.conf import settings
 from carbon.util import pickle
-from carbon import log, state, events, instrumentation
+from carbon import log, state, instrumentation
 
 
 SEND_QUEUE_LOW_WATERMARK = settings.MAX_QUEUE_SIZE * 0.8
@@ -73,11 +73,6 @@ class CarbonClientProtocol(Int32StringReceiver):
           queueSize < SEND_QUEUE_LOW_WATERMARK):
         self.factory.queueHasSpace.callback(queueSize)
 
-        if (settings.USE_FLOW_CONTROL and
-            state.metricReceiversPaused):
-          log.clients('%s resuming paused clients' % self)
-          events.resumeReceivingMetrics()
-
   def __str__(self):
     return 'CarbonClientProtocol(%s:%d:%s)' % (self.factory.destination)
   __repr__ = __str__
@@ -109,13 +104,15 @@ class CarbonClientFactory(ReconnectingClientFactory):
     self.queuedUntilConnected = 'destinations.%s.queuedUntilConnected' % self.destinationName
 
   def queueFullCallback(self, result):
+    state.events.cacheFull()
     log.clients('%s send queue is full (%d datapoints)' % (self, result))
-    
+
   def queueSpaceCallback(self, result):
     if self.queueFull.called:
       log.clients('%s send queue has space available' % self.connectedProtocol)
       self.queueFull = Deferred()
       self.queueFull.addCallback(self.queueFullCallback)
+      state.events.cacheSpaceAvailable()
     self.queueHasSpace = Deferred()
     self.queueHasSpace.addCallback(self.queueSpaceCallback)
 

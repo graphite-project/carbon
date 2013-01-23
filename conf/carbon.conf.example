@@ -294,6 +294,14 @@ MAX_DATAPOINTS_PER_MESSAGE = 500
 # the past MAX_AGGREGATION_INTERVALS * intervalSize seconds.
 MAX_AGGREGATION_INTERVALS = 5
 
+# By default (WRITE_BACK_FREQUENCY = 0), carbon-aggregator will write back
+# aggregated data points once every rule.frequency seconds, on a per-rule basis.
+# Set this (WRITE_BACK_FREQUENCY = N) to write back all aggregated data points
+# every N seconds, independent of rule frequency. This is useful, for example,
+# to be able to query partially aggregated metrics from carbon-cache without
+# having to first wait rule.frequency seconds.
+# WRITE_BACK_FREQUENCY = 0
+
 # Set this to True to enable whitelisting and blacklisting of metrics in
 # CONF_DIR/whitelist and CONF_DIR/blacklist. If the whitelist is missing or
 # empty, all metrics will pass through

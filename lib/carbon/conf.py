@@ -66,6 +66,7 @@ defaults = dict(
   USE_WHITELIST=False,
   CARBON_METRIC_PREFIX='carbon',
   CARBON_METRIC_INTERVAL=60,
+  WRITE_BACK_FREQUENCY=None,
 )
 
 

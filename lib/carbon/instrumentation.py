@@ -106,6 +106,10 @@ def recordMetrics():
   # relay metrics
   else:
     record = relay_record
+    prefix = 'destinations.'
+    relay_stats =  [(k,v) for (k,v) in myStats.items() if k.startswith(prefix)]
+    for stat_name, stat_value in relay_stats:
+      record(stat_name, stat_value)
 
   # common metrics
   record('metricsReceived', myStats.get('metricsReceived', 0))

@@ -1,6 +1,7 @@
 import re
 from carbon.conf import OrderedConfigParser
 from carbon.util import parseDestinations
+from carbon.exceptions import CarbonConfigException
 
 
 class RelayRule:
@@ -18,12 +19,12 @@ def loadRelayRules(path):
   parser = OrderedConfigParser()
 
   if not parser.read(path):
-    raise Exception("Could not read rules file %s" % path)
+    raise CarbonConfigException("Could not read rules file %s" % path)
 
   defaultRule = None
   for section in parser.sections():
     if not parser.has_option(section, 'destinations'):
-      raise ValueError("Rules file %s section %s does not define a "
+      raise CarbonConfigException("Rules file %s section %s does not define a "
                        "'destinations' list" % (path, section))
 
     destination_strings = parser.get(section, 'destinations').split(',')
@@ -31,7 +32,7 @@ def loadRelayRules(path):
 
     if parser.has_option(section, 'pattern'):
       if parser.has_option(section, 'default'):
-        raise Exception("Section %s contains both 'pattern' and "
+        raise CarbonConfigException("Section %s contains both 'pattern' and "
                         "'default'. You must use one or the other." % section)
       pattern = parser.get(section, 'pattern')
       regex = re.compile(pattern, re.I)
@@ -47,12 +48,12 @@ def loadRelayRules(path):
       if not parser.getboolean(section, 'default'):
         continue # just ignore default = false
       if defaultRule:
-        raise Exception("Only one default rule can be specified")
+        raise CarbonConfigException("Only one default rule can be specified")
       defaultRule = RelayRule(condition=lambda metric: True,
                               destinations=destinations)
 
   if not defaultRule:
-    raise Exception("No default rule defined. You must specify exactly one "
+    raise CarbonConfigException("No default rule defined. You must specify exactly one "
                     "rule with 'default = true' instead of a pattern.")
 
   rules.append(defaultRule)

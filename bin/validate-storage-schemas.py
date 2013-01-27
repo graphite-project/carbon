@@ -27,8 +27,7 @@ else:
 
 config_parser = ConfigParser()
 if not config_parser.read(SCHEMAS_FILE):
-  print "Error: Couldn't read config file: %s" % SCHEMAS_FILE
-  sys.exit(1)
+  raise SystemExit("Error: Couldn't read config file: %s" % SCHEMAS_FILE)
 
 errors_found = 0
 
@@ -62,9 +61,6 @@ for section in config_parser.sections():
     print "  OK"
 
 if errors_found:
-  print
-  print "Storage-schemas configuration '%s' failed validation" % SCHEMAS_FILE
-  sys.exit(1)
+  raise SystemExit( "Storage-schemas configuration '%s' failed validation" % SCHEMAS_FILE)
 
-print
 print "Storage-schemas configuration '%s' is valid" % SCHEMAS_FILE

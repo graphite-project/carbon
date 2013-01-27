@@ -23,6 +23,7 @@ from ConfigParser import ConfigParser
 
 import whisper
 from carbon import log
+from carbon.exceptions import CarbonConfigException
 
 from twisted.python import usage
 
@@ -92,8 +93,11 @@ class OrderedConfigParser(ConfigParser):
   _ordered_sections = []
 
   def read(self, path):
-    result = ConfigParser.read(self, path)
+    # Verifies a file exists *and* is readable
+    if not os.access(path, os.R_OK):
+        raise CarbonConfigException("Error: Missing config file or wrong perms on %s" % path)
 
+    result = ConfigParser.read(self, path)
     sections = []
     for line in open(path):
       line = line.strip()
@@ -119,7 +123,7 @@ class Settings(dict):
   def readFrom(self, path, section):
     parser = ConfigParser()
     if not parser.read(path):
-      raise Exception("Failed to read config file %s" % path)
+      raise CarbonConfigException("Failed to read config file %s" % path)
 
     if not parser.has_section(section):
       return
@@ -478,7 +482,7 @@ def read_config(program, options, **kwargs):
     if graphite_root is None:
         graphite_root = os.environ.get('GRAPHITE_ROOT')
     if graphite_root is None:
-        raise ValueError("Either ROOT_DIR or GRAPHITE_ROOT "
+        raise CarbonConfigException("Either ROOT_DIR or GRAPHITE_ROOT "
                          "needs to be provided.")
 
     # Default config directory to root-relative, unless overriden by the
@@ -515,7 +519,7 @@ def read_config(program, options, **kwargs):
     config = options["config"]
 
     if not exists(config):
-        raise ValueError("Error: missing required config %r" % config)
+        raise CarbonConfigException("Error: missing required config %r" % config)
 
     settings.readFrom(config, section)
     settings.setdefault("instance", options["instance"])

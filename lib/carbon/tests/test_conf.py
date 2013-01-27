@@ -1,9 +1,11 @@
 import os
+import warnings
 from os import makedirs
 from os.path import dirname, join
 from unittest import TestCase
 from mocker import MockerTestCase
 from carbon.conf import get_default_parser, parse_options, read_config
+from carbon.exceptions import CarbonConfigException
 
 
 class FakeParser(object):
@@ -87,9 +89,11 @@ class ReadConfigTest(MockerTestCase):
         """
         try:
             read_config("carbon-foo", FakeOptions(config=None))
-        except ValueError, e:
-            self.assertEqual("Either ROOT_DIR or GRAPHITE_ROOT "
-                             "needs to be provided.", e.message)
+        except CarbonConfigException, e:
+            with warnings.catch_warnings():
+                warnings.filterwarnings("ignore",category=DeprecationWarning)
+                self.assertEqual("Either ROOT_DIR or GRAPHITE_ROOT "
+                                 "needs to be provided.", e.message)
         else:
             self.fail("Did not raise exception.")
 

@@ -17,7 +17,7 @@ from operator import itemgetter
 from random import choice
 
 from carbon.conf import settings
-from carbon import log, instrumentation
+from carbon import events, instrumentation, log
 from carbon.pipeline import Processor
 
 instrumentation.configure_stats('pipeline.cache_microseconds', ('total', 'min', 'max', 'avg'))
@@ -113,7 +113,7 @@ class _MetricCache(dict):
   def _check_available_space(self):
     if state.cacheTooFull and self.size < settings.CACHE_SIZE_LOW_WATERMARK:
       log.msg("cache size below watermark")
-      state.events.cacheSpaceAvailable()
+      events.cacheSpaceAvailable()
 
   def drain_metric(self):
     """Returns a metric and it's datapoints in order determined by the
@@ -147,7 +147,7 @@ class _MetricCache(dict):
 
     if self.is_full:
       log.msg("MetricCache is full: self.size=%d" % self.size)
-      state.events.cacheFull()
+      events.cacheFull()
 
 # Initialize a singleton cache instance
 write_strategy = None

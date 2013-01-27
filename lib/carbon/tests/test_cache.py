@@ -1,16 +1,22 @@
 from unittest import TestCase
-from mock import Mock, patch
+from mock import Mock, PropertyMock, patch
 from carbon.cache import _MetricCache
 from carbon.cache import *
 
-class PropertyMock(Mock):
-  def __get__(self, instance, owner):
-    return self()
 
 class MetricCacheTest(TestCase):
   def setUp(self):
+    settings = {
+      'MAX_CACHE_SIZE': float('inf'),
+      'CACHE_SIZE_LOW_WATERMARK': float('inf')
+    }
+    self._settings_patch = patch.dict('carbon.conf.settings', settings)
+    self._settings_patch.start()
     self.strategy_mock = Mock(spec=DrainStrategy)
     self.metric_cache = _MetricCache(self.strategy_mock)
+
+  def tearDown(self):
+    self._settings_patch.stop()
 
   def test_cache_is_a_dict(self):
     self.assertTrue(issubclass(_MetricCache, dict))
@@ -40,7 +46,7 @@ class MetricCacheTest(TestCase):
   def test_store_checks_fullness(self):
     is_full_mock = PropertyMock()
     with patch.object(_MetricCache, 'is_full', is_full_mock):
-      with patch('carbon.state.events'):
+      with patch('carbon.cache.events'):
         metric_cache = _MetricCache()
         metric_cache.store('foo', (123456, 1.0))
         is_full_mock.assert_called_once()
@@ -48,7 +54,7 @@ class MetricCacheTest(TestCase):
   def test_store_on_full_triggers_events(self):
     is_full_mock = PropertyMock(return_value=True)
     with patch.object(_MetricCache, 'is_full', is_full_mock):
-      with patch('carbon.state.events') as events_mock:
+      with patch('carbon.cache.events') as events_mock:
         self.metric_cache.store('foo', (123456, 1.0))
         events_mock.return_value.cacheFull.assert_called_once()
 
@@ -119,23 +125,19 @@ class MetricCacheTest(TestCase):
     self.assertEqual('foo', metric_cache.drain_metric()[0])
 
   def test_is_full_short_circuits_on_inf(self):
-    with patch.dict('carbon.conf.settings', {
-      'MAX_CACHE_SIZE': float('inf')
-    }):
-      with patch.object(self.metric_cache, 'size') as size_mock:
-        self.metric_cache.is_full
-        size_mock.assert_not_called()
+    with patch.object(self.metric_cache, 'size') as size_mock:
+      self.metric_cache.is_full
+      size_mock.assert_not_called()
 
   def test_is_full(self):
-    with patch.dict('carbon.conf.settings', {
-      'MAX_CACHE_SIZE': 2
-    }):
-      with patch('carbon.state.events'):
-        self.assertFalse(self.metric_cache.is_full)
-        self.metric_cache.store('foo', (123456, 1.0))
-        self.assertFalse(self.metric_cache.is_full)
-        self.metric_cache.store('foo', (123457, 1.0))
-        self.assertTrue(self.metric_cache.is_full)
+    self._settings_patch.values['MAX_CACHE_SIZE'] = 2.0
+    self._settings_patch.start()
+    with patch('carbon.cache.events'):
+      self.assertFalse(self.metric_cache.is_full)
+      self.metric_cache.store('foo', (123456, 1.0))
+      self.assertFalse(self.metric_cache.is_full)
+      self.metric_cache.store('foo', (123457, 1.0))
+      self.assertTrue(self.metric_cache.is_full)
 
   def test_counts_one_datapoint(self):
     self.metric_cache.store('foo', (123456, 1.0))

@@ -7,7 +7,6 @@ cacheTooFull = False
 client_manager = None
 connectedMetricReceiverProtocols = set()
 database = None
-events = None
 instrumentation = None
 metricReceiversPaused = False
 pipeline_processors = []

@@ -14,17 +14,21 @@ See the License for the specific language governing permissions and
 limitations under the License."""
 
 import sys
-from os.path import dirname, join, abspath
+import os.path
 
 # Figure out where we're installed
-BIN_DIR = dirname(abspath(__file__))
-ROOT_DIR = dirname(BIN_DIR)
+BIN_DIR = os.path.dirname(os.path.abspath(__file__))
+ROOT_DIR = os.path.dirname(BIN_DIR)
 
 # Make sure that carbon's 'lib' dir is in the $PYTHONPATH if we're running from
 # source.
-LIB_DIR = join(ROOT_DIR, 'lib')
+LIB_DIR = os.path.join(ROOT_DIR, "lib")
 sys.path.insert(0, LIB_DIR)
 
 from carbon.util import run_twistd_plugin
+from carbon.exceptions import CarbonConfigException
 
-run_twistd_plugin(__file__)
+try:
+    run_twistd_plugin(__file__)
+except CarbonConfigException, exc:
+    raise SystemExit(str(exc))

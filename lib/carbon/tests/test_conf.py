@@ -1,5 +1,4 @@
 import os
-import warnings
 from os import makedirs
 from os.path import dirname, join
 from unittest import TestCase
@@ -90,10 +89,8 @@ class ReadConfigTest(MockerTestCase):
         try:
             read_config("carbon-foo", FakeOptions(config=None))
         except CarbonConfigException, e:
-            with warnings.catch_warnings():
-                warnings.filterwarnings("ignore",category=DeprecationWarning)
-                self.assertEqual("Either ROOT_DIR or GRAPHITE_ROOT "
-                                 "needs to be provided.", e.message)
+            self.assertEqual("Either ROOT_DIR or GRAPHITE_ROOT "
+                             "needs to be provided.", str(e))
         else:
             self.fail("Did not raise exception.")
 

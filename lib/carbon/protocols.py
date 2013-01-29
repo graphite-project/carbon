@@ -57,7 +57,7 @@ class MetricReceiver:
       return
     if datapoint[1] != datapoint[1]: # filter out NaN values
       return
-    if int(datapoint[0]) == 0: # use current time if none given: https://github.com/graphite-project/carbon/issues/54
+    if int(datapoint[0]) == -1: # use current time if none given: https://github.com/graphite-project/carbon/issues/54
       datapoint = (time.time(), datapoint[1])
     
     events.metricReceived(metric, datapoint)

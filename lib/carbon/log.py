@@ -12,7 +12,7 @@ class DailyLogFile(_DailyLogFile):
   def __init__(self, *args, **kwargs):
     _DailyLogFile.__init__(self, *args, **kwargs)
     if settings.ENABLE_LOGROTATE:
-      signal.signal.(signal.SIGHUP, self._handle_rotate)
+      signal.signal(signal.SIGHUP, self._handle_rotate)
 
   if settings.ENABLE_LOGROTATE:
     shouldRotate = lambda s: False

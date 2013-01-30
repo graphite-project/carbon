@@ -4,6 +4,7 @@ from os.path import dirname, join
 from unittest import TestCase
 from mocker import MockerTestCase
 from carbon.conf import get_default_parser, parse_options, read_config
+from carbon.exceptions import CarbonConfigException
 
 
 class FakeParser(object):
@@ -87,9 +88,9 @@ class ReadConfigTest(MockerTestCase):
         """
         try:
             read_config("carbon-foo", FakeOptions(config=None))
-        except ValueError, e:
+        except CarbonConfigException, e:
             self.assertEqual("Either ROOT_DIR or GRAPHITE_ROOT "
-                             "needs to be provided.", e.message)
+                             "needs to be provided.", str(e))
         else:
             self.fail("Did not raise exception.")
 

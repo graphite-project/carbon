@@ -22,6 +22,7 @@ from twisted.python.log import ILogObserver
 # Attaching modules to the global state module simplifies import order hassles
 from carbon import util, state, events, instrumentation
 from carbon.log import carbonLogObserver
+from carbon.exceptions import CarbonConfigException
 state.events = events
 state.instrumentation = instrumentation
 
@@ -33,7 +34,6 @@ class CarbonRootService(MultiService):
     MultiService.setServiceParent(self, parent)
     if isinstance(parent, Componentized):
       parent.setComponent(ILogObserver, carbonLogObserver)
-
 
 
 def createBaseService(config):
@@ -52,11 +52,10 @@ def createBaseService(config):
         amqp_port = settings.get("AMQP_PORT", 5672)
         amqp_user = settings.get("AMQP_USER", "guest")
         amqp_password = settings.get("AMQP_PASSWORD", "guest")
-        amqp_verbose  = settings.get("AMQP_VERBOSE", False)
-        amqp_vhost    = settings.get("AMQP_VHOST", "/")
-        amqp_spec     = settings.get("AMQP_SPEC", None)
+        amqp_verbose = settings.get("AMQP_VERBOSE", False)
+        amqp_vhost = settings.get("AMQP_VHOST", "/")
+        amqp_spec = settings.get("AMQP_SPEC", None)
         amqp_exchange_name = settings.get("AMQP_EXCHANGE", "graphite")
-
 
     for interface, port, protocol in ((settings.LINE_RECEIVER_INTERFACE,
                                        settings.LINE_RECEIVER_PORT,
@@ -94,7 +93,7 @@ def createBaseService(config):
         service.setServiceParent(root_service)
 
     if settings.USE_WHITELIST:
-      from carbon.regexlist import WhiteList,BlackList
+      from carbon.regexlist import WhiteList, BlackList
       WhiteList.read_from(settings["whitelist"])
       BlackList.read_from(settings["blacklist"])
 
@@ -160,7 +159,7 @@ def createAggregatorService(config):
         RewriteRuleManager.read_from(settings["rewrite-rules"])
 
     if not settings.DESTINATIONS:
-      raise Exception("Required setting DESTINATIONS is missing from carbon.conf")
+      raise CarbonConfigException("Required setting DESTINATIONS is missing from carbon.conf")
 
     for destination in util.parseDestinations(settings.DESTINATIONS):
       client_manager.startClient(destination)
@@ -193,7 +192,7 @@ def createRelayService(config):
     events.metricGenerated.addHandler(client_manager.sendDatapoint)
 
     if not settings.DESTINATIONS:
-      raise Exception("Required setting DESTINATIONS is missing from carbon.conf")
+      raise CarbonConfigException("Required setting DESTINATIONS is missing from carbon.conf")
 
     for destination in util.parseDestinations(settings.DESTINATIONS):
       client_manager.startClient(destination)

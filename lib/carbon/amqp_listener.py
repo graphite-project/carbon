@@ -35,7 +35,8 @@ import os
 import socket
 from optparse import OptionParser
 
-from twisted.internet.defer import inlineCallbacks
+from twisted.python.failure import Failure
+from twisted.internet.defer import deferredGenerator, waitForDeferred
 from twisted.internet import reactor
 from twisted.internet.protocol import ReconnectingClientFactory
 from txamqp.protocol import AMQClient
@@ -62,45 +63,91 @@ class AMQPGraphiteProtocol(AMQClient):
 
     consumer_tag = "graphite_consumer"
 
-    @inlineCallbacks
+    @deferredGenerator
     def connectionMade(self):
-        yield AMQClient.connectionMade(self)
-        log.listener("New AMQP connection made")
-        yield self.setup()
-        yield self.receive_loop()
+        result = None
+        try:
+            wfd = waitForDeferred(AMQClient.connectionMade(self))
+            yield wfd
+            wfd.getResult()
+            log.listener("New AMQP connection made")
+            wfd = waitForDeferred(self.setup())
+            yield wfd
+            wfd.getResult()
+            wfd = waitForDeferred(self.receive_loop())
+            yield wfd
+            wfd.getResult()
+        except:
+            result = Failure()
+        yield result
 
-    @inlineCallbacks
+    @deferredGenerator
     def setup(self):
-        exchange = self.factory.exchange_name
+        result = None
+        try:
+            exchange = self.factory.exchange_name
 
-        yield self.authenticate(self.factory.username, self.factory.password)
-        chan = yield self.channel(1)
-        yield chan.channel_open()
+            d = self.authenticate(self.factory.username, self.factory.password)
+            wfd = waitForDeferred(d)
+            yield wfd
+            wfd.getResult()
 
-        # declare the exchange and queue
-        yield chan.exchange_declare(exchange=exchange, type="topic",
-                                    durable=True, auto_delete=False)
+            wfd = waitForDeferred(self.channel(1))
+            yield wfd
+            chan = wfd.getResult()
+ 
+            wfd = waitForDeferred(chan.channel_open())
+            yield wfd
+            wfd.getResult()
 
-        # we use a private queue to avoid conflicting with existing bindings
-        reply = yield chan.queue_declare(exclusive=True)
-        my_queue = reply.queue
+            # declare the exchange and queue
+            d = chan.exchange_declare(exchange=exchange, type="topic",
+                                      durable=True, auto_delete=False)
+            wfd = waitForDeferred(d)
+            yield wfd
+            wfd.getResult()
 
-        # bind each configured metric pattern
-        for bind_pattern in settings.BIND_PATTERNS:
-            log.listener("binding exchange '%s' to queue '%s' with pattern %s" \
-                         % (exchange, my_queue, bind_pattern))
-            yield chan.queue_bind(exchange=exchange, queue=my_queue,
-                                  routing_key=bind_pattern)
+            # we use a private queue to avoid conflicting with existing bindings
+            wfd = waitForDeferred(chan.queue_declare(exclusive=True))
+            yield wfd
+            reply = wfd.getResult()
+            my_queue = reply.queue
 
-        yield chan.basic_consume(queue=my_queue, no_ack=True,
-                                 consumer_tag=self.consumer_tag)
-    @inlineCallbacks
+            # bind each configured metric pattern
+            for bind_pattern in settings.BIND_PATTERNS:
+                log.listener("binding exchange '%s' to queue '%s' with pattern %s" \
+                             % (exchange, my_queue, bind_pattern))
+                d = chan.queue_bind(exchange=exchange, queue=my_queue,
+                                    routing_key=bind_pattern)
+                wfd = waitForDeferred(d)
+                yield wfd
+                wfd.getResult()
+
+            d = chan.basic_consume(queue=my_queue, no_ack=True,
+                                   consumer_tag=self.consumer_tag)
+            wfd = waitForDeferred(d)
+            yield wfd
+            wfd.getResult()
+        except:
+            result = Failure()
+        yield result
+
+    @deferredGenerator
     def receive_loop(self):
-        queue = yield self.queue(self.consumer_tag)
+        result = None
+        try:
+            wfd = waitForDeferred(self.queue(self.consumer_tag))
+            yield wfd
+            queue = wfd.getResult()
 
-        while True:
-            msg = yield queue.get()
-            self.processMessage(msg)
+            while True:
+                wfd = waitForDeferred(queue.get())
+                yield wfd
+                msg = wfd.getResult()
+                self.processMessage(msg)
+        except:
+            result = Failure()
+        yield result
 
     def processMessage(self, message):
         """Parse a message and post it as a metric."""

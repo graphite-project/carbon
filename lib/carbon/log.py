@@ -3,7 +3,19 @@ from sys import stdout, stderr
 from zope.interface import implements
 from twisted.python.log import startLoggingWithObserver, textFromEventDict, msg, err, ILogObserver
 from twisted.python.syslog import SyslogObserver
-from twisted.python.logfile import DailyLogFile
+from twisted.python.logfile import DailyLogFile as _DailyLogFile
+import signal
+
+class DailyLogFile(_DailyLogFile):
+  """Overrode to support logrotate.d"""
+  def __init__(self, *args, **kwargs):
+    _DailyLogFile.__init__(self, *args, **kwargs)
+    #avoid circular dependencies
+    from carbon.conf import settings
+    if settings.ENABLE_LOGROTATE:
+      self.shouldRotate = lambda s: False
+      self._handle_rotate = lambda *args: args[0].rotate()
+      signal.signal(signal.SIGHUP, self._handle_rotate)
 
 
 class CarbonLogObserver(object):

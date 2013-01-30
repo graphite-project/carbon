@@ -1,16 +1,43 @@
 import time
+from os.path import exists
 from sys import stdout, stderr
 from zope.interface import implements
 from twisted.python.log import startLoggingWithObserver, textFromEventDict, msg, err, ILogObserver
 from twisted.python.syslog import SyslogObserver
 from twisted.python.logfile import DailyLogFile
 
+
+class CarbonLogFile(DailyLogFile):
+  """Overridden to support logrotate.d"""
+  def __init__(self, *args, **kwargs):
+    DailyLogFile.__init__(self, *args, **kwargs)
+    # avoid circular dependencies
+    from carbon.conf import settings
+    self.enableRotation = settings.ENABLE_LOGROTATE
+
+  def shouldRotate(self):
+    if self.enableRotation:
+      return DailyLogFile.shouldRotate(self)
+    else:
+      return False
+
+  def write(self, data):
+    if not self.enableRotation:
+      if not exists(self.path):
+        self.reopen()
+    DailyLogFile.write(self, data)
+
+  # Backport from twisted >= 10
+  def reopen(self):
+    self.close()
+    self._openFile()
+
 class CarbonLogObserver(object):
   implements(ILogObserver)
 
   def log_to_dir(self, logdir):
     self.logdir = logdir
-    self.console_logfile = DailyLogFile('console.log', logdir)
+    self.console_logfile = CarbonLogFile('console.log', logdir)
     self.custom_logs = {}
     self.observer = self.logdir_observer
 
@@ -33,7 +60,7 @@ class CarbonLogObserver(object):
     log_type = event.get('type')
 
     if log_type is not None and log_type not in self.custom_logs:
-      self.custom_logs[log_type] = DailyLogFile(log_type + '.log', self.logdir)
+      self.custom_logs[log_type] = CarbonLogFile(log_type + '.log', self.logdir)
 
     logfile = self.custom_logs.get(log_type, self.console_logfile)
     logfile.write(message + '\n')

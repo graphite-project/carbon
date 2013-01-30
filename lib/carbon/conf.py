@@ -79,6 +79,7 @@ defaults = dict(
   AGGREGATION_RULES='aggregation-rules.conf',
   REWRITE_RULES='rewrite-rules.conf',
   RELAY_RULES='relay-rules.conf',
+  ENABLE_LOGROTATE=True,
 )
 
 

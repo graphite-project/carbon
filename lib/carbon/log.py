@@ -5,6 +5,7 @@ from twisted.python.log import startLoggingWithObserver, textFromEventDict, msg,
 from twisted.python.syslog import SyslogObserver
 from twisted.python.logfile import DailyLogFile
 
+
 class CarbonLogObserver(object):
   implements(ILogObserver)
 
@@ -16,6 +17,7 @@ class CarbonLogObserver(object):
 
   def log_to_syslog(self, prefix):
     observer = SyslogObserver(prefix).emit
+
     def syslog_observer(event):
       event["system"] = event.get("type", "console")
       observer(event)
@@ -25,7 +27,7 @@ class CarbonLogObserver(object):
     return self.observer(event)
 
   def stdout_observer(self, event):
-    stdout.write( formatEvent(event, includeType=True) + '\n' )
+    stdout.write(formatEvent(event, includeType=True) + '\n')
     stdout.flush()
 
   def logdir_observer(self, event):
@@ -41,7 +43,7 @@ class CarbonLogObserver(object):
 
   # Default to stdout
   observer = stdout_observer
-   
+
 
 carbonLogObserver = CarbonLogObserver()
 
@@ -63,46 +65,58 @@ logToDir = carbonLogObserver.log_to_dir
 
 logToSyslog = carbonLogObserver.log_to_syslog
 
+
 def logToStdout():
   startLoggingWithObserver(carbonLogObserver)
+
 
 def cache(message, **context):
   context['type'] = 'cache'
   msg(message, **context)
 
+
 def clients(message, **context):
   context['type'] = 'clients'
   msg(message, **context)
+
 
 def creates(message, **context):
   context['type'] = 'creates'
   msg(message, **context)
 
+
 def updates(message, **context):
   context['type'] = 'updates'
   msg(message, **context)
+
 
 def listener(message, **context):
   context['type'] = 'listener'
   msg(message, **context)
 
+
 def relay(message, **context):
   context['type'] = 'relay'
   msg(message, **context)
+
 
 def aggregator(message, **context):
   context['type'] = 'aggregator'
   msg(message, **context)
 
+
 def query(message, **context):
   context['type'] = 'query'
   msg(message, **context)
+
 
 def debug(message, **context):
   if debugEnabled:
     msg(message, **context)
 
 debugEnabled = False
+
+
 def setDebugEnabled(enabled):
   global debugEnabled
   debugEnabled = enabled

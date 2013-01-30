@@ -4,7 +4,6 @@ from carbon import log
 from carbon.storage import getFilesystemPath
 
 
-
 def getMetadata(metric, key):
   if key != 'aggregationMethod':
     return dict(error="Unsupported metadata key \"%s\"" % key)

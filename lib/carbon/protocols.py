@@ -1,4 +1,4 @@
-from twisted.internet import reactor
+#from twisted.internet import reactor
 from twisted.internet.protocol import DatagramProtocol
 from twisted.internet.error import ConnectionDone
 from twisted.protocols.basic import LineOnlyReceiver, Int32StringReceiver
@@ -53,7 +53,7 @@ class MetricReceiver:
     if WhiteList and metric not in WhiteList:
       instrumentation.increment('whitelistRejects')
       return
-    if datapoint[1] == datapoint[1]: # filter out NaN values
+    if datapoint[1] == datapoint[1]:  # filter out NaN values
       events.metricReceived(metric, datapoint)
 
 
@@ -63,7 +63,7 @@ class MetricLineReceiver(MetricReceiver, LineOnlyReceiver):
   def lineReceived(self, line):
     try:
       metric, value, timestamp = line.strip().split()
-      datapoint = ( float(timestamp), float(value) )
+      datapoint = (float(timestamp), float(value))
     except:
       log.listener('invalid line received from client %s, ignoring' % self.peerName)
       return
@@ -76,7 +76,7 @@ class MetricDatagramReceiver(MetricReceiver, DatagramProtocol):
     for line in data.splitlines():
       try:
         metric, value, timestamp = line.strip().split()
-        datapoint = ( float(timestamp), float(value) )
+        datapoint = (float(timestamp), float(value))
 
         self.metricReceived(metric, datapoint)
       except:
@@ -97,9 +97,13 @@ class MetricPickleReceiver(MetricReceiver, Int32StringReceiver):
       log.listener('invalid pickle received from %s, ignoring' % self.peerName)
       return
 
-    for (metric, datapoint) in datapoints:
+    for raw in datapoints:
       try:
-        datapoint = ( float(datapoint[0]), float(datapoint[1]) ) #force proper types
+        (metric, (value, timestamp)) = raw
+      except Exception as e:
+        log.listener('Error decoding pickle: %s' % e)
+      try:
+        datapoint = (float(value), float(timestamp))  # force proper types
       except:
         continue
 

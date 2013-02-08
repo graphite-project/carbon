@@ -20,7 +20,7 @@ from os.path import join, exists, sep
 from carbon.conf import OrderedConfigParser, settings
 from carbon.util import pickle
 from carbon import log
-
+from carbon.exceptions import CarbonConfigException
 
 STORAGE_SCHEMAS_CONFIG = join(settings.CONF_DIR, 'storage-schemas.conf')
 STORAGE_AGGREGATION_CONFIG = join(settings.CONF_DIR, 'storage-aggregation.conf')
@@ -153,7 +153,7 @@ def loadAggregationSchemas():
 
   try:
     config.read(STORAGE_AGGREGATION_CONFIG)
-  except IOError:
+  except (IOError, CarbonConfigException):
     log.msg("%s not found, ignoring." % STORAGE_AGGREGATION_CONFIG)
 
   for section in config.sections():

@@ -36,10 +36,10 @@ ENABLE_LOGROTATION = True
 # Specify the user to drop privileges to
 # If this is blank carbon runs as the user that invokes it
 # This user must have write access to the local data directory
-#
-# NOTE: This setting must be set under [relay] *and* [aggregator]
-#       to take effect for those daemons as well
 USER =
+#
+# NOTE: The above settings must be set under [relay] and [aggregator]
+#       to take effect for those daemons as well
 
 # Limit the size of the cache to avoid swapping or becoming CPU bound.
 # Sorts and serving cache queries gets more expensive as the cache grows.

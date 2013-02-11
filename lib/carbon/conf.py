@@ -79,7 +79,7 @@ defaults = dict(
   MAX_QUEUE_SIZE=10000,
   RELAY_METHOD='rules',
   REPLICATION_FACTOR=1,
-  USE_FLOW_CONTROL=True,
+  USE_FLOW_CONTROL=False,
 
   # writer.conf
   MAX_CACHE_SIZE=2000000,

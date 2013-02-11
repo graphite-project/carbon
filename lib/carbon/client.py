@@ -3,19 +3,15 @@ from twisted.internet import reactor
 from twisted.internet.defer import Deferred, DeferredList
 from twisted.internet.protocol import ReconnectingClientFactory
 from twisted.protocols.basic import Int32StringReceiver
-
 from carbon.conf import settings
 from carbon.util import pickle
 from carbon import events, instrumentation, log, pipeline, state
 
-from collections import deque
-
 
 SEND_QUEUE_LOW_WATERMARK = settings.MAX_QUEUE_SIZE * 0.8
-EPSILON = 0.00000001
+
 
 class CarbonClientProtocol(Int32StringReceiver):
-
   def connectionMade(self):
     log.clients("%s::connectionMade" % self)
     self.paused = False
@@ -28,8 +24,7 @@ class CarbonClientProtocol(Int32StringReceiver):
 
     self.factory.connectionMade.callback(self)
     self.factory.connectionMade = Deferred()
-    self.resetDrainQueue()
-    self.resumeProducing()
+    self.sendQueued()
 
   def connectionLost(self, reason):
     log.clients("%s::connectionLost %s" % (self, reason.getErrorMessage()))
@@ -37,12 +32,10 @@ class CarbonClientProtocol(Int32StringReceiver):
 
   def pauseProducing(self):
     self.paused = True
-    self.resetDrainQueue()
 
   def resumeProducing(self):
     self.paused = False
-    if not self.drainQueue.called:
-      self.drainQueue.callback(None)
+    self.sendQueued()
 
   def stopProducing(self):
     self.disconnect()
@@ -53,35 +46,25 @@ class CarbonClientProtocol(Int32StringReceiver):
       self.transport.loseConnection()
       self.connected = False
 
-  def resetDrainQueue(self):
-    self.drainQueue = Deferred()
-    self.drainQueue.addCallback(lambda _x: self.drainQueueCallback())
-
-  def drainQueueCallback(self):
-    log.clients("%s::drainQueueCallback: called:%s" % (self, self.drainQueue.called ))
-    if not self.connected:
-      return
-    if self.paused:
-      return
-
-    self.sendSomeQueued()
-    if self.factory.hasQueuedDatapoints():
-      reactor.callLater(EPSILON, self.drainQueueCallback)
-    else:
-      self.resetDrainQueue()
-
   def sendDatapoint(self, metric, datapoint):
-    self.factory.enqueue(metric, datapoint)
-    if not self.drainQueue.called:
-      self.drainQueue.callback(None)
+    if self.paused:
+      self.factory.enqueue(metric, datapoint)
+      instrumentation.increment(self.queuedUntilReady)
+
+    elif self.factory.hasQueuedDatapoints():
+      self.factory.enqueue(metric, datapoint)
+      self.sendQueued()
+
+    else:
+      self._sendDatapoints([(metric, datapoint)])
 
   def _sendDatapoints(self, datapoints):
     self.sendString(pickle.dumps(datapoints, protocol=-1))
     instrumentation.increment(self.sent, len(datapoints))
-    self.factory.checkQueueEmptied()
+    self.factory.checkQueue()
 
-  def sendSomeQueued(self):
-    if self.factory.hasQueuedDatapoints():
+  def sendQueued(self):
+    while (not self.paused) and self.factory.hasQueuedDatapoints():
       datapoints = self.factory.takeSomeFromQueue()
       self._sendDatapoints(datapoints)
 
@@ -94,9 +77,6 @@ class CarbonClientProtocol(Int32StringReceiver):
     return 'CarbonClientProtocol(%s:%d:%s)' % (self.factory.destination)
   __repr__ = __str__
 
-  def __nonzero__(self):
-    return self.connected
-
 
 class CarbonClientFactory(ReconnectingClientFactory):
   maxDelay = 5
@@ -108,10 +88,9 @@ class CarbonClientFactory(ReconnectingClientFactory):
     self.addr = (self.host, self.port)
     self.started = False
     # This factory maintains protocol state across reconnects
-    self.queue = deque() # including datapoints that still need to be sent
+    self.queue = [] # including datapoints that still need to be sent
     self.connectedProtocol = None
-    self.queueEmptied = Deferred()
-    self.queueReady = Deferred()
+    self.queueEmpty = Deferred()
     self.queueFull = Deferred()
     self.queueFull.addCallback(self.queueFullCallback)
     self.queueHasSpace = Deferred()
@@ -142,7 +121,7 @@ class CarbonClientFactory(ReconnectingClientFactory):
     self.connectedProtocol.factory = self
     return self.connectedProtocol
 
-  def startConnecting(self): # calling this in startFactory yields recursion problems
+  def startConnecting(self): # calling this startFactory yields recursion problems
     self.started = True
     self.connector = reactor.connectTCP(self.host, self.port, self)
 
@@ -160,36 +139,26 @@ class CarbonClientFactory(ReconnectingClientFactory):
     return bool(self.queue)
 
   def takeSomeFromQueue(self):
-    datapoints = []
-    for _i in xrange(settings.MAX_DATAPOINTS_PER_MESSAGE):
-      try:
-        datapoints.append(self.queue.popleft())
-      except IndexError: pass
+    datapoints = self.queue[:settings.MAX_DATAPOINTS_PER_MESSAGE]
+    self.queue = self.queue[settings.MAX_DATAPOINTS_PER_MESSAGE:]
     return datapoints
 
-  def checkQueueEmptied(self):
+  def checkQueue(self):
     if not self.queue:
-      self.queueEmptied.callback(0)
-      self.queueEmptied = Deferred()
-
-  def checkQueueReady(self):
-    if self.hasQueuedDatapoints:
-      self.queueReady.callback(self.queueSize)
-      self.queueReady = Deferred()
+      self.queueEmpty.callback(0)
+      self.queueEmpty = Deferred()
 
   def enqueue(self, metric, datapoint):
+    self.queue.append((metric, datapoint))
+
+  def sendDatapoint(self, metric, datapoint):
+    instrumentation.increment(self.attemptedRelays)
     queueSize = self.queueSize
     if queueSize >= settings.MAX_QUEUE_SIZE:
       if not self.queueFull.called:
         self.queueFull.callback(queueSize)
       instrumentation.increment(self.fullQueueDrops)
-    else:
-      self.queue.append((metric, datapoint))
-    self.checkQueueReady()
-
-  def sendDatapoint(self, metric, datapoint):
-    instrumentation.increment(self.attemptedRelays)
-    if self.connectedProtocol:
+    elif self.connectedProtocol:
       self.connectedProtocol.sendDatapoint(metric, datapoint)
     else:
       self.enqueue(metric, datapoint)
@@ -212,12 +181,12 @@ class CarbonClientFactory(ReconnectingClientFactory):
     self.connectFailed = Deferred()
 
   def disconnect(self):
-    self.queueEmptied.addCallback(lambda result: self.stopConnecting())
+    self.queueEmpty.addCallback(lambda result: self.stopConnecting())
     readyToStop = DeferredList(
       [self.connectionLost, self.connectFailed],
       fireOnOneCallback=True,
       fireOnOneErrback=True)
-    self.checkQueueEmptied()
+    self.checkQueue()
 
     # This can happen if the client is stopped before a connection is ever made
     if (not readyToStop.called) and (not self.started):

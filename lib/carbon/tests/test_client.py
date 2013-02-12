@@ -50,25 +50,3 @@ class ConnectedCarbonClientProtocol(TestCase):
         self.assertEquals([('foo.bar.baz', datapoint)],
                           self._decode_sent())
 
-    def test_sendsome_queued_empty_queue(self):
-        self.proto.sendSomeQueued()
-        self.assertEqual('', self.transport.value())
-
-    def test_send_some_queued_nonempty_queue(self):
-        carbon_client.settings.MAX_DATAPOINTS_PER_MESSAGE = 25
-        for i in xrange(100):
-            self.proto.factory.enqueue('foo.bar.baz', (1000000000, float(i)))
-        self.proto.sendSomeQueued()
-        sent = self._decode_sent()
-        self.assertEqual(25, len(sent))
-        self.assertEqual(0.0, sent[0][1][1])
-        self.assertEqual(24.0, sent[24][1][1])
-
-    def test_queue_has_space(self):
-        carbon_client.settings.MAX_QUEUE_SIZE = 100
-        carbon_client.settings.MAX_DATAPOINTS_PER_MESSAGE = 20
-        for i in xrange(101):
-            self.proto.factory.enqueue('foo.bar.baz', (1000000000, float(i)))
-        self.assertTrue(self.proto.factory.queueFull.called)
-        self.proto.sendSomeQueued()
-        self.assertFalse(self.proto.factory.queueHasSpace.called)

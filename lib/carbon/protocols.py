@@ -107,7 +107,7 @@ class MetricPickleReceiver(MetricReceiver, Int32StringReceiver):
     for raw in datapoints:
       try:
         (metric, (value, timestamp)) = raw
-      except Exception as e:
+      except Exception, e:
         log.listener('Error decoding pickle: %s' % e)
       try:
         datapoint = (float(value), float(timestamp))  # force proper types

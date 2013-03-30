@@ -6,9 +6,10 @@ from twisted.protocols.basic import Int32StringReceiver
 from carbon.conf import settings
 from carbon.util import pickle
 from carbon import log, state, instrumentation
+from collections import deque
 
 
-SEND_QUEUE_LOW_WATERMARK = settings.MAX_QUEUE_SIZE * 0.8
+SEND_QUEUE_LOW_WATERMARK = settings.MAX_QUEUE_SIZE * settings.QUEUE_LOW_WATERMARK_PCT
 
 
 class CarbonClientProtocol(Int32StringReceiver):
@@ -22,6 +23,7 @@ class CarbonClientProtocol(Int32StringReceiver):
     self.queuedUntilReady = 'destinations.%s.queuedUntilReady' % self.destinationName
     self.sent = 'destinations.%s.sent' % self.destinationName
     self.relayMaxQueueLength = 'destinations.%s.relayMaxQueueLength' % self.destinationName
+    self.batchesSent = 'destinations.%s.batchesSent' % self.destinationName
 
     self.factory.connectionMade.callback(self)
     self.factory.connectionMade = Deferred()
@@ -52,28 +54,37 @@ class CarbonClientProtocol(Int32StringReceiver):
     if self.paused:
       self.factory.enqueue(metric, datapoint)
       instrumentation.increment(self.queuedUntilReady)
-
-    elif self.factory.hasQueuedDatapoints():
-      self.factory.enqueue(metric, datapoint)
-      self.sendQueued()
-
     else:
-      self._sendDatapoints([(metric, datapoint)])
+      self.factory.enqueue(metric, datapoint)
+      reactor.callLater(config.TIME_TO_DEFER_SENDING, self.sendQueued)
 
   def _sendDatapoints(self, datapoints):
       self.sendString(pickle.dumps(datapoints, protocol=-1))
       instrumentation.increment(self.sent, len(datapoints))
+      instrumentation.increment(self.batchesSent)
       self.factory.checkQueue()
 
   def sendQueued(self):
-    while (not self.paused) and self.factory.hasQueuedDatapoints():
-      datapoints = self.factory.takeSomeFromQueue()
-      self._sendDatapoints(datapoints)
-
-      queueSize = self.factory.queueSize
-      if (self.factory.queueFull.called and
-          queueSize < SEND_QUEUE_LOW_WATERMARK):
-        self.factory.queueHasSpace.callback(queueSize)
+    """This should be the only method that will be used to send stats.
+    In order to not hold the event loop and prevent stats from flowing
+    in while we send them out, this will process
+    config.MAX_DATAPOINTS_PER_MESSAGE stats, send them, and if there
+    are still items in the queue, this will invoke reactor.callLater
+    to schedule another run of sendQueued asap
+    (chained_invocation_delay, a local var, should be low enough to be
+    instant for the forseeable future - 1 uSec or so, I guess).
+    """
+    chained_invocation_delay = 0.000001
+    if self.paused or (not self.factory.hasQueuedDatapoints()):
+      return
+    
+    self._sendDatapoints(self.factory.takeSomeFromQueue())
+    queueSize = self.factory.queueSize
+    if (self.factory.queueFull.called and
+        queueSize < SEND_QUEUE_LOW_WATERMARK):
+      self.factory.queueHasSpace.callback(queueSize)
+    if self.factory.hasQueuedDatapoints():
+      reactor.callLater(chained_invocation_delay, self.sendQueued)
 
   def __str__(self):
     return 'CarbonClientProtocol(%s:%d:%s)' % (self.factory.destination)
@@ -90,7 +101,7 @@ class CarbonClientFactory(ReconnectingClientFactory):
     self.addr = (self.host, self.port)
     self.started = False
     # This factory maintains protocol state across reconnects
-    self.queue = [] # including datapoints that still need to be sent
+    self.queue = deque() # Change to make this the sole source of metrics to be sent.
     self.connectedProtocol = None
     self.queueEmpty = Deferred()
     self.queueFull = Deferred()
@@ -141,9 +152,17 @@ class CarbonClientFactory(ReconnectingClientFactory):
     return bool(self.queue)
 
   def takeSomeFromQueue(self):
-    datapoints = self.queue[:settings.MAX_DATAPOINTS_PER_MESSAGE]
-    self.queue = self.queue[settings.MAX_DATAPOINTS_PER_MESSAGE:]
-    return datapoints
+    """Use self.queue, which is a collections.deque, to pop up to
+    settings.MAX_DATAPOINTS_PER_MESSAGE items from the left of the
+    queue.
+    """
+    def yield_max_datapoints():
+      for count in range(settings.MAX_DATAPOINTS_PER_MESSAGE):
+        try:
+          yield self.queue.popleft()
+        except IndexError:
+          raise StopIteration
+    return list(yield_max_datapoints())
 
   def checkQueue(self):
     if not self.queue:
@@ -155,15 +174,16 @@ class CarbonClientFactory(ReconnectingClientFactory):
 
   def sendDatapoint(self, metric, datapoint):
     instrumentation.increment(self.attemptedRelays)
-    queueSize = self.queueSize
-    if queueSize >= settings.MAX_QUEUE_SIZE:
+    if self.queueSize >= settings.MAX_QUEUE_SIZE:
       if not self.queueFull.called:
-        self.queueFull.callback(queueSize)
+        self.queueFull.callback(self.queueSize)
       instrumentation.increment(self.fullQueueDrops)
-    elif self.connectedProtocol:
-      self.connectedProtocol.sendDatapoint(metric, datapoint)
     else:
       self.enqueue(metric, datapoint)
+
+    if self.connectedProtocol:
+      reactor.callLater(settings.TIME_TO_DEFER_SENDING, self.connectedProtocol.sendQueued)
+    else:
       instrumentation.increment(self.queuedUntilConnected)
 
   def startedConnecting(self, connector):

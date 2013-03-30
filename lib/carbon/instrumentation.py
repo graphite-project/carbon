@@ -116,7 +116,6 @@ def recordMetrics():
     relay_stats =  [(k,v) for (k,v) in myStats.items() if k.startswith(prefix)]
     for stat_name, stat_value in relay_stats:
       record(stat_name, stat_value)
-    record('relayMaxQueueLength', myStats.get('relayMaxQueueLength', 0))
 
   # common metrics
   record('metricsReceived', myStats.get('metricsReceived', 0))

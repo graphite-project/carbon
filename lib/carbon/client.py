@@ -65,11 +65,23 @@ class CarbonClientProtocol(Int32StringReceiver):
     in while we send them out, this will process
     config.MAX_DATAPOINTS_PER_MESSAGE stats, send them, and if there
     are still items in the queue, this will invoke reactor.callLater
-    to schedule another run of sendQueued asap
-    (chained_invocation_delay, a local var, should be low enough to be
-    instant for the forseeable future - 1 uSec or so, I guess).
+    to schedule another run of sendQueued after a reasonable enough time
+    for the destination to process what it has just received.
+
+    Given a queue size of one million stats, and using a
+    chained_invocation_delay of 0.0001 seconds, you'd get 1,000
+    sendQueued() invocations/second max.  With a
+    config.MAX_DATAPOINTS_PER_MESSAGE of 100, the rate of stats being
+    sent could theoretically be as high as 100,000 stats/sec, or
+    6,000,000 stats/minute.  This is probably too high for a typical
+    receiver to handle.
+
+    In practice this theoretical max shouldn't be reached because
+    network delays should add an extra delay - probably on the order
+    of 10ms per send, so the queue should drain with an order of
+    minutes, which seems more realistic.
     """
-    chained_invocation_delay = 0.000001
+    chained_invocation_delay = 0.0001
     queueSize = self.factory.queueSize
 
     instrumentation.max(self.relayMaxQueueLength, queueSize)

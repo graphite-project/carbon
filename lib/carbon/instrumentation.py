@@ -142,7 +142,7 @@ def relay_record(metric, value):
     else:
       fullMetric = '%s.relays.%s-%s.%s' % (prefix, HOSTNAME, settings.instance, metric)
     datapoint = (time.time(), value)
-    events.metricGenerated(fullMetric, datapoint)
+    events.specialMetricGenerated(fullMetric, datapoint)
 
 def aggregator_record(metric, value):
     prefix = settings.CARBON_METRIC_PREFIX

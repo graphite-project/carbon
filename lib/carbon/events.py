@@ -24,6 +24,8 @@ class Event:
 
 metricReceived = Event('metricReceived')
 metricGenerated = Event('metricGenerated')
+specialMetricReceived = Event('specialMetricReceived')
+specialMetricGenerated = Event('specialMetricGenerated')
 cacheFull = Event('cacheFull')
 cacheSpaceAvailable = Event('cacheSpaceAvailable')
 pauseReceivingMetrics = Event('pauseReceivingMetrics')

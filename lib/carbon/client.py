@@ -190,6 +190,9 @@ class CarbonClientFactory(ReconnectingClientFactory):
   def enqueue(self, metric, datapoint):
     self.queue.append((metric, datapoint))
 
+  def enqueue_from_left(self, metric, datapoint):
+    self.queue.appendleft((metric, datapoint))
+
   def sendDatapoint(self, metric, datapoint):
     instrumentation.increment(self.attemptedRelays)
     if self.queueSize >= settings.MAX_QUEUE_SIZE:
@@ -198,6 +201,25 @@ class CarbonClientFactory(ReconnectingClientFactory):
       instrumentation.increment(self.fullQueueDrops)
     else:
       self.enqueue(metric, datapoint)
+
+    if self.connectedProtocol:
+      reactor.callLater(settings.TIME_TO_DEFER_SENDING, self.connectedProtocol.sendQueued)
+    else:
+      instrumentation.increment(self.queuedUntilConnected)
+
+  def sendHighPriorityDatapoint(self, metric, datapoint):
+    """The high priority datapoint is one relating to the carbon
+    daemon itself.  It puts the datapoint on the left of the deque,
+    ahead of other stats, so that when the carbon-relay, specifically,
+    is overwhelmed its stats are more likely to make it through and
+    expose the issue at hand.
+
+    In addition, these stats go on the deque even when the max stats
+    capacity has been reached.  This relies on not creating the deque
+    with a fixed max size.
+    """
+    instrumentation.increment(self.attemptedRelays)
+    self.enqueue_from_left(metric, datapoint)
 
     if self.connectedProtocol:
       reactor.callLater(settings.TIME_TO_DEFER_SENDING, self.connectedProtocol.sendQueued)
@@ -295,6 +317,10 @@ class CarbonClientManager(Service):
   def sendDatapoint(self, metric, datapoint):
     for destination in self.router.getDestinations(metric):
       self.client_factories[destination].sendDatapoint(metric, datapoint)
+
+  def sendHighPriorityDatapoint(self, metric, datapoint):
+    for destination in self.router.getDestinations(metric):
+      self.client_factories[destination].sendHighPriorityDatapoint(metric, datapoint)
 
   def __str__(self):
     return "<%s[%x]>" % (self.__class__.__name__, id(self))

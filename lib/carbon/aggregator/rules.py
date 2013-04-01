@@ -139,6 +139,8 @@ def avg(values):
 AGGREGATION_METHODS = {
   'sum' : sum,
   'avg' : avg,
+  'min' : min,
+  'max' : max,
 }
 
 # Importable singleton

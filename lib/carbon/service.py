@@ -22,6 +22,7 @@ from twisted.python.log import ILogObserver
 # Attaching modules to the global state module simplifies import order hassles
 from carbon import util, state, events, instrumentation
 from carbon.log import carbonLogObserver
+from carbon.exceptions import CarbonConfigException
 state.events = events
 state.instrumentation = instrumentation
 
@@ -160,7 +161,7 @@ def createAggregatorService(config):
         RewriteRuleManager.read_from(settings["rewrite-rules"])
 
     if not settings.DESTINATIONS:
-      raise Exception("Required setting DESTINATIONS is missing from carbon.conf")
+      raise CarbonConfigException("Required setting DESTINATIONS is missing from carbon.conf")
 
     for destination in util.parseDestinations(settings.DESTINATIONS):
       client_manager.startClient(destination)
@@ -193,7 +194,7 @@ def createRelayService(config):
     events.metricGenerated.addHandler(client_manager.sendDatapoint)
 
     if not settings.DESTINATIONS:
-      raise Exception("Required setting DESTINATIONS is missing from carbon.conf")
+      raise CarbonConfigException("Required setting DESTINATIONS is missing from carbon.conf")
 
     for destination in util.parseDestinations(settings.DESTINATIONS):
       client_manager.startClient(destination)

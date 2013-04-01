@@ -224,10 +224,17 @@ REPLICATION_FACTOR = 1
 # must be defined in this list
 DESTINATIONS = 127.0.0.1:2004
 
-# This defines the maximum "message size" between carbon daemons.
-# You shouldn't need to tune this unless you really know what you're doing.
-MAX_DATAPOINTS_PER_MESSAGE = 500
+# This is the maximum number of datapoints that can be queued up
+# for a single destination. Once this limit is hit, we will
+# stop accepting new data if USE_FLOW_CONTROL is True, otherwise
+# we will drop any subsequently received datapoints.
 MAX_QUEUE_SIZE = 10000
+
+# This defines the maximum "message size" between carbon daemons.  If
+# your queue is large, setting this to a lower number will cause the
+# relay to forward smaller discrete chunks of stats, which may prevent
+# overloading on the receiving side after a disconnect.
+MAX_DATAPOINTS_PER_MESSAGE = 500
 
 # This is the percentage that the queue must be empty before it will accept
 # more messages.  For a larger site, if the queue is very large it makes sense
@@ -240,7 +247,7 @@ QUEUE_LOW_WATERMARK_PCT = 0.8
 
 # To allow for batch efficiency from the pickle protocol and to benefit from
 # other batching advantages, all writes are deferred by putting them into a queue,
-# and then the queue is flushed a small fraction of a second later.
+# and then the queue is flushed and sent a small fraction of a second later.
 TIME_TO_DEFER_SENDING = 0.0001
 
 

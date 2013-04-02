@@ -17,6 +17,7 @@ import whisper
 
 from os.path import join, exists, sep
 from carbon.conf import OrderedConfigParser, settings
+from carbon.exceptions import CarbonConfigException
 from carbon.util import pickle
 from carbon import log
 
@@ -151,8 +152,8 @@ def loadAggregationSchemas():
 
   try:
     config.read(STORAGE_AGGREGATION_CONFIG)
-  except IOError:
-    log.msg("%s not found, ignoring." % STORAGE_AGGREGATION_CONFIG)
+  except (IOError, CarbonConfigException):
+    log.msg("%s not found or wrong perms, ignoring." % STORAGE_AGGREGATION_CONFIG)
 
   for section in config.sections():
     options = dict( config.items(section) )

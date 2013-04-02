@@ -151,8 +151,8 @@ def loadAggregationSchemas():
 
   try:
     config.read(STORAGE_AGGREGATION_CONFIG)
-  except IOError:
-    log.msg("%s not found, ignoring." % STORAGE_AGGREGATION_CONFIG)
+  except CarbonConfigException:
+    log.msg("%s not found or wrong perms, ignoring." % STORAGE_AGGREGATION_CONFIG)
 
   for section in config.sections():
     options = dict( config.items(section) )

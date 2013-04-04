@@ -7,6 +7,7 @@ from carbon.conf import settings
 from carbon.util import pickle
 from carbon import log, state, instrumentation
 from collections import deque
+from time import time
 
 
 SEND_QUEUE_LOW_WATERMARK = settings.MAX_QUEUE_SIZE * settings.QUEUE_LOW_WATERMARK_PCT
@@ -19,11 +20,14 @@ class CarbonClientProtocol(Int32StringReceiver):
     self.connected = True
     self.transport.registerProducer(self, streaming=True)
     # Define internal metric names
+    self.lastResetTime = time()
     self.destinationName = self.factory.destinationName
     self.queuedUntilReady = 'destinations.%s.queuedUntilReady' % self.destinationName
     self.sent = 'destinations.%s.sent' % self.destinationName
     self.relayMaxQueueLength = 'destinations.%s.relayMaxQueueLength' % self.destinationName
     self.batchesSent = 'destinations.%s.batchesSent' % self.destinationName
+
+    self.slowConnectionReset = 'destinations.%s.slowConnectionReset' % self.destinationName
 
     self.factory.connectionMade.callback(self)
     self.factory.connectionMade = Deferred()
@@ -51,7 +55,7 @@ class CarbonClientProtocol(Int32StringReceiver):
 
   def sendDatapoint(self, metric, datapoint):
     self.factory.enqueue(metric, datapoint)
-    reactor.callLater(config.TIME_TO_DEFER_SENDING, self.sendQueued)
+    reactor.callLater(settings.TIME_TO_DEFER_SENDING, self.sendQueued)
 
   def _sendDatapoints(self, datapoints):
       self.sendString(pickle.dumps(datapoints, protocol=-1))
@@ -63,7 +67,7 @@ class CarbonClientProtocol(Int32StringReceiver):
     """This should be the only method that will be used to send stats.
     In order to not hold the event loop and prevent stats from flowing
     in while we send them out, this will process
-    config.MAX_DATAPOINTS_PER_MESSAGE stats, send them, and if there
+    settings.MAX_DATAPOINTS_PER_MESSAGE stats, send them, and if there
     are still items in the queue, this will invoke reactor.callLater
     to schedule another run of sendQueued after a reasonable enough time
     for the destination to process what it has just received.
@@ -71,7 +75,7 @@ class CarbonClientProtocol(Int32StringReceiver):
     Given a queue size of one million stats, and using a
     chained_invocation_delay of 0.0001 seconds, you'd get 1,000
     sendQueued() invocations/second max.  With a
-    config.MAX_DATAPOINTS_PER_MESSAGE of 100, the rate of stats being
+    settings.MAX_DATAPOINTS_PER_MESSAGE of 100, the rate of stats being
     sent could theoretically be as high as 100,000 stats/sec, or
     6,000,000 stats/minute.  This is probably too high for a typical
     receiver to handle.
@@ -91,12 +95,60 @@ class CarbonClientProtocol(Int32StringReceiver):
     if not self.factory.hasQueuedDatapoints():
       return
     
+    if settings.USE_RATIO_RESET is True:
+      if not self.connectionQualityMonitor():
+        self.resetConnectionForQualityReasons("Sent: {0}, Received: {1}".format(
+          instrumentation.prior_stats.get(self.sent, 0),
+          instrumentation.prior_stats.get('metricsReceived', 0)))
+
     self._sendDatapoints(self.factory.takeSomeFromQueue())
     if (self.factory.queueFull.called and
         queueSize < SEND_QUEUE_LOW_WATERMARK):
       self.factory.queueHasSpace.callback(queueSize)
     if self.factory.hasQueuedDatapoints():
       reactor.callLater(chained_invocation_delay, self.sendQueued)
+
+
+  def connectionQualityMonitor(self):
+    """Checks to see if the connection for this factory appears to
+    be delivering stats at a speed close to what we're receiving
+    them at.
+
+    This is open to other measures of connection quality.
+
+    Returns a Bool
+
+    True means that quality is good, OR
+    True means that the total received is less than settings.MIN_RESET_STAT_FLOW
+
+    False means that quality is bad
+
+    """
+    destination_sent = float(instrumentation.prior_stats.get(self.sent, 0))
+    total_received = float(instrumentation.prior_stats.get('metricsReceived', 0))
+
+    if total_received < settings.MIN_RESET_STAT_FLOW:
+      return True
+
+    if (destination_sent / total_received) < settings.MIN_RESET_RATIO:
+      return False
+    else:
+      return True
+
+  def resetConnectionForQualityReasons(self, reason):
+    """Only re-sets the connection if it's been
+    settings.MIN_RESET_INTERVAL seconds since the last re-set.
+
+    Reason should be a string containing the quality info that led to
+    a re-set.
+    """
+    if (time() - self.lastResetTime) < float(settings.MIN_RESET_INTERVAL):
+      return
+    else:
+      self.factory.connectedProtocol.disconnect()
+      self.lastResetTime = time()
+      instrumentation.increment(self.slowConnectionReset)
+      log.clients("%s:: resetConnectionForQualityReasons: %s" % (self, reason))
 
   def __str__(self):
     return 'CarbonClientProtocol(%s:%d:%s)' % (self.factory.destination)
@@ -127,7 +179,6 @@ class CarbonClientFactory(ReconnectingClientFactory):
     self.attemptedRelays = 'destinations.%s.attemptedRelays' % self.destinationName
     self.fullQueueDrops = 'destinations.%s.fullQueueDrops' % self.destinationName
     self.queuedUntilConnected = 'destinations.%s.queuedUntilConnected' % self.destinationName
-
   def queueFullCallback(self, result):
     state.events.cacheFull()
     log.clients('%s send queue is full (%d datapoints)' % (self, result))

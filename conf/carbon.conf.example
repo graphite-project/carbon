@@ -268,6 +268,35 @@ USE_FLOW_CONTROL = True
 # CARBON_METRIC_PREFIX = carbon
 # CARBON_METRIC_INTERVAL = 60
 
+# If you're connecting from the relay to a destination that's over the
+# internet or similarly iffy connection, a backlog can develop because
+# of internet weather conditions, e.g. acks getting lost or similar issues.
+# To deal with that, you can enable USE_RATIO_RESET which will let you
+# re-set the connection to an individual destination.  Defaults to being off.
+USE_RATIO_RESET=False
+
+# When there is a small number of stats flowing, it's not desirable to
+# perform any actions based on percentages - it's just too "twitchy".
+MIN_RESET_STAT_FLOW=1000
+
+# When the ratio of stats being sent in a reporting interval is far
+# enough from 1.0, we will disconnect the socket and reconnecto to
+# clear out queued stats.  The default ratio of 0.9 indicates that 10%
+# of stats aren't being delivered within one CARBON_METRIC_INTERVAL
+# (default of 60 seconds), which can lead to a queue backup.  Under
+# some circumstances re-setting the connection can fix this, so
+# set this according to your tolerance, and look in the logs for
+# "resetConnectionForQualityReasons" to observe whether this is kicking
+# in when your sent queue is building up.
+MIN_RESET_RATIO=0.9
+
+# The minimum time between resets.  When a connection is re-set, we
+# need to wait before another reset is performed.
+# (2*CARBON_METRIC_INTERVAL) + 1 second is the minimum time needed
+# before stats for the new connection will be available.  Setting this
+# below (2*CARBON_METRIC_INTERVAL) + 1 second will result in a lot of
+# reset connections for no good reason.
+MIN_RESET_INTERVAL=121
 
 [aggregator]
 LINE_RECEIVER_INTERFACE = 0.0.0.0

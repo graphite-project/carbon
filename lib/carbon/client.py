@@ -126,7 +126,7 @@ class CarbonClientProtocol(Int32StringReceiver):
     """
     destination_sent = float(instrumentation.prior_stats.get(self.sent, 0))
     total_received = float(instrumentation.prior_stats.get('metricsReceived', 0))
-
+    instrumentation.increment(self.slowConnectionReset, 0)
     if total_received < settings.MIN_RESET_STAT_FLOW:
       return True
 

@@ -79,7 +79,7 @@ def run_twistd_plugin(filename):
 
     for option_name, option_value in vars(options).items():
         if (option_value is not None and
-            option_name not in ("debug", "profile", "pidfile")):
+            option_name not in ("debug", "profile", "pidfile", "nodaemon")):
             twistd_options.extend(["--%s" % option_name.replace("_", "-"),
                                    option_value])
 
@@ -153,11 +153,11 @@ else:
       if not name in self.PICKLE_SAFE[module]:
         raise pickle.UnpicklingError('Attempting to unpickle unsafe class %s' % name)
       return getattr(mod, name)
- 
+
     @classmethod
     def loads(cls, pickle_string):
       return cls(StringIO(pickle_string)).load()
- 
+
 
 def get_unpickler(insecure=False):
   if insecure:

@@ -176,7 +176,10 @@ class CarbonConfiguration(dict):
             raise ConfigError("%s must be either \"true\" or \"false\"" % key, filename=filename)
 
         elif valueType in (int, long, float):
-          value = valueType(value)
+          if isinstance(value, basestring) and value == "inf":
+            value = float(value)
+          else:
+            value = valueType(value)
 
         context[key] = value
 

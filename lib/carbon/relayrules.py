@@ -16,6 +16,7 @@ class RelayRule:
 
 def loadRelayRules(path):
   rules = []
+  destinations = []
   parser = OrderedConfigParser()
 
   if not parser.read(path):
@@ -28,7 +29,8 @@ def loadRelayRules(path):
                        "'destinations' list" % (path, section))
 
     destination_strings = parser.get(section, 'destinations').split(',')
-    destinations = parseDestinations(destination_strings)
+    for destination in parseDestinations(destination_strings, "relay-rules.conf"):
+      destinations.append(destination["address"])
 
     if parser.has_option(section, 'pattern'):
       if parser.has_option(section, 'default'):

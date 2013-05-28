@@ -94,20 +94,35 @@ def run_twistd_plugin(filename):
     runApp(config)
 
 
-def parseDestinations(destination_strings):
+def parseDestinations(destination_strings, config):
   destinations = []
 
   for dest_string in destination_strings:
     parts = dest_string.strip().split(':')
     if len(parts) == 2:
+      protocol = "tcp"
       server, port = parts
-      instance = None
+      instance = username = password = queue = None
     elif len(parts) == 3:
-      server, port, instance = parts
+      if not "tcp" in parts and not "stomp" in parts:
+        protocol = "tcp"
+        server, port, instance = parts
+      elif "tcp" in parts or config == "relay-rules.conf":
+        protocol, server, port = parts
+        instance = None
+      username = password = queue = None
+    elif len(parts) == 4 and ("tcp" in parts or config == "relay-rules.conf"):
+      protocol, server, port, instance = parts
+      username = password = queue = None
+    elif len(parts) == 6:
+      protocol, server. port, username, password, queue = parts
+      instance = None
+    elif len(parts) == 7:
+      protocol, server. port, username, password, queue, instance = parts
     else:
       raise ValueError("Invalid destination string \"%s\"" % dest_string)
 
-    destinations.append( (server, int(port), instance) )
+    destinations.append( {"protocol":protocol, "address":(server, int(port), instance), "credentials":(username, password), "queue":queue} )
 
   return destinations
 

@@ -9,8 +9,11 @@
 #
 #  name: Arbitrary unique name to identify the rule
 #  pattern: Regex pattern to match against the metric name
-#  destinations: Comma-separated list of destinations.
-#    ex: 127.0.0.1, 10.1.2.3:2004, 10.1.2.4:2004:a, myserver.mydomain.com
+#  destinations: Comma-separated list of destinations with the format
+#  PROTOCOL:SERVER:PORT:INSTANCE, where :INSTANCE is optional and all
+#  other specific protocol defined values (like 'username' or 'queue' 
+#  for the stomp protocol) should be ommitted here!
+#    ex: tcp:10.1.2.1:2004, tcp:10.1.2.2:2004:b, stomp:10.1.2.3:2004, stomp:10.1.2.4:2004:c
 #  continue: Continue processing rules if this rule matches (default: False)
 
 # You must have exactly one section with 'default = true'

@@ -163,7 +163,7 @@ def createAggregatorService(config):
     if not settings.DESTINATIONS:
       raise CarbonConfigException("Required setting DESTINATIONS is missing from carbon.conf")
 
-    for destination in util.parseDestinations(settings.DESTINATIONS):
+    for destination in util.parseDestinations(settings.DESTINATIONS, "carbon.conf"):
       client_manager.startClient(destination)
 
     return root_service
@@ -196,7 +196,7 @@ def createRelayService(config):
     if not settings.DESTINATIONS:
       raise CarbonConfigException("Required setting DESTINATIONS is missing from carbon.conf")
 
-    for destination in util.parseDestinations(settings.DESTINATIONS):
+    for destination in util.parseDestinations(settings.DESTINATIONS, "carbon.conf"):
       client_manager.startClient(destination)
 
     return root_service

@@ -206,15 +206,21 @@ RELAY_METHOD = rules
 # datapoint to more than one machine.
 REPLICATION_FACTOR = 1
 
-# This is a list of carbon daemons we will send any relayed or
-# generated metrics to. The default provided would send to a single
-# carbon-cache instance on the default port. However if you
-# use multiple carbon-cache instances then it would look like this:
+# This is a list of carbon daemons or message queues we will send any relayed or
+# generated metrics to. The default provided would send to a single carbon-cache
+# instance on the default port. However if you use multiple carbon-cache instances
+# then it would look like this:
 #
-# DESTINATIONS = 127.0.0.1:2004:a, 127.0.0.1:2104:b
+# DESTINATIONS = tcp:127.0.0.1:2004:a, tcp:127.0.0.1:2014:b
 #
-# The general form is IP:PORT:INSTANCE where the :INSTANCE part is
-# optional and refers to the "None" instance if omitted.
+# And if you would use a single carbon-cache instance and a single message queue
+# then it would look like this:
+#
+# DESTINATIONS = tcp:127.0.0.1:2004:a, stomp:127.0.0.1:61613:username:password:queue:b
+#
+# The general forms are tcp:IP:PORT:INSTANCE (when sending metrics to carbon deamons)
+# or stomp:IP:PORT:USERNAME:PASSWORD:QUEUE:INSTANCE (when sending metrics to message
+# queues) where :INSTANCE is optional and refers to the "None" instance if omitted.
 #
 # Note that if the destinations are all carbon-caches then this should
 # exactly match the webapp's CARBONLINK_HOSTS setting in terms of
@@ -222,7 +228,7 @@ REPLICATION_FACTOR = 1
 #
 # If using RELAY_METHOD = rules, all destinations used in relay-rules.conf
 # must be defined in this list
-DESTINATIONS = 127.0.0.1:2004
+DESTINATIONS = tcp:127.0.0.1:2004
 
 # This defines the maximum "message size" between carbon daemons.
 # You shouldn't need to tune this unless you really know what you're doing.
@@ -254,20 +260,29 @@ LINE_RECEIVER_PORT = 2023
 PICKLE_RECEIVER_INTERFACE = 0.0.0.0
 PICKLE_RECEIVER_PORT = 2024
 
-# This is a list of carbon daemons we will send any relayed or
-# generated metrics to. The default provided would send to a single
-# carbon-cache instance on the default port. However if you
-# use multiple carbon-cache instances then it would look like this:
+# This is a list of carbon daemons or message queues we will send any relayed or
+# generated metrics to. The default provided would send to a single carbon-cache
+# instance on the default port. However if you use multiple carbon-cache instances
+# then it would look like this:
 #
-# DESTINATIONS = 127.0.0.1:2004:a, 127.0.0.1:2104:b
-# 
-# The format is comma-delimited IP:PORT:INSTANCE where the :INSTANCE part is
-# optional and refers to the "None" instance if omitted.
+# DESTINATIONS = tcp:127.0.0.1:2004:a, tcp:127.0.0.1:2014:b
+#
+# And if you would use a single carbon-cache instance and a single message queue
+# then it would look like this:
+#
+# DESTINATIONS = tcp:127.0.0.1:2004:a, stomp:127.0.0.1:61613:username:password:queue:b
+#
+# The general forms are tcp:IP:PORT:INSTANCE (when sending metrics to carbon deamons)
+# or stomp:IP:PORT:USERNAME:PASSWORD:QUEUE:INSTANCE (when sending metrics to message
+# queues) where :INSTANCE is optional and refers to the "None" instance if omitted.
 #
 # Note that if the destinations are all carbon-caches then this should
 # exactly match the webapp's CARBONLINK_HOSTS setting in terms of
 # instances listed (order matters!).
-DESTINATIONS = 127.0.0.1:2004
+#
+# If using RELAY_METHOD = rules, all destinations used in relay-rules.conf
+# must be defined in this list
+DESTINATIONS = tcp:127.0.0.1:2004
 
 # If you want to add redundancy to your data by replicating every
 # datapoint to more than one machine, increase this.

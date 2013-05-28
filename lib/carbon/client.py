@@ -204,7 +204,7 @@ class CarbonClientFactory(ReconnectingClientFactory):
 class CarbonClientManager(Service):
   def __init__(self, router):
     self.router = router
-    self.client_factories = {} # { destination : CarbonClientFactory() }
+    self.client_factories = {} # { destination["address"] : CarbonClientFactory() }
 
   def startService(self):
     Service.startService(self)
@@ -217,12 +217,19 @@ class CarbonClientManager(Service):
     self.stopAllClients()
 
   def startClient(self, destination):
-    if destination in self.client_factories:
+    if destination["address"] in self.client_factories:
       return
 
-    log.clients("connecting to carbon daemon at %s:%d:%s" % destination)
-    self.router.addDestination(destination)
-    factory = self.client_factories[destination] = CarbonClientFactory(destination)
+    if destination["protocol"] == "tcp":
+      log.clients("connecting to carbon daemon at %s:%d:%s" % destination["address"])
+    elif destination["protocol"] == "stomp":
+      log.clients("connecting to message queue %s at %s:%d:%s" % destination["queue"], destination["address"])
+    else:
+      raise ValueError("Invalid protocol in destination string \"%s\"" % destination["protocol"])
+
+    self.router.addDestination(destination["address"])
+    factory = self.client_factories[destination["address"]] = CarbonClientFactory(destination["address"])
+
     connectAttempted = DeferredList(
         [factory.connectionMade, factory.connectFailed],
         fireOnOneCallback=True,
@@ -232,31 +239,31 @@ class CarbonClientManager(Service):
 
     return connectAttempted
 
-  def stopClient(self, destination):
-    factory = self.client_factories.get(destination)
+  def stopClient(self, destination_address):
+    factory = self.client_factories.get(destination_address)
     if factory is None:
       return
 
-    self.router.removeDestination(destination)
+    self.router.removeDestination(destination_address)
     stopCompleted = factory.disconnect()
-    stopCompleted.addCallback(lambda result: self.disconnectClient(destination))
+    stopCompleted.addCallback(lambda result: self.disconnectClient(destination_address))
     return stopCompleted
 
-  def disconnectClient(self, destination):
-    factory = self.client_factories.pop(destination)
+  def disconnectClient(self, destination_address):
+    factory = self.client_factories.pop(destination_address)
     c = factory.connector
     if c and c.state == 'connecting' and not factory.hasQueuedDatapoints():
       c.stopConnecting()
 
   def stopAllClients(self):
     deferreds = []
-    for destination in list(self.client_factories):
-      deferreds.append( self.stopClient(destination) )
+    for destination_address in list(self.client_factories):
+      deferreds.append( self.stopClient(destination_address) )
     return DeferredList(deferreds)
 
   def sendDatapoint(self, metric, datapoint):
-    for destination in self.router.getDestinations(metric):
-      self.client_factories[destination].sendDatapoint(metric, datapoint)
+    for destination_address in self.router.getDestinations(metric):
+      self.client_factories[destination_address].sendDatapoint(metric, datapoint)
 
   def __str__(self):
     return "<%s[%x]>" % (self.__class__.__name__, id(self))

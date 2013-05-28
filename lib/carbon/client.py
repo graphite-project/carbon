@@ -8,6 +8,7 @@ from carbon.util import pickle
 from carbon import log, state, instrumentation
 from collections import deque
 from time import time
+from random import randrange
 
 
 SEND_QUEUE_LOW_WATERMARK = settings.MAX_QUEUE_SIZE * settings.QUEUE_LOW_WATERMARK_PCT
@@ -247,6 +248,8 @@ class CarbonClientFactory(ReconnectingClientFactory):
   def sendDatapoint(self, metric, datapoint):
     instrumentation.increment(self.attemptedRelays)
     if self.queueSize >= settings.MAX_QUEUE_SIZE:
+      if randrange(0, settings.LOG_SAMPLE_RATE) == 0:
+        log.clients('%s::sendDatapoint send queue full, dropping datapoint' % self.destinationName)
       if not self.queueFull.called:
         self.queueFull.callback(self.queueSize)
       instrumentation.increment(self.fullQueueDrops)

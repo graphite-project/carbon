@@ -337,6 +337,11 @@ REPLICATION_FACTOR = 1
 # we will drop any subsequently received datapoints.
 MAX_QUEUE_SIZE = 10000
 
+# If the MAX_QUEUE_SIZE is reached and Carbon is dropping datapoints,
+# it will sample the error message at a rate of 1/LOG_SAMPLE_RATE
+# to ensure that log files do not fill up like crazy
+LOG_SAMPLE_RATE = 50
+
 # Set this to False to drop datapoints when any send queue (sending datapoints
 # to a downstream carbon daemon) hits MAX_QUEUE_SIZE. If this is True (the
 # default) then sockets over which metrics are received will temporarily stop accepting

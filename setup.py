@@ -24,7 +24,10 @@ conf_files = [
   ('conf', glob('conf/*.example')),
   ('conf/carbon-daemons/example', glob('conf/carbon-daemons/example/*.conf')),
 ]
-install_files = storage_dirs + conf_files
+
+ceres_plugins = [('plugins/maintenance',glob('plugins/maintenance/*.py'))]
+
+install_files = storage_dirs + conf_files + ceres_plugins
 
 # If we are building on RedHat, let's use the redhat init scripts.
 if platform.dist()[0] == 'redhat':

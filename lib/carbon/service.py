@@ -141,7 +141,7 @@ def createAggregatorService(config):
     from carbon.aggregator import receiver
     from carbon.aggregator.rules import RuleManager
     from carbon.routers import ConsistentHashingRouter
-    from carbon.client import CarbonClientManager
+    from carbon.client import ClientManager
     from carbon.rewrite import RewriteRuleManager
     from carbon.conf import settings
     from carbon import events
@@ -150,7 +150,7 @@ def createAggregatorService(config):
 
     # Configure application components
     router = ConsistentHashingRouter()
-    client_manager = CarbonClientManager(router)
+    client_manager = ClientManager(router)
     client_manager.setServiceParent(root_service)
 
     events.metricReceived.addHandler(receiver.process)
@@ -163,7 +163,7 @@ def createAggregatorService(config):
     if not settings.DESTINATIONS:
       raise CarbonConfigException("Required setting DESTINATIONS is missing from carbon.conf")
 
-    for destination in util.parseDestinations(settings.DESTINATIONS, "carbon.conf"):
+    for destination in util.parseDestinations(settings.DESTINATIONS, 'carbon.conf'):
       client_manager.startClient(destination)
 
     return root_service
@@ -171,7 +171,7 @@ def createAggregatorService(config):
 
 def createRelayService(config):
     from carbon.routers import RelayRulesRouter, ConsistentHashingRouter, AggregatedConsistentHashingRouter
-    from carbon.client import CarbonClientManager
+    from carbon.client import ClientManager
     from carbon.conf import settings
     from carbon import events
 
@@ -187,7 +187,7 @@ def createRelayService(config):
       RuleManager.read_from(settings["aggregation-rules"])
       router = AggregatedConsistentHashingRouter(RuleManager, settings.REPLICATION_FACTOR)
 
-    client_manager = CarbonClientManager(router)
+    client_manager = ClientManager(router)
     client_manager.setServiceParent(root_service)
 
     events.metricReceived.addHandler(client_manager.sendDatapoint)
@@ -196,7 +196,7 @@ def createRelayService(config):
     if not settings.DESTINATIONS:
       raise CarbonConfigException("Required setting DESTINATIONS is missing from carbon.conf")
 
-    for destination in util.parseDestinations(settings.DESTINATIONS, "carbon.conf"):
+    for destination in util.parseDestinations(settings.DESTINATIONS, 'carbon.conf'):
       client_manager.startClient(destination)
 
     return root_service

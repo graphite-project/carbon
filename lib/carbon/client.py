@@ -3,6 +3,7 @@ from twisted.internet import reactor
 from twisted.internet.defer import Deferred, DeferredList
 from twisted.internet.protocol import ReconnectingClientFactory
 from twisted.protocols.basic import Int32StringReceiver
+from carbon.stomp_protocol import StompClientProtocol
 from carbon.conf import settings
 from carbon.util import pickle
 from carbon import log, state, instrumentation
@@ -52,11 +53,9 @@ class CarbonClientProtocol(Int32StringReceiver):
     if self.paused:
       self.factory.enqueue(metric, datapoint)
       instrumentation.increment(self.queuedUntilReady)
-
     elif self.factory.hasQueuedDatapoints():
       self.factory.enqueue(metric, datapoint)
       self.sendQueued()
-
     else:
       self._sendDatapoints([(metric, datapoint)])
 
@@ -69,25 +68,26 @@ class CarbonClientProtocol(Int32StringReceiver):
     while (not self.paused) and self.factory.hasQueuedDatapoints():
       datapoints = self.factory.takeSomeFromQueue()
       self._sendDatapoints(datapoints)
-
       queueSize = self.factory.queueSize
       if (self.factory.queueFull.called and
           queueSize < SEND_QUEUE_LOW_WATERMARK):
         self.factory.queueHasSpace.callback(queueSize)
 
   def __str__(self):
-    return 'CarbonClientProtocol(%s:%d:%s)' % (self.factory.destination)
+    return 'CarbonClientProtocol(%s:%d:%s)' % (self.factory.destination['ADDRESS'])
   __repr__ = __str__
 
 
-class CarbonClientFactory(ReconnectingClientFactory):
+class ClientFactory(ReconnectingClientFactory):
   maxDelay = 5
 
   def __init__(self, destination):
     self.destination = destination
-    self.destinationName = ('%s:%d:%s' % destination).replace('.', '_')
-    self.host, self.port, self.carbon_instance = destination
-    self.addr = (self.host, self.port)
+    self.destinationName = ('%s:%s:%d:%s' % ((self.destination['PROTOCOL'],) + self.destination['ADDRESS'])).replace('.', '_')
+    self.host, self.port, self.instance = self.destination['ADDRESS']
+    self.uri = 'tcp://%s:%s' % (self.host, self.port)
+    self.username, self.password = self.destination['CREDENTIALS']
+    self.messagequeue = self.destination['QUEUE']
     self.started = False
     # This factory maintains protocol state across reconnects
     self.queue = [] # including datapoints that still need to be sent
@@ -119,9 +119,15 @@ class CarbonClientFactory(ReconnectingClientFactory):
     self.queueHasSpace.addCallback(self.queueSpaceCallback)
 
   def buildProtocol(self, addr):
-    self.connectedProtocol = CarbonClientProtocol()
-    self.connectedProtocol.factory = self
+    if self.destination['PROTOCOL'] == 'tcp':
+      self.connectedProtocol = CarbonClientProtocol()
+      self.connectedProtocol.factory = self
+    elif self.destination['PROTOCOL'] == 'stomp':
+      self.connectedProtocol = StompClientProtocol(self)
+    else:
+      raise ValueError("Invalid protocol in destination string \"%s\"" % self.destination['PROTOCOL'])
     return self.connectedProtocol
+
 
   def startConnecting(self): # calling this startFactory yields recursion problems
     self.started = True
@@ -197,14 +203,14 @@ class CarbonClientFactory(ReconnectingClientFactory):
     return readyToStop
 
   def __str__(self):
-    return 'CarbonClientFactory(%s:%d:%s)' % self.destination
+    return 'ClientFactory(%s:%s:%d:%s)' % ((self.destination['PROTOCOL'],) + self.destination['ADDRESS'])
   __repr__ = __str__
 
 
-class CarbonClientManager(Service):
+class ClientManager(Service):
   def __init__(self, router):
     self.router = router
-    self.client_factories = {} # { destination["address"] : CarbonClientFactory() }
+    self.client_factories = {} # { destination['ADDRESS'] : ClientFactory() }
 
   def startService(self):
     Service.startService(self)
@@ -217,18 +223,18 @@ class CarbonClientManager(Service):
     self.stopAllClients()
 
   def startClient(self, destination):
-    if destination["address"] in self.client_factories:
+    if destination['ADDRESS'] in self.client_factories:
       return
 
-    if destination["protocol"] == "tcp":
-      log.clients("connecting to carbon daemon at %s:%d:%s" % destination["address"])
-    elif destination["protocol"] == "stomp":
-      log.clients("connecting to message queue %s at %s:%d:%s" % destination["queue"], destination["address"])
+    if destination['PROTOCOL'] == 'tcp':
+      log.clients("connecting to carbon daemon at %s:%d:%s" % destination['ADDRESS'])
+    elif destination['PROTOCOL'] == 'stomp':
+      log.clients("connecting to message queue %s at %s:%d:%s" % ((destination['QUEUE'],) + destination['ADDRESS']))
     else:
-      raise ValueError("Invalid protocol in destination string \"%s\"" % destination["protocol"])
+      raise ValueError("Invalid protocol in destination string \"%s\"" % destination['PROTOCOL'])
 
-    self.router.addDestination(destination["address"])
-    factory = self.client_factories[destination["address"]] = CarbonClientFactory(destination["address"])
+    self.router.addDestination(destination['ADDRESS'])
+    factory = self.client_factories[destination['ADDRESS']] = ClientFactory(destination)
 
     connectAttempted = DeferredList(
         [factory.connectionMade, factory.connectFailed],

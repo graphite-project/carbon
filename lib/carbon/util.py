@@ -100,29 +100,29 @@ def parseDestinations(destination_strings, config):
   for dest_string in destination_strings:
     parts = dest_string.strip().split(':')
     if len(parts) == 2:
-      protocol = "tcp"
+      protocol = 'tcp'
       server, port = parts
       instance = username = password = queue = None
     elif len(parts) == 3:
-      if not "tcp" in parts and not "stomp" in parts:
-        protocol = "tcp"
+      if not 'tcp' in parts and not 'stomp' in parts:
+        protocol = 'tcp'
         server, port, instance = parts
-      elif "tcp" in parts or config == "relay-rules.conf":
+      elif 'tcp' in parts or config == 'relay-rules.conf':
         protocol, server, port = parts
         instance = None
       username = password = queue = None
-    elif len(parts) == 4 and ("tcp" in parts or config == "relay-rules.conf"):
+    elif len(parts) == 4 and ('tcp' in parts or config == 'relay-rules.conf'):
       protocol, server, port, instance = parts
       username = password = queue = None
     elif len(parts) == 6:
-      protocol, server. port, username, password, queue = parts
+      protocol, server, port, username, password, queue = parts
       instance = None
     elif len(parts) == 7:
-      protocol, server. port, username, password, queue, instance = parts
+      protocol, server, port, username, password, queue, instance = parts
     else:
       raise ValueError("Invalid destination string \"%s\"" % dest_string)
 
-    destinations.append( {"protocol":protocol, "address":(server, int(port), instance), "credentials":(username, password), "queue":queue} )
+    destinations.append( {'PROTOCOL':protocol, 'ADDRESS':(server, int(port), instance), 'CREDENTIALS':(username, password), 'QUEUE':queue} )
 
   return destinations
 

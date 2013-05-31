@@ -29,8 +29,8 @@ def loadRelayRules(path):
                        "'destinations' list" % (path, section))
 
     destination_strings = parser.get(section, 'destinations').split(',')
-    for destination in parseDestinations(destination_strings, "relay-rules.conf"):
-      destinations.append(destination["address"])
+    for destination in parseDestinations(destination_strings, 'relay-rules.conf'):
+      destinations.append(destination['ADDRESS'])
 
     if parser.has_option(section, 'pattern'):
       if parser.has_option(section, 'default'):

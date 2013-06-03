@@ -1,14 +1,81 @@
 import time
 
-from twisted.internet import reactor
+from twisted.internet import defer, reactor
 from twisted.internet.protocol import DatagramProtocol
 from twisted.internet.error import ConnectionDone
 from twisted.protocols.basic import LineOnlyReceiver, Int32StringReceiver
-from carbon import log, events, state, management
+from carbon import log, events, state, management, instrumentation
 from carbon.conf import settings
 from carbon.regexlist import WhiteList, BlackList
 from carbon.util import pickle, get_unpickler
 
+
+class CarbonClientProtocol(Int32StringReceiver):
+  SEND_QUEUE_LOW_WATERMARK = settings.MAX_QUEUE_SIZE * 0.8
+
+  def connectionMade(self):
+    log.clients("%s::connectionMade" % self)
+    self.paused = False
+    self.connected = True
+    self.transport.registerProducer(self, streaming=True)
+    # Define internal metric names
+    self.destinationName = self.factory.destinationName
+    self.queuedUntilReady = 'destinations.%s.queuedUntilReady' % self.destinationName
+    self.sent = 'destinations.%s.sent' % self.destinationName
+    self.relayMaxQueueLength = 'destinations.%s.relayMaxQueueLength' % self.destinationName
+
+    self.factory.connectionMade.callback(self)
+    self.factory.connectionMade = Deferred()
+    self.sendQueued()
+
+  def connectionLost(self, reason):
+    log.clients("%s::connectionLost %s" % (self, reason.getErrorMessage()))
+    self.connected = False
+
+  def pauseProducing(self):
+    self.paused = True
+
+  def resumeProducing(self):
+    self.paused = False
+    self.sendQueued()
+
+  def stopProducing(self):
+    self.disconnect()
+
+  def disconnect(self):
+    if self.connected:
+      self.transport.unregisterProducer()
+      self.transport.loseConnection()
+      self.connected = False
+
+  def sendDatapoint(self, metric, datapoint):
+    instrumentation.max(self.relayMaxQueueLength, len(self.factory.queue))
+    if self.paused:
+      self.factory.enqueue(metric, datapoint)
+      instrumentation.increment(self.queuedUntilReady)
+    elif self.factory.hasQueuedDatapoints():
+      self.factory.enqueue(metric, datapoint)
+      self.sendQueued()
+    else:
+      self._sendDatapoints([(metric, datapoint)])
+
+  def _sendDatapoints(self, datapoints):
+      self.sendString(pickle.dumps(datapoints, protocol=-1))
+      instrumentation.increment(self.sent, len(datapoints))
+      self.factory.checkQueue()
+
+  def sendQueued(self):
+    while (not self.paused) and self.factory.hasQueuedDatapoints():
+      datapoints = self.factory.takeSomeFromQueue()
+      self._sendDatapoints(datapoints)
+      queueSize = self.factory.queueSize
+      if (self.factory.queueFull.called and
+          queueSize < SEND_QUEUE_LOW_WATERMARK):
+        self.factory.queueHasSpace.callback(queueSize)
+
+  def __str__(self):
+    return 'CarbonClientProtocol(%s:%d:%s)' % (self.factory.destination['ADDRESS'])
+  __repr__ = __str__
 
 class MetricReceiver:
   """ Base class for all metric receiving protocols, handles flow

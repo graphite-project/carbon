@@ -72,6 +72,9 @@ class AMQPGraphiteProtocol(AMQClient):
     @inlineCallbacks
     def setup(self):
         exchange = self.factory.exchange_name
+        queue = self.factory.queue_name
+        exclusive = (queue == None)
+        durable = self.factory.durable
 
         yield self.authenticate(self.factory.username, self.factory.password)
         chan = yield self.channel(1)
@@ -82,7 +85,7 @@ class AMQPGraphiteProtocol(AMQClient):
                                     durable=True, auto_delete=False)
 
         # we use a private queue to avoid conflicting with existing bindings
-        reply = yield chan.queue_declare(exclusive=True)
+        reply = yield chan.queue_declare(queue=queue, exclusive=exclusive, durable=durable)
         my_queue = reply.queue
 
         # bind each configured metric pattern
@@ -140,7 +143,7 @@ class AMQPReconnectingFactory(ReconnectingClientFactory):
     protocol = AMQPGraphiteProtocol
 
     def __init__(self, username, password, delegate, vhost, spec, channel,
-                 exchange_name, verbose):
+                 exchange_name, queue_name, durable, verbose):
         self.username = username
         self.password = password
         self.delegate = delegate
@@ -148,6 +151,8 @@ class AMQPReconnectingFactory(ReconnectingClientFactory):
         self.spec = spec
         self.channel = channel
         self.exchange_name = exchange_name
+        self.queue_name = queue_name
+        self.durable = durable
         self.verbose = verbose
 
     def buildProtocol(self, addr):
@@ -157,7 +162,7 @@ class AMQPReconnectingFactory(ReconnectingClientFactory):
         return p
 
 
-def createAMQPListener(username, password, vhost, exchange_name,
+def createAMQPListener(username, password, vhost, exchange_name, queue_name, durable,
                        spec=None, channel=1, verbose=False):
     """
     Create an C{AMQPReconnectingFactory} configured with the specified options.
@@ -169,18 +174,18 @@ def createAMQPListener(username, password, vhost, exchange_name,
 
     delegate = TwistedDelegate()
     factory = AMQPReconnectingFactory(username, password, delegate, vhost,
-                                      spec, channel, exchange_name,
-                                      verbose=verbose)
+                                      spec, channel, exchange_name, queue_name, 
+                                      durable, verbose=verbose)
     return factory
 
 
-def startReceiver(host, port, username, password, vhost, exchange_name,
+def startReceiver(host, port, username, password, vhost, exchange_name, queue_name, durable,
                   spec=None, channel=1, verbose=False):
     """
     Starts a twisted process that will read messages on the amqp broker and
     post them as metrics.
     """
-    factory = createAMQPListener(username, password, vhost, exchange_name,
+    factory = createAMQPListener(username, password, vhost, exchange_name, queue_name, durable,
                                  spec=spec, channel=channel, verbose=verbose)
     reactor.connectTCP(host, port, factory)
 
@@ -210,6 +215,14 @@ def main():
                       help="exchange", metavar="EXCHANGE",
                       default="graphite")
 
+    parser.add_option("-q", "--queue", dest="queue",
+                      help="queue", metavar="QUEUE",
+                      default=None)
+
+    parser.add_option("-d", "--durable", dest="durable",
+                      help="durable", metavar="DURABLE",
+                      default=False)
+
     parser.add_option("-v", "--verbose", dest="verbose",
                       help="verbose",
                       default=False, action="store_true")
@@ -219,7 +232,8 @@ def main():
 
     startReceiver(options.host, options.port, options.username,
                   options.password, vhost=options.vhost,
-                  exchange_name=options.exchange, verbose=options.verbose)
+                  exchange_name=options.exchange, queue_name=options.queue, 
+                  durable=options.durable, verbose=options.verbose)
     reactor.run()
 
 if __name__ == "__main__":

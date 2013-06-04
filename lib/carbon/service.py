@@ -57,6 +57,8 @@ def createBaseService(config):
         amqp_vhost    = settings.get("AMQP_VHOST", "/")
         amqp_spec     = settings.get("AMQP_SPEC", None)
         amqp_exchange_name = settings.get("AMQP_EXCHANGE", "graphite")
+        amqp_queue_name = settings.get("AMQP_QUEUE", None)
+        amqp_durable = settings.get("AMQP_DURABLE", False)
 
 
     for interface, port, protocol in ((settings.LINE_RECEIVER_INTERFACE,
@@ -82,6 +84,7 @@ def createBaseService(config):
             amqp_user, amqp_password,
             vhost=amqp_vhost, spec=amqp_spec,
             exchange_name=amqp_exchange_name,
+            queue_name=amqp_queue_name, durable=amqp_durable,
             verbose=amqp_verbose)
         service = TCPClient(amqp_host, int(amqp_port), factory)
         service.setServiceParent(root_service)

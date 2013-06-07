@@ -115,7 +115,7 @@ class AMQPGraphiteProtocol(AMQClient):
             if not line:
                 continue
             try:
-                if settings.get("AMQP_METRIC_NAME_IN_BODY", False):
+                if settings.get("AMQP_METRIC_NAME_IN_BODY", True):
                     metric, value, timestamp = line.split()
                 else:
                     value, timestamp = line.split()

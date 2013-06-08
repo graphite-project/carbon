@@ -6,7 +6,7 @@ from ceres import CeresSlice, SliceDeleted
 #######################################################
 def aggregate(node, datapoints):
   "Put your custom aggregation logic here."
-  values = [value for (timestamp,value) in datapoints]
+  values = [value for (timestamp,value) in datapoints if value is not None]
   metadata = node.readMetadata()
   method = metadata.get('aggregationMethod', 'avg')
 
@@ -74,6 +74,9 @@ def do_rollup(node, fineArchive, coarseArchive):
     fineStep = fineArchive['precision']
     coarseStep = coarseArchive['precision']
     deletePriorTo = coarseArchive['startTime'] + (coarseStep * coarseArchive['retention'])
+    
+    metadata = node.readMetadata()
+    xff = metadata.get('xFilesFactor')
 
     # We define a window corresponding to exactly one coarse datapoint
     # Then we use it to select datapoints for aggregation
@@ -83,6 +86,13 @@ def do_rollup(node, fineArchive, coarseArchive):
       fineDatapoints = [d for d in overflowDatapoints if d[0] >= windowStart and d[0] < windowEnd]
 
       if fineDatapoints:
+        knownValues = [value for (timestamp,value) in fineDatapoints if value is not None]
+        if not knownValues:
+          continue
+        knownPercent = float(len(knownValues)) / len(fineDatapoints)
+        if knownPercent < xff:  # we don't have enough data to aggregate!
+          continue
+        
         coarseValue = aggregate(node, fineDatapoints)
         coarseDatapoint = (windowStart, coarseValue)
         fineValues = [d[1] for d in fineDatapoints]

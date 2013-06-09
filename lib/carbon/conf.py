@@ -347,8 +347,9 @@ class CarbonCacheOptions(usage.Options):
                         os.makedirs(settings["PID_DIR"])
                     except OSError as exc: # Python >2.5
                         if exc.errno == errno.EEXIST and os.path.isdir(settings["PID_DIR"]):
-                        pass
-                    else: raise
+                           pass
+                        else: 
+                           raise
 
 
 

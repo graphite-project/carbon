@@ -196,6 +196,14 @@ class CarbonCacheOptions(usage.Options):
         settings.update(program_settings)
         settings["program"] = program
 
+        # Normalize and expand paths
+        settings["STORAGE_DIR"] = os.path.normpath(os.path.expanduser(settings["STORAGE_DIR"]))
+        settings["LOCAL_DATA_DIR"] = os.path.normpath(os.path.expanduser(settings["LOCAL_DATA_DIR"]))
+        settings["WHITELISTS_DIR"] = os.path.normpath(os.path.expanduser(settings["WHITELISTS_DIR"]))
+        settings["PID_DIR"] = os.path.normpath(os.path.expanduser(settings["PID_DIR"]))
+        settings["LOG_DIR"] = os.path.normpath(os.path.expanduser(settings["LOG_DIR"]))
+        settings["pidfile"] = os.path.normpath(os.path.expanduser(settings["pidfile"]))
+
         # Set process uid/gid by changing the parent config, if a user was
         # provided in the configuration file.
         if settings.USER:

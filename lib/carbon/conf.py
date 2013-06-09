@@ -340,6 +340,17 @@ class CarbonCacheOptions(usage.Options):
                         os.unlink(pidfile)
                     except:
                         print "Could not remove pidfile %s" % pidfile
+            # Try to create the PID directory
+            else:
+                if not os.path.exists(settings["PID_DIR"]): 
+                    try:
+                        os.makedirs(settings["PID_DIR"])
+                    except OSError as exc: # Python >2.5
+                        if exc.errno == errno.EEXIST and os.path.isdir(path):
+                        pass
+                    else: raise
+
+
 
             print "Starting %s (instance %s)" % (program, instance)
 

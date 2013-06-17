@@ -2,92 +2,20 @@ from twisted.application.service import Service
 from twisted.internet import reactor
 from twisted.internet.defer import Deferred, DeferredList
 from twisted.internet.protocol import ReconnectingClientFactory
-from twisted.protocols.basic import Int32StringReceiver
 from carbon.conf import settings
-from carbon.util import pickle
 from carbon import log, state, instrumentation
 
 
-SEND_QUEUE_LOW_WATERMARK = settings.MAX_QUEUE_SIZE * 0.8
-
-
-class CarbonClientProtocol(Int32StringReceiver):
-  def connectionMade(self):
-    log.clients("%s::connectionMade" % self)
-    self.paused = False
-    self.connected = True
-    self.transport.registerProducer(self, streaming=True)
-    # Define internal metric names
-    self.destinationName = self.factory.destinationName
-    self.queuedUntilReady = 'destinations.%s.queuedUntilReady' % self.destinationName
-    self.sent = 'destinations.%s.sent' % self.destinationName
-    self.relayMaxQueueLength = 'destinations.%s.relayMaxQueueLength' % self.destinationName
-
-    self.factory.connectionMade.callback(self)
-    self.factory.connectionMade = Deferred()
-    self.sendQueued()
-
-  def connectionLost(self, reason):
-    log.clients("%s::connectionLost %s" % (self, reason.getErrorMessage()))
-    self.connected = False
-
-  def pauseProducing(self):
-    self.paused = True
-
-  def resumeProducing(self):
-    self.paused = False
-    self.sendQueued()
-
-  def stopProducing(self):
-    self.disconnect()
-
-  def disconnect(self):
-    if self.connected:
-      self.transport.unregisterProducer()
-      self.transport.loseConnection()
-      self.connected = False
-
-  def sendDatapoint(self, metric, datapoint):
-    instrumentation.max(self.relayMaxQueueLength, len(self.factory.queue))
-    if self.paused:
-      self.factory.enqueue(metric, datapoint)
-      instrumentation.increment(self.queuedUntilReady)
-
-    elif self.factory.hasQueuedDatapoints():
-      self.factory.enqueue(metric, datapoint)
-      self.sendQueued()
-
-    else:
-      self._sendDatapoints([(metric, datapoint)])
-
-  def _sendDatapoints(self, datapoints):
-      self.sendString(pickle.dumps(datapoints, protocol=-1))
-      instrumentation.increment(self.sent, len(datapoints))
-      self.factory.checkQueue()
-
-  def sendQueued(self):
-    while (not self.paused) and self.factory.hasQueuedDatapoints():
-      datapoints = self.factory.takeSomeFromQueue()
-      self._sendDatapoints(datapoints)
-
-      queueSize = self.factory.queueSize
-      if (self.factory.queueFull.called and
-          queueSize < SEND_QUEUE_LOW_WATERMARK):
-        self.factory.queueHasSpace.callback(queueSize)
-
-  def __str__(self):
-    return 'CarbonClientProtocol(%s:%d:%s)' % (self.factory.destination)
-  __repr__ = __str__
-
-
-class CarbonClientFactory(ReconnectingClientFactory):
+class ClientFactory(ReconnectingClientFactory):
   maxDelay = 5
 
   def __init__(self, destination):
     self.destination = destination
-    self.destinationName = ('%s:%d:%s' % destination).replace('.', '_')
-    self.host, self.port, self.carbon_instance = destination
-    self.addr = (self.host, self.port)
+    self.destinationName = ('%s:%s:%d:%s' % ((self.destination['PROTOCOL'],) + self.destination['ADDRESS'])).replace('.', '_')
+    self.host, self.port, self.instance = self.destination['ADDRESS']
+    self.uri = 'tcp://%s:%s' % (self.host, self.port)
+    self.username, self.password = self.destination['CREDENTIALS']
+    self.messagequeue = self.destination['QUEUE']
     self.started = False
     # This factory maintains protocol state across reconnects
     self.queue = [] # including datapoints that still need to be sent
@@ -119,9 +47,17 @@ class CarbonClientFactory(ReconnectingClientFactory):
     self.queueHasSpace.addCallback(self.queueSpaceCallback)
 
   def buildProtocol(self, addr):
-    self.connectedProtocol = CarbonClientProtocol()
-    self.connectedProtocol.factory = self
+    if self.destination['PROTOCOL'] == 'tcp':
+      from carbon.protocols import CarbonClientProtocol
+      self.connectedProtocol = CarbonClientProtocol()
+      self.connectedProtocol.factory = self
+    elif self.destination['PROTOCOL'] == 'stomp':
+      from carbon.stomp_protocol import StompClientProtocol
+      self.connectedProtocol = StompClientProtocol(self)
+    else:
+      raise ValueError("Invalid protocol in destination string \"%s\"" % self.destination['PROTOCOL'])
     return self.connectedProtocol
+
 
   def startConnecting(self): # calling this startFactory yields recursion problems
     self.started = True
@@ -197,14 +133,14 @@ class CarbonClientFactory(ReconnectingClientFactory):
     return readyToStop
 
   def __str__(self):
-    return 'CarbonClientFactory(%s:%d:%s)' % self.destination
+    return 'ClientFactory(%s:%s:%d:%s)' % ((self.destination['PROTOCOL'],) + self.destination['ADDRESS'])
   __repr__ = __str__
 
 
-class CarbonClientManager(Service):
+class ClientManager(Service):
   def __init__(self, router):
     self.router = router
-    self.client_factories = {} # { destination : CarbonClientFactory() }
+    self.client_factories = {} # { destination['ADDRESS'] : ClientFactory() }
 
   def startService(self):
     Service.startService(self)
@@ -217,12 +153,19 @@ class CarbonClientManager(Service):
     self.stopAllClients()
 
   def startClient(self, destination):
-    if destination in self.client_factories:
+    if destination['ADDRESS'] in self.client_factories:
       return
 
-    log.clients("connecting to carbon daemon at %s:%d:%s" % destination)
-    self.router.addDestination(destination)
-    factory = self.client_factories[destination] = CarbonClientFactory(destination)
+    if destination['PROTOCOL'] == 'tcp':
+      log.clients("connecting to carbon daemon at %s:%d:%s" % destination['ADDRESS'])
+    elif destination['PROTOCOL'] == 'stomp':
+      log.clients("connecting to message queue %s at %s:%d:%s" % ((destination['QUEUE'],) + destination['ADDRESS']))
+    else:
+      raise ValueError("Invalid protocol in destination string \"%s\"" % destination['PROTOCOL'])
+
+    self.router.addDestination(destination['ADDRESS'])
+    factory = self.client_factories[destination['ADDRESS']] = ClientFactory(destination)
+
     connectAttempted = DeferredList(
         [factory.connectionMade, factory.connectFailed],
         fireOnOneCallback=True,
@@ -232,31 +175,31 @@ class CarbonClientManager(Service):
 
     return connectAttempted
 
-  def stopClient(self, destination):
-    factory = self.client_factories.get(destination)
+  def stopClient(self, destination_address):
+    factory = self.client_factories.get(destination_address)
     if factory is None:
       return
 
-    self.router.removeDestination(destination)
+    self.router.removeDestination(destination_address)
     stopCompleted = factory.disconnect()
-    stopCompleted.addCallback(lambda result: self.disconnectClient(destination))
+    stopCompleted.addCallback(lambda result: self.disconnectClient(destination_address))
     return stopCompleted
 
-  def disconnectClient(self, destination):
-    factory = self.client_factories.pop(destination)
+  def disconnectClient(self, destination_address):
+    factory = self.client_factories.pop(destination_address)
     c = factory.connector
     if c and c.state == 'connecting' and not factory.hasQueuedDatapoints():
       c.stopConnecting()
 
   def stopAllClients(self):
     deferreds = []
-    for destination in list(self.client_factories):
-      deferreds.append( self.stopClient(destination) )
+    for destination_address in list(self.client_factories):
+      deferreds.append( self.stopClient(destination_address) )
     return DeferredList(deferreds)
 
   def sendDatapoint(self, metric, datapoint):
-    for destination in self.router.getDestinations(metric):
-      self.client_factories[destination].sendDatapoint(metric, datapoint)
+    for destination_address in self.router.getDestinations(metric):
+      self.client_factories[destination_address].sendDatapoint(metric, datapoint)
 
   def __str__(self):
     return "<%s[%x]>" % (self.__class__.__name__, id(self))

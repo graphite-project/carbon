@@ -89,7 +89,7 @@ elif options.routing == 'relay':
     print "relay rules file %s does not exist" % options.relayrules
     raise SystemExit(1)
 
-client_manager = CarbonClientManager(router)
+client_manager = ClientManager(router)
 reactor.callWhenRunning(client_manager.startService)
 
 if options.keyfunc:

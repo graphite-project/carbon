@@ -149,6 +149,9 @@ class _MetricCache(dict):
       else:
         self.size += 1
         self[metric][timestamp] = value
+    else:
+      # Updating a duplicate does not increase the cache size
+      self[metric][timestamp] = value
 
 
 # Initialize a singleton cache instance

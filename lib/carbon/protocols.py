@@ -16,7 +16,8 @@ class MetricReceiver:
   """
   def connectionMade(self):
     self.peerName = self.getPeerName()
-    log.listener("%s connection with %s established" % (self.__class__.__name__, self.peerName))
+    if settings.LOG_LISTENER_CONN_SUCCESS:
+      log.listener("%s connection with %s established" % (self.__class__.__name__, self.peerName))
 
     if state.metricReceiversPaused:
       self.pauseReceiving()
@@ -40,7 +41,9 @@ class MetricReceiver:
 
   def connectionLost(self, reason):
     if reason.check(ConnectionDone):
-      log.listener("%s connection with %s closed cleanly" % (self.__class__.__name__, self.peerName))
+      if settings.LOG_LISTENER_CONN_SUCCESS:
+        log.listener("%s connection with %s closed cleanly" % (self.__class__.__name__, self.peerName))
+
     else:
       log.listener("%s connection with %s lost: %s" % (self.__class__.__name__, self.peerName, reason.value))
 

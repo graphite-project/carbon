@@ -177,7 +177,10 @@ WHISPER_AUTOFLUSH = False
 # and any other settings you want to customize, defaults are inherited
 # from [carbon] section.
 # You can then specify the --instance=b option to manage this instance
-
+#
+# In order to turn off logging of successful connections for the line
+# receiver, set this to False
+# LOG_LISTENER_CONN_SUCCESS = True
 
 
 [relay]
@@ -267,6 +270,10 @@ USE_FLOW_CONTROL = True
 # seconds. Set CARBON_METRIC_INTERVAL to 0 to disable instrumentation
 # CARBON_METRIC_PREFIX = carbon
 # CARBON_METRIC_INTERVAL = 60
+#
+# In order to turn off logging of successful connections for the line
+# receiver, set this to False
+# LOG_LISTENER_CONN_SUCCESS = True
 
 # If you're connecting from the relay to a destination that's over the
 # internet or similarly iffy connection, a backlog can develop because
@@ -363,3 +370,7 @@ MAX_AGGREGATION_INTERVALS = 5
 # seconds. Set CARBON_METRIC_INTERVAL to 0 to disable instrumentation
 # CARBON_METRIC_PREFIX = carbon
 # CARBON_METRIC_INTERVAL = 60
+#
+# In order to turn off logging of successful connections for the line
+# receiver, set this to False
+# LOG_LISTENER_CONN_SUCCESS = True

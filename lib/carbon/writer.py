@@ -171,7 +171,7 @@ def reload_storage_rules():
   try:
     settings['STORAGE_RULES'] = load_storage_rules(settings)
   except:
-    log.msg("Failed to reload storage schemas")
+    log.writes("Failed to reload storage schemas")
     log.err()
 
 
@@ -179,7 +179,7 @@ def shutdown_modify_update_speed():
   global write_ratelimit
   if settings.MAX_WRITES_PER_SECOND_SHUTDOWN != settings.MAX_WRITES_PER_SECOND:
     write_ratelimit = RateLimit(settings.MAX_WRITES_PER_SECOND_SHUTDOWN, 1)
-    log.msg("Carbon shutting down.  Changed the update rate to: " + str(settings.MAX_UPDATES_PER_SECOND_ON_SHUTDOWN))
+    log.writes("Carbon shutting down.  Changed the update rate to: " + str(settings.MAX_UPDATES_PER_SECOND_ON_SHUTDOWN))
 
 
 class WriterService(Service):

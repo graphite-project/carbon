@@ -109,7 +109,7 @@ class StdinMetricsReader(LineReceiver):
   delimiter = '\n'
 
   def lineReceived(self, line):
-    #log.msg("[DEBUG] lineReceived(): %s" % line)
+    #log.clients("[DEBUG] lineReceived(): %s" % line)
     try:
       (metric, value, timestamp) = line.split()
       datapoint = (float(timestamp), float(value))
@@ -119,15 +119,15 @@ class StdinMetricsReader(LineReceiver):
       log.err(None, 'Dropping invalid line: %s' % line)
 
   def connectionLost(self, reason):
-    log.msg('stdin disconnected')
+    log.clients('stdin disconnected')
     def startShutdown(results):
-      log.msg("startShutdown(%s)" % str(results))
+      log.clients("startShutdown(%s)" % str(results))
       allStopped = client_manager.stopAllClients()
       allStopped.addCallback(shutdown)
     firstConnectsAttempted.addCallback(startShutdown)
 
   def startShutdown(results):
-    log.msg("startShutdown(%s)" % str(results))
+    log.clients("startShutdown(%s)" % str(results))
     allStopped = client_manager.stopAllClients()
     allStopped.addCallback(shutdown)
     firstConnectsAttempted.addCallback(startShutdown)
@@ -150,7 +150,7 @@ class FileLoader(object):
     try:
       fname = self.getNextFile()
       if os.path.splitext(fname)[1] == '.log':
-        log.msg("Feeding %s" % fname)
+        log.clients("Feeding %s" % fname)
         f = open(fname)
         while True:
           line = f.readline()

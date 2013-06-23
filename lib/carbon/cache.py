@@ -112,7 +112,7 @@ class _MetricCache(dict):
 
   def _check_available_space(self):
     if state.cacheTooFull and self.size < settings.CACHE_SIZE_LOW_WATERMARK:
-      log.msg("cache size below watermark")
+      log.cache("cache size below watermark")
       events.cacheSpaceAvailable()
 
   def drain_metric(self):
@@ -144,7 +144,7 @@ class _MetricCache(dict):
     if timestamp not in self[metric]:
       # Not a duplicate, hence process if cache is not full
       if self.is_full:
-        log.msg("MetricCache is full: self.size=%d" % self.size)
+        log.cache("MetricCache is full: self.size=%d" % self.size)
         events.cacheFull()
       else:
         self.size += 1

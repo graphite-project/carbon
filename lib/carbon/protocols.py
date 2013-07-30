@@ -25,7 +25,7 @@ class CarbonClientProtocol(Int32StringReceiver):
     self.relayMaxQueueLength = 'destinations.%s.relayMaxQueueLength' % self.destinationName
 
     self.factory.connectionMade.callback(self)
-    self.factory.connectionMade = Deferred()
+    self.factory.connectionMade = defer.Deferred()
     self.sendQueued()
 
   def connectionLost(self, reason):

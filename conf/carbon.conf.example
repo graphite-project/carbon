@@ -64,6 +64,8 @@ MAX_CREATES_PER_MINUTE = 50
 
 LINE_RECEIVER_INTERFACE = 0.0.0.0
 LINE_RECEIVER_PORT = 2003
+# Set this to enable checking of a key to be set in the line receiver for simple security
+# LINE_RECEIVER_KEY = secretkey
 
 # Set this to True to enable the UDP listener. By default this is off
 # because it is very common to run multiple carbon daemons and managing
@@ -71,6 +73,8 @@ LINE_RECEIVER_PORT = 2003
 ENABLE_UDP_LISTENER = False
 UDP_RECEIVER_INTERFACE = 0.0.0.0
 UDP_RECEIVER_PORT = 2003
+# Set this to enable checking of a key to be set in the udp receiver for simple security
+# UDP_RECEIVER_KEY = secretkey
 
 PICKLE_RECEIVER_INTERFACE = 0.0.0.0
 PICKLE_RECEIVER_PORT = 2004

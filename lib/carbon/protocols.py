@@ -70,23 +70,46 @@ class MetricLineReceiver(MetricReceiver, LineOnlyReceiver):
   delimiter = '\n'
 
   def lineReceived(self, line):
+   if settings.LINE_RECEIVER_KEY:
+    try:
+     key, metric, value, timestamp = line.strip().split()
+     if key == settings.LINE_RECEIVER_KEY:
+      datapoint = ( float(timestamp), float(value) )
+      self.metricReceived(metric, datapoint)
+     else:
+      log.listener('invalid key in line received from client %s, ignoring' % self.peerName)
+      return
+    except:
+     log.listener('invalid line received (expecting key) from client %s, ignoring' % self.peerName)
+     return
+   else:
     try:
       metric, value, timestamp = line.strip().split()
       datapoint = ( float(timestamp), float(value) )
+      self.metricReceived(metric, datapoint)
     except:
       log.listener('invalid line received from client %s, ignoring' % self.peerName)
       return
 
-    self.metricReceived(metric, datapoint)
-
-
 class MetricDatagramReceiver(MetricReceiver, DatagramProtocol):
   def datagramReceived(self, data, (host, port)):
     for line in data.splitlines():
+     if settings.UDP_RECEIVER_KEY:
+      try:
+        key, metric, value, timestamp = line.strip().split()
+        if key == settings.UDP_RECEIVER_KEY:
+         datapoint = ( float(timestamp), float(value) )
+         self.metricReceived(metric, datapoint)
+        else:
+         log.listener('invalid key in line received from client %s, ignoring' % host)
+         return
+      except:
+       log.listener('invalid line received (expecting key) from %s, ignoring' % host)
+       return
+     else:
       try:
         metric, value, timestamp = line.strip().split()
         datapoint = ( float(timestamp), float(value) )
-
         self.metricReceived(metric, datapoint)
       except:
         log.listener('invalid line received from %s, ignoring' % host)

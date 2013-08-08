@@ -10,9 +10,10 @@ from carbon.regexlist import WhiteList, BlackList
 from carbon.util import pickle, get_unpickler
 
 
-class CarbonClientProtocol(Int32StringReceiver):
-  SEND_QUEUE_LOW_WATERMARK = settings.MAX_QUEUE_SIZE * 0.8
+SEND_QUEUE_LOW_WATERMARK = settings.MAX_QUEUE_SIZE * 0.8
 
+
+class CarbonClientProtocol(Int32StringReceiver):
   def connectionMade(self):
     log.clients("%s::connectionMade" % self)
     self.paused = False

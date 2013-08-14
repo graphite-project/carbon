@@ -66,6 +66,8 @@ LINE_RECEIVER_INTERFACE = 0.0.0.0
 LINE_RECEIVER_PORT = 2003
 # Set this to enable checking of a key to be set in the line receiver for simple security
 # LINE_RECEIVER_KEY = secretkey
+# By default this key is transmitted in plain text, set this to ensure it is hashed instead (more secure)
+# LINE_RECEIVER_KEY_TYPE = sha1
 
 # Set this to True to enable the UDP listener. By default this is off
 # because it is very common to run multiple carbon daemons and managing
@@ -75,6 +77,8 @@ UDP_RECEIVER_INTERFACE = 0.0.0.0
 UDP_RECEIVER_PORT = 2003
 # Set this to enable checking of a key to be set in the udp receiver for simple security
 # UDP_RECEIVER_KEY = secretkey
+# By default this key is transmitted in plain text, set this to ensure it is hashed instead (more secure)
+# UDP_RECEIVER_KEY_TYPE = sha1
 
 PICKLE_RECEIVER_INTERFACE = 0.0.0.0
 PICKLE_RECEIVER_PORT = 2004

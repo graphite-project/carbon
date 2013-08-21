@@ -106,6 +106,8 @@ class MetricPickleReceiver(MetricReceiver, Int32StringReceiver):
 
 
 class CacheManagementHandler(Int32StringReceiver):
+  MAX_LENGTH = 1024 ** 3 # 1mb
+
   def connectionMade(self):
     peer = self.transport.getPeer()
     self.peerAddr = "%s:%d" % (peer.host, peer.port)
@@ -124,7 +126,8 @@ class CacheManagementHandler(Int32StringReceiver):
       metric = request['metric']
       datapoints = MetricCache.get_datapoints(metric)
       result = dict(datapoints=datapoints)
-      log.query('[%s] cache query for \"%s\" returned %d values' % (self.peerAddr, metric, len(datapoints)))
+      if settings.LOG_CACHE_HITS:
+        log.query('[%s] cache query for \"%s\" returned %d values' % (self.peerAddr, metric, len(datapoints)))
       instrumentation.increment('writer.cache_queries')
 
     elif request['type'] == 'bulk-cache-query':
@@ -132,8 +135,8 @@ class CacheManagementHandler(Int32StringReceiver):
       for metric in request['metrics']:
         query_results[metric] = MetricCache.get_datapoints(metric)
       if settings.LOG_CACHE_HITS:
-        log.query('[%s] bulk-cache-query for %d metrics' % (self.peerAddr, len(query_results)))
-      instrumentation.increment('writer.cache_queries')
+        log.query('[%s] cache-query-bulk for %d metrics' % (self.peerAddr, len(query_results)))
+      instrumentation.increment('writer.bulk_cache_queries')
       result = dict(results=query_results)
 
     elif request['type'] == 'get-metadata':

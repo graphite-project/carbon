@@ -136,22 +136,39 @@ class CacheManagementHandler(Int32StringReceiver):
       metric = request['metric']
       datapoints = MetricCache.get(metric, [])
       result = dict(datapoints=datapoints)
-      if settings.LOG_CACHE_HITS is True:
-        log.query('[%s] cache query for \"%s\" returned %d values' % (self.peerAddr, metric, len(datapoints)))
+      log.query('[%s] cache query for \"%s\" returned %d values' % (self.peerAddr, metric, len(datapoints)))
       instrumentation.increment('cacheQueries')
 
+    elif request['type'] == 'cache-query-bulk':
+      datapointsByMetric = {}
+      metrics = request['metrics']
+      for metric in metrics:
+        datapointsByMetric[metric] = MetricCache.get(metric, [])
+ 
+      result = dict(datapointsByMetric=datapointsByMetric)
+ 
+      log.query('[%s] cache query bulk for \"%d\" metrics returned %d values' %
+        (self.peerAddr, len(metrics), sum([len(datapoints) for datapoints in datapointsByMetric.values()])))
+      instrumentation.increment('cacheQueries')
+ 
     elif request['type'] == 'get-metadata':
       result = management.getMetadata(request['metric'], request['key'])
-
+ 
     elif request['type'] == 'set-metadata':
       result = management.setMetadata(request['metric'], request['key'], request['value'])
-
+ 
     else:
       result = dict(error="Invalid request type \"%s\"" % request['type'])
-
+ 
     response = pickle.dumps(result, protocol=-1)
     self.sendString(response)
 
+  def lengthLimitExceeded(self, length):
+    """
+    because we send bulk of metrics in one request, better
+    not terminate connection if length exceed MAX_LENGTH
+    """
+    pass
 
 # Avoid import circularities
 from carbon.cache import MetricCache

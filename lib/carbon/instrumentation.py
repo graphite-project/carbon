@@ -85,7 +85,9 @@ def recordMetrics():
     creates = myStats.get('creates', 0)
     errors = myStats.get('errors', 0)
     cacheQueries = myStats.get('cacheQueries', 0)
+    cacheBulkQueries = myStats.get('cacheBulkQueries', 0)
     cacheOverflow = myStats.get('cache.overflow', 0)
+    cacheBulkQuerySizes = myStats.get('cacheBulkQuerySize', [])
 
     if updateTimes:
       avgUpdateTime = sum(updateTimes) / len(updateTimes)
@@ -95,11 +97,16 @@ def recordMetrics():
       pointsPerUpdate = float(committedPoints) / len(updateTimes)
       record('pointsPerUpdate', pointsPerUpdate)
 
+    if cacheBulkQuerySizes:
+      avgBulkSize = sum(cacheBulkQuerySizes) / len(cacheBulkQuerySizes)
+      record('cache.bulk_queries_average_size', avgBulkSize)
+
     record('updateOperations', len(updateTimes))
     record('committedPoints', committedPoints)
     record('creates', creates)
     record('errors', errors)
     record('cache.queries', cacheQueries)
+    record('cache.bulk_queries', cacheBulkQueries)
     record('cache.queues', len(cache.MetricCache))
     record('cache.size', cache.MetricCache.size)
     record('cache.overflow', cacheOverflow)

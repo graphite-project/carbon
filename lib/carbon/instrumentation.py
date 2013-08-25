@@ -76,6 +76,12 @@ def append(metric, value):
   finally:
     metric_data_lock.release()
 
+def max(metric, value):
+  try:
+    if metric_data[metric] < value:
+      metric_data[metric] = value
+  except KeyError:
+    metric_data[metric] = value
 # end API
 
 

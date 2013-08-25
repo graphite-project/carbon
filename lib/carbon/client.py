@@ -20,7 +20,7 @@ class CarbonClientProtocol(Int32StringReceiver):
     # Define internal metric names
     self.destinationName = self.factory.destinationName
     self.queuedUntilReady = 'destinations.%s.queued_until_destination_ready' % self.destinationName
-    self.sent = 'destinations.%s.datapoints_sent' % self.destinationName
+    self.relayMaxQueueLength = 'destinations.%s.relay_max_queue_length' % self.destinationName
 
     self.factory.connectionMade.callback(self)
     self.factory.connectionMade = Deferred()
@@ -47,6 +47,7 @@ class CarbonClientProtocol(Int32StringReceiver):
       self.connected = False
 
   def sendDatapoint(self, metric, datapoint):
+    instrumentation.max(self.relayMaxQueueLength, len(self.factory.queue))
     if self.paused:
       self.factory.enqueue(metric, datapoint)
       instrumentation.increment(self.queuedUntilReady)

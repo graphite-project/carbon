@@ -71,6 +71,10 @@ class MetricBuffer:
       # If interval is too old, then delete it.
       if buffer.interval < age_threshold:
         del self.interval_buffers[buffer.interval]
+        if not self.interval_buffers:
+          self.close()
+          self.configured = False
+          del BufferManager.buffers[self.metric_path]
         continue
 
       # If buffer is active, then compute it.

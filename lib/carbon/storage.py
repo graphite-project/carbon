@@ -15,6 +15,7 @@ limitations under the License."""
 import os, re
 
 from os.path import join, exists
+from carbon.conf import ConfigError
 from carbon.util import pickle, parseRetentionDefs
 
 
@@ -26,7 +27,7 @@ class StorageRule(object):
     pattern = definition.pop('pattern', None)
     metric_list = definition.pop('list', None)
     if [match_all, pattern, metric_list].count(None) != 2:
-      raise Exception("Exactly one condition key must be provided: match-all"
+      raise ConfigError("Exactly one condition key must be provided: match-all"
                         " | pattern | list")
 
     if match_all:

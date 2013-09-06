@@ -24,7 +24,6 @@ class CarbonClientProtocol(Int32StringReceiver):
     self.destinationName = self.factory.destinationName
     self.queuedUntilReady = 'destinations.%s.queuedUntilReady' % self.destinationName
     self.sent = 'destinations.%s.sent' % self.destinationName
-    self.relayMaxQueueLength = 'destinations.%s.relayMaxQueueLength' % self.destinationName
     self.batchesSent = 'destinations.%s.batchesSent' % self.destinationName
 
     self.slowConnectionReset = 'destinations.%s.slowConnectionReset' % self.destinationName
@@ -88,7 +87,6 @@ class CarbonClientProtocol(Int32StringReceiver):
     chained_invocation_delay = 0.0001
     queueSize = self.factory.queueSize
 
-    instrumentation.max(self.relayMaxQueueLength, queueSize)
     if self.paused:
       instrumentation.max(self.queuedUntilReady, queueSize)
       return
@@ -179,6 +177,8 @@ class CarbonClientFactory(ReconnectingClientFactory):
     self.attemptedRelays = 'destinations.%s.attemptedRelays' % self.destinationName
     self.fullQueueDrops = 'destinations.%s.fullQueueDrops' % self.destinationName
     self.queuedUntilConnected = 'destinations.%s.queuedUntilConnected' % self.destinationName
+    self.relayMaxQueueLength = 'destinations.%s.relayMaxQueueLength' % self.destinationName
+
   def queueFullCallback(self, result):
     state.events.cacheFull()
     log.clients('%s send queue is full (%d datapoints)' % (self, result))
@@ -246,6 +246,7 @@ class CarbonClientFactory(ReconnectingClientFactory):
 
   def sendDatapoint(self, metric, datapoint):
     instrumentation.increment(self.attemptedRelays)
+    instrumentation.max(self.relayMaxQueueLength, self.queueSize)
     if self.queueSize >= settings.MAX_QUEUE_SIZE:
       if not self.queueFull.called:
         self.queueFull.callback(self.queueSize)

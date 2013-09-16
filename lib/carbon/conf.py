@@ -78,6 +78,7 @@ defaults = dict(
   AGGREGATION_RULES='aggregation-rules.conf',
   REWRITE_RULES='rewrite-rules.conf',
   RELAY_RULES='relay-rules.conf',
+  LOG_AGGREGATOR_MISSES=False,
 )
 
 

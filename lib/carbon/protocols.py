@@ -1,4 +1,5 @@
 import time
+import json
 
 from twisted.internet import reactor
 from twisted.internet.protocol import DatagramProtocol
@@ -166,6 +167,19 @@ class CacheManagementHandler(Int32StringReceiver):
     response = pickle.dumps(result, protocol=-1)
     self.sendString(response)
 
+class FetchLineReceiver(LineOnlyReceiver):
+  delimiter = '\n'
+
+  def lineReceived(self, line):
+    ret = ""
+    try:
+      metric, start, end = line.strip().split()
+      ret = management.fetchData(metric, start, end)
+    except IOError:
+        pass
+    except Exception, e:
+        log.err("fetch fail: %s" %e)
+    self.sendLine(json.dumps(ret))
 
 # Avoid import circularities
 from carbon.cache import MetricCache

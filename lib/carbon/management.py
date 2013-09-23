@@ -29,3 +29,7 @@ def setMetadata(metric, key, value):
   except:
     log.err()
     return dict(error=traceback.format_exc())
+
+def fetchData(metric, start, end):
+  wsp_path = getFilesystemPath(metric)
+  return whisper.fetch(wsp_path, start, end)

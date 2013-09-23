@@ -180,7 +180,10 @@ class CmdLineReceiver(LineOnlyReceiver):
       else:
         if cmd == "create":
           metric = fs[1]
-          archiveList = fs[2]
+          # secondsPerPoint:numberOfPoints,secondsPerPoint:numberOfPoints
+          # --> [(secondsPerPoint,numberOfPoints),()]
+          archiveList = [x.split(":") for x in fs[2].split(",")]
+
           if len(fs) >= 4:
             xFilesFactor = cmd[3] or None
           else:
@@ -189,10 +192,12 @@ class CmdLineReceiver(LineOnlyReceiver):
             aggregationMethod = cmd[4] or None
           else:
             aggregationMethod = None
-          ret = management.WhisperCmd.create(metric, archiveList, xFilesFactor, aggregationMethod)
+          management.WhisperCmd.create(metric, archiveList, xFilesFactor, aggregationMethod)
+          ret = "ok"
         elif cmd == "delete":
           metric = fs[1]
-          ret = management.WhisperCmd.delete(metric)
+          management.WhisperCmd.delete(metric)
+          ret = "ok"
         elif cmd == "info":
           metric = fs[1]
           ret = management.WhisperCmd.info(metric)

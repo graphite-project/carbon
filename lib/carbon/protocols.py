@@ -167,18 +167,45 @@ class CacheManagementHandler(Int32StringReceiver):
     response = pickle.dumps(result, protocol=-1)
     self.sendString(response)
 
-class FetchLineReceiver(LineOnlyReceiver):
+class CmdLineReceiver(LineOnlyReceiver):
   delimiter = '\n'
 
   def lineReceived(self, line):
     ret = ""
     try:
-      metric, start, end = line.strip().split()
-      ret = management.fetchData(metric, start, end)
+      fs = line.strip().split()
+      cmd = fs[0]
+      if cmd not in ["create", "delete", "info", "fetch",]:
+          log.err("not supported cmd: %s" % cmd)
+      else:
+        if cmd == "create":
+          metric = fs[1]
+          archiveList = fs[2]
+          if len(fs) >= 4:
+            xFilesFactor = cmd[3] or None
+          else:
+            xFilesFactor = None
+          if len(fs) >= 5:
+            aggregationMethod = cmd[4] or None
+          else:
+            aggregationMethod = None
+          ret = management.WhisperCmd.create(metric, archiveList, xFilesFactor, aggregationMethod)
+        elif cmd == "delete":
+          metric = fs[1]
+          ret = management.WhisperCmd.delete(metric)
+        elif cmd == "info":
+          metric = fs[1]
+          ret = management.WhisperCmd.info(metric)
+        elif cmd == "fetch":
+          metric = fs[1]
+          start = fs[2]
+          end = fs[3]
+          ret = management.WhisperCmd.fetch(metric, start, end)
     except IOError:
         pass
     except Exception, e:
         log.err("fetch fail: %s" %e)
+
     self.sendLine(json.dumps(ret))
 
 # Avoid import circularities

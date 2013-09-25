@@ -12,17 +12,17 @@
 #  aggregationMethod: function to apply to data points for aggregation
 #
 [min]
-pattern = \.min$
+pattern = .*\.min$
 xFilesFactor = 0.1
 aggregationMethod = min
 
 [max]
-pattern = \.max$
+pattern = .*\.max$
 xFilesFactor = 0.1
 aggregationMethod = max
 
 [sum]
-pattern = \.count$
+pattern = .*\.count$
 xFilesFactor = 0
 aggregationMethod = sum
 

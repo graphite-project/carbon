@@ -22,6 +22,10 @@
 pattern = ^carbon\.
 retentions = 60:90d
 
-[default-perf-counter]
-pattern = .*
+[default_30s_for_2year]
+pattern = ^perf\.
 retentions = 30s:6h,60s:1d,5m:7d,1h:60d,1d:2y
+
+[default_1min_for_1day]
+pattern = .*
+retentions = 60s:1d

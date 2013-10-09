@@ -120,9 +120,9 @@ class AggregatedConsistentHashingRouter(DatapointRouter):
       yield destination
 
 class RemoveNodeConsistentHashingRouter(DatapointRouter):
-  def __init__(self, replication_factor=1, skip_node=0):
+  def __init__(self, replication_factor=1, remove_node=0):
     self.hash_router = ConsistentHashingRouter(replication_factor)
-    self.skip_node = skip_node
+    self.remove_node = remove_node
 
   def addDestination(self, destination):
     self.hash_router.addDestination(destination)
@@ -134,8 +134,8 @@ class RemoveNodeConsistentHashingRouter(DatapointRouter):
     # Remove node from the metric
     list_nodes = key.split(".")
     num_nodes = len(list_nodes)    
-    skip_node_index = (self.skip_node + num_nodes) % num_nodes
-    list_nodes.pop(skip_node_index)
+    remove_node_index = (self.remove_node + num_nodes) % num_nodes
+    list_nodes.pop(remove_node_index)
     resolved_metric = ".".join(list_nodes)
 
     destinations = set()

@@ -118,3 +118,34 @@ class AggregatedConsistentHashingRouter(DatapointRouter):
 
     for destination in destinations:
       yield destination
+
+class RemoveNodeConsistentHashingRouter(DatapointRouter):
+  def __init__(self, replication_factor=1, skip_node=0):
+    self.hash_router = ConsistentHashingRouter(replication_factor)
+    self.skip_node = skip_node
+
+  def addDestination(self, destination):
+    self.hash_router.addDestination(destination)
+
+  def removeDestination(self, destination):
+    self.hash_router.removeDestination(destination)
+
+  def getDestinations(self, key):
+    file = open("/home/xad/testing", "a")
+    # Remove node from the metric
+    list_nodes = key.split(".")
+    num_nodes = len(list_nodes)    
+    skip_node_index = (self.skip_node + num_nodes) % num_nodes
+    list_nodes.pop(skip_node_index)
+    resolved_metric = ".".join(list_nodes)
+
+    file.write("[SNCHR] key: " + str(key) + ", resolved_metric: " + str(resolved_metric) + "\n")
+
+    destinations = set()
+    for destination in self.hash_router.getDestinations(resolved_metric):
+      destinations.add(destination)
+
+    for destination in destinations:
+      file.write("destination: " + str(destination) + "\n")
+      yield destination
+    file.close() 

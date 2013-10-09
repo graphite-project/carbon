@@ -187,7 +187,7 @@ def createRelayService(config):
       RuleManager.read_from(settings["aggregation-rules"])
       router = AggregatedConsistentHashingRouter(RuleManager, settings.REPLICATION_FACTOR)
     elif settings.RELAY_METHOD == 'remove-node-consistent-hashing':
-      router = RemoveNodeConsistentHashingRouter(settings.REPLICATION_FACTOR, settings.REMOVE_NODE)
+      router = RemoveNodeConsistentHashingRouter(settings.REPLICATION_FACTOR, settings.REMOVE_NODE_INDEX)
 
     client_manager = CarbonClientManager(router)
     client_manager.setServiceParent(root_service)

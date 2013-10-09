@@ -143,5 +143,4 @@ class RemoveNodeConsistentHashingRouter(DatapointRouter):
       destinations.add(destination)
 
     for destination in destinations:
-      file.write("destination: " + str(destination) + "\n")
       yield destination

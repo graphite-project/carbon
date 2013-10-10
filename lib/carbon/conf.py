@@ -389,9 +389,10 @@ class CarbonRelayOptions(CarbonCacheOptions):
           self["aggregation-rules"] = join(settings["CONF_DIR"], "aggregation-rules.conf")
         settings["aggregation-rules"] = self["aggregation-rules"]
 
-        if settings["RELAY_METHOD"] not in ("rules", "consistent-hashing", "aggregated-consistent-hashing"):
+        if settings["RELAY_METHOD"] not in ("rules", "consistent-hashing", "aggregated-consistent-hashing", "remove-node-consistent-hashing"):
             print ("In carbon.conf, RELAY_METHOD must be either 'rules' or "
-                   "'consistent-hashing' or 'aggregated-consistent-hashing'. Invalid value: '%s'" %
+                   "'consistent-hashing' or 'aggregated-consistent-hashing' or "
+                   "'remove-node-consistent-hashing. Invalid value: '%s'" %
                    settings.RELAY_METHOD)
             sys.exit(1)
 

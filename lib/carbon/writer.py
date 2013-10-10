@@ -123,8 +123,8 @@ def writeCachedDataPoints():
         try:
           whisper.create(dbFilePath, archiveConfig, xFilesFactor, aggregationMethod, settings.WHISPER_SPARSE_CREATE, settings.WHISPER_FALLOCATE_CREATE)
           instrumentation.increment('creates')
-        except:
-          log.msg("Error creating %s" % (dbFilePath))
+        except Exception, e:
+          log.msg("Error creating %s: %s" % (dbFilePath,e))
           continue
 
       try:

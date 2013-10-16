@@ -312,23 +312,12 @@ LINE_RECEIVER_PORT = 2023
 PICKLE_RECEIVER_INTERFACE = 0.0.0.0
 PICKLE_RECEIVER_PORT = 2024
 
-<<<<<<< HEAD
-=======
-# Set to false to disable logging of successful connections
-LOG_LISTENER_CONNECTIONS = True
-
-# If set true, metric received will be forwarded to DESTINATIONS in addition to
-# the output of the aggregation rules. If set false the carbon-aggregator will
-# only ever send the output of aggregation.
-FORWARD_ALL = True
-
 # Filenames of the configuration files to use for this instance of aggregator.
 # Filenames are relative to CONF_DIR.
 # 
 # AGGREGATION_RULES = aggregation-rules.conf
 # REWRITE_RULES = rewrite-rules.conf
 
->>>>>>> 1928191... Added Configurable files for aggregation and rewrite rules
 # This is a list of carbon daemons we will send any relayed or
 # generated metrics to. The default provided would send to a single
 # carbon-cache instance on the default port. However if you

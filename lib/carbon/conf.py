@@ -70,11 +70,19 @@ defaults = dict(
   CARBON_METRIC_PREFIX='carbon',
   CARBON_METRIC_INTERVAL=60,
   WRITE_BACK_FREQUENCY=None,
+<<<<<<< HEAD
   MIN_RESET_STAT_FLOW=1000,
   MIN_RESET_RATIO=0.9,
   MIN_RESET_INTERVAL=121,
   USE_RATIO_RESET=False,
   LOG_LISTENER_CONN_SUCCESS=True,
+=======
+  ENABLE_LOGROTATION=True,
+  LOG_LISTENER_CONNECTIONS=True,
+  AGGREGATION_RULES='aggregation-rules.conf',
+  REWRITE_RULES='rewrite-rules.conf',
+  RELAY_RULES='relay-rules.conf',
+>>>>>>> 1928191... Added Configurable files for aggregation and rewrite rules
 )
 
 
@@ -363,12 +371,12 @@ class CarbonAggregatorOptions(CarbonCacheOptions):
     def postOptions(self):
         CarbonCacheOptions.postOptions(self)
         if self["rules"] is None:
-            self["rules"] = join(settings["CONF_DIR"], "aggregation-rules.conf")
+            self["rules"] = join(settings["CONF_DIR"], settings['AGGREGATION_RULES'])
         settings["aggregation-rules"] = self["rules"]
 
         if self["rewrite-rules"] is None:
             self["rewrite-rules"] = join(settings["CONF_DIR"],
-                                         "rewrite-rules.conf")
+                                         settings['REWRITE_RULES'])
         settings["rewrite-rules"] = self["rewrite-rules"]
 
 
@@ -382,11 +390,11 @@ class CarbonRelayOptions(CarbonCacheOptions):
     def postOptions(self):
         CarbonCacheOptions.postOptions(self)
         if self["rules"] is None:
-            self["rules"] = join(settings["CONF_DIR"], "relay-rules.conf")
+            self["rules"] = join(settings["CONF_DIR"], settings['RELAY_RULES'])
         settings["relay-rules"] = self["rules"]
 
         if self["aggregation-rules"] is None:
-          self["aggregation-rules"] = join(settings["CONF_DIR"], "aggregation-rules.conf")
+            self["rules"] = join(settings["CONF_DIR"], settings['AGGREGATION-RULES'])
         settings["aggregation-rules"] = self["aggregation-rules"]
 
         if settings["RELAY_METHOD"] not in ("rules", "consistent-hashing", "aggregated-consistent-hashing"):

@@ -43,7 +43,7 @@ defaults = dict(
   CACHE_QUERY_INTERFACE='0.0.0.0',
   CACHE_QUERY_PORT=7002,
   LOG_UPDATES=True,
-  LOG_CACHE_HITS = True,
+  LOG_CACHE_HITS=True,
   WHISPER_AUTOFLUSH=False,
   WHISPER_SPARSE_CREATE=False,
   WHISPER_FALLOCATE_CREATE=False,
@@ -51,8 +51,8 @@ defaults = dict(
   MAX_DATAPOINTS_PER_MESSAGE=500,
   MAX_AGGREGATION_INTERVALS=5,
   MAX_QUEUE_SIZE=1000,
-  QUEUE_LOW_WATERMARK_PCT = 0.8,
-  TIME_TO_DEFER_SENDING = 0.0001,
+  QUEUE_LOW_WATERMARK_PCT=0.8,
+  TIME_TO_DEFER_SENDING=0.0001,
   ENABLE_AMQP=False,
   AMQP_VERBOSE=False,
   BIND_PATTERNS=['#'],
@@ -75,6 +75,9 @@ defaults = dict(
   MIN_RESET_INTERVAL=121,
   USE_RATIO_RESET=False,
   LOG_LISTENER_CONN_SUCCESS=True,
+  AGGREGATION_RULES='aggregation-rules.conf',
+  REWRITE_RULES='rewrite-rules.conf',
+  RELAY_RULES='relay-rules.conf',
 )
 
 
@@ -363,12 +366,12 @@ class CarbonAggregatorOptions(CarbonCacheOptions):
     def postOptions(self):
         CarbonCacheOptions.postOptions(self)
         if self["rules"] is None:
-            self["rules"] = join(settings["CONF_DIR"], "aggregation-rules.conf")
+            self["rules"] = join(settings["CONF_DIR"], settings['AGGREGATION_RULES'])
         settings["aggregation-rules"] = self["rules"]
 
         if self["rewrite-rules"] is None:
             self["rewrite-rules"] = join(settings["CONF_DIR"],
-                                         "rewrite-rules.conf")
+                                         settings['REWRITE_RULES'])
         settings["rewrite-rules"] = self["rewrite-rules"]
 
 
@@ -382,11 +385,11 @@ class CarbonRelayOptions(CarbonCacheOptions):
     def postOptions(self):
         CarbonCacheOptions.postOptions(self)
         if self["rules"] is None:
-            self["rules"] = join(settings["CONF_DIR"], "relay-rules.conf")
+            self["rules"] = join(settings["CONF_DIR"], settings['RELAY_RULES'])
         settings["relay-rules"] = self["rules"]
 
         if self["aggregation-rules"] is None:
-          self["aggregation-rules"] = join(settings["CONF_DIR"], "aggregation-rules.conf")
+            self["rules"] = join(settings["CONF_DIR"], settings['AGGREGATION-RULES'])
         settings["aggregation-rules"] = self["aggregation-rules"]
 
         if settings["RELAY_METHOD"] not in ("rules", "consistent-hashing", "aggregated-consistent-hashing"):

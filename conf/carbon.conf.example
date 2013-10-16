@@ -203,6 +203,13 @@ PICKLE_RECEIVER_PORT = 2014
 # instance.
 # Enable this for carbon-relays that send to a group of carbon-aggregators
 #RELAY_METHOD = aggregated-consistent-hashing
+#
+# Use consistent-hashing after removing a specified node from the metric. If 
+# for example metrics have host name in them, you can remove it first without
+# having to use aggregation-rules so that metrics are sent to the same 
+# carbon-aggregator instance.
+#RELAY_METHOD = remove-node-consistent-hashing
+#REMOVE_NODE_INDEX = 0 
 RELAY_METHOD = rules
 
 # If you use consistent-hashing you can add redundancy by replicating every

@@ -312,6 +312,12 @@ LINE_RECEIVER_PORT = 2023
 PICKLE_RECEIVER_INTERFACE = 0.0.0.0
 PICKLE_RECEIVER_PORT = 2024
 
+# Filenames of the configuration files to use for this instance of aggregator.
+# Filenames are relative to CONF_DIR.
+# 
+# AGGREGATION_RULES = aggregation-rules.conf
+# REWRITE_RULES = rewrite-rules.conf
+
 # This is a list of carbon daemons we will send any relayed or
 # generated metrics to. The default provided would send to a single
 # carbon-cache instance on the default port. However if you

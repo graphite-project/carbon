@@ -385,7 +385,7 @@ class CarbonRelayOptions(CarbonCacheOptions):
         settings["relay-rules"] = self["rules"]
 
         if self["aggregation-rules"] is None:
-            self["rules"] = join(settings["CONF_DIR"], settings['AGGREGATION-RULES'])
+            self["rules"] = join(settings["CONF_DIR"], settings['AGGREGATION_RULES'])
         settings["aggregation-rules"] = self["aggregation-rules"]
 
         if settings["RELAY_METHOD"] not in ("rules", "consistent-hashing", "aggregated-consistent-hashing"):

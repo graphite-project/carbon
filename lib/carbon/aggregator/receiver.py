@@ -4,7 +4,7 @@ from carbon.aggregator.buffers import BufferManager
 from carbon.rewrite import RewriteRuleManager
 from carbon import events, log
 
-# Specity whether to use aggregation-rules.conf or manual replacement rule.
+# Specity whether to use aggregation-rules.conf or custom internal rule.
 USE_RULE_MANAGER = False
 
 def process(metric, datapoint):

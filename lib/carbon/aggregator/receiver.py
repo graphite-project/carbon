@@ -32,7 +32,7 @@ def process(metric, datapoint):
       buffer.input(datapoint)
   # Custom internal rule
   else:
-    sum_index = metric.find(".sum")
+    sum_index = metric.find(".sum.")
     if sum_index != -1:
       aggregate_metric = metric[:sum_index] + ".sum_all.hosts"
       aggregate_metrics.append(aggregate_metric)

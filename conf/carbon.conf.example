@@ -381,3 +381,6 @@ MAX_AGGREGATION_INTERVALS = 5
 # In order to turn off logging of successful connections for the line
 # receiver, set this to False
 # LOG_LISTENER_CONN_SUCCESS = True
+#
+# To use our own rule, set USE_RULE_MANAGER = false
+USE_RULE_MANAGER = false

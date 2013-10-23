@@ -382,5 +382,6 @@ MAX_AGGREGATION_INTERVALS = 5
 # receiver, set this to False
 # LOG_LISTENER_CONN_SUCCESS = True
 #
-# To use our own rule, set USE_RULE_MANAGER = false
-USE_RULE_MANAGER = false
+# To use our own "sumall" rule, set USE_RULE_MANAGER = sumall
+# To use aggregation-rules.conf, set USE_RULE_MANAGER = rules
+AGGREGATOR_RULE_METHOD = sumall

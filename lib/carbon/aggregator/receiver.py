@@ -13,7 +13,7 @@ def process(metric, datapoint):
 
   aggregate_metrics = []
 
-  if settings.USE_RULE_MANAGER == True:
+  if settings.AGGREGATOR_RULE_METHOD == "rules":
     for rule in RuleManager.rules:
       aggregate_metric = rule.get_aggregate_metric(metric)
 
@@ -29,7 +29,7 @@ def process(metric, datapoint):
 
       buffer.input(datapoint)
   # Custom rule to sum metrics
-  else:
+  elif settings.AGGREGATOR_RULE_METHOD == "sumall":
     sum_index = metric.find(".sum.")
     if sum_index != -1:
       aggregate_metric = metric[:sum_index] + ".sum_all.hosts"

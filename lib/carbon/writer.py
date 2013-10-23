@@ -172,7 +172,11 @@ def reloadAggregationSchemas():
 
 def shutdownModifyUpdateSpeed():
     try:
-        settings.MAX_UPDATES_PER_SECOND = settings.MAX_UPDATES_PER_SECOND_ON_SHUTDOWN
+        shut = settings.MAX_UPDATES_PER_SECOND_ON_SHUTDOWN
+        if UPDATE_BUCKET:
+          UPDATE_BUCKET.setCapacityAndFillRate(shut,shut)
+        if CREATE_BUCKET:
+          CREATE_BUCKET.setCapacityAndFillRate(shut,shut)
         log.msg("Carbon shutting down.  Changed the update rate to: " + str(settings.MAX_UPDATES_PER_SECOND_ON_SHUTDOWN))
     except KeyError:
         log.msg("Carbon shutting down.  Update rate not changed")

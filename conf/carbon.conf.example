@@ -381,3 +381,7 @@ MAX_AGGREGATION_INTERVALS = 5
 # In order to turn off logging of successful connections for the line
 # receiver, set this to False
 # LOG_LISTENER_CONN_SUCCESS = True
+#
+# To use our own "sumall" rule, set USE_RULE_MANAGER = sumall
+# To use aggregation-rules.conf, set USE_RULE_MANAGER = rules
+AGGREGATOR_RULE_METHOD = sumall

@@ -3,9 +3,7 @@ from carbon.aggregator.rules import RuleManager
 from carbon.aggregator.buffers import BufferManager
 from carbon.rewrite import RewriteRuleManager
 from carbon import events, log
-
-# Specity whether to use aggregation-rules.conf or custom internal rule.
-USE_RULE_MANAGER = False
+from carbon.conf import settings
 
 def process(metric, datapoint):
   increment('datapointsReceived')
@@ -15,7 +13,7 @@ def process(metric, datapoint):
 
   aggregate_metrics = []
 
-  if USE_RULE_MANAGER == True:
+  if settings.AGGREGATOR_RULE_METHOD == "rules":
     for rule in RuleManager.rules:
       aggregate_metric = rule.get_aggregate_metric(metric)
 
@@ -30,8 +28,8 @@ def process(metric, datapoint):
         buffer.configure_aggregation(rule.frequency, rule.aggregation_func)
 
       buffer.input(datapoint)
-  # Custom internal rule
-  else:
+  # Custom rule to sum metrics
+  elif settings.AGGREGATOR_RULE_METHOD == "sumall":
     sum_index = metric.find(".sum.")
     if sum_index != -1:
       aggregate_metric = metric[:sum_index] + ".sum_all.hosts"

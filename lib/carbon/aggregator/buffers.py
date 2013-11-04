@@ -27,7 +27,7 @@ class BufferManager:
 
 class MetricBuffer:
   __slots__ = ('metric_path', 'interval_buffers', 'compute_task', 'configured',
-               'aggregation_frequency', 'aggregation_func')
+               'aggregation_frequency', 'aggregation_func', 'most_recent_interval')
 
   def __init__(self, metric_path):
     self.metric_path = metric_path
@@ -36,16 +36,24 @@ class MetricBuffer:
     self.configured = False
     self.aggregation_frequency = None
     self.aggregation_func = None
+    self.most_recent_interval = None
 
   def input(self, datapoint):
     (timestamp, value) = datapoint
     interval = timestamp - (timestamp % self.aggregation_frequency)
-    if interval in self.interval_buffers:
-      buffer = self.interval_buffers[interval]
-    else:
+    if interval > self.most_recent_interval:
+      self.most_recent_interval = interval
       buffer = self.interval_buffers[interval] = IntervalBuffer(interval)
+      buffer.input(datapoint)
+    else:
+      if interval in self.interval_buffers:
+        buffer = self.interval_buffers[interval]
+        buffer.input(datapoint)
+      else:
+        ## rather drop the datapoint than overwrite the entry in the storage?
+        log.aggregator("WARNING: dropped datapoint on %(path)s, out of sequence for %(interval)d seconds. Consider increasing MAX_AGGREGATION_INTERVALS=%(mai)d  " \
+           % ('path',self.metric_path, 'interval', self.most_recent_interval - interval, 'mai', settings['MAX_AGGREGATION_INTERVALS']) )
 
-    buffer.input(datapoint)
 
   def configure_aggregation(self, frequency, func):
     self.aggregation_frequency = int(frequency)
@@ -55,10 +63,12 @@ class MetricBuffer:
     self.configured = True
 
   def compute_value(self):
-    now = int( time.time() )
-    current_interval = now - (now % self.aggregation_frequency)
-    age_threshold = current_interval - (settings['MAX_AGGREGATION_INTERVALS'] * self.aggregation_frequency)
-
+    
+    interval_threshold = self.most_recent_interval - (settings['MAX_AGGREGATION_INTERVALS'] * self.aggregation_frequency) 
+    age_threshold = 0 
+    if ( settings['MAX_AGGREGATION_AGE'] > 0 ):
+      age_threshold = time.time() - self.aggregation_frequency * max( settings['MAX_AGGREGATION_AGE'], settings['MAX_AGGREGATION_INTERVALS'] )
+ 
     for buffer in self.interval_buffers.values():
       if buffer.active:
         value = self.aggregation_func(buffer.values)
@@ -67,7 +77,7 @@ class MetricBuffer:
         state.instrumentation.increment('aggregateDatapointsSent')
         buffer.mark_inactive()
 
-      if buffer.interval < age_threshold:
+      if buffer.interval < interval_threshold or buffer.updated < age_treshold :
         del self.interval_buffers[buffer.interval]
         if not self.interval_buffers:
           self.close()
@@ -84,16 +94,18 @@ class MetricBuffer:
 
 
 class IntervalBuffer:
-  __slots__ = ('interval', 'values', 'active')
+  __slots__ = ('interval', 'values', 'active','updated')
 
   def __init__(self, interval):
     self.interval = interval
     self.values = []
     self.active = True
+    self.updated = time.time()
 
   def input(self, datapoint):
     self.values.append( datapoint[1] )
     self.active = True
+    self.updated = time.time()
 
   def mark_inactive(self):
     self.active = False

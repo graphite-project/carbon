@@ -26,10 +26,6 @@ STORAGE_SCHEMAS_CONFIG = join(settings.CONF_DIR, 'storage-schemas.conf')
 STORAGE_AGGREGATION_CONFIG = join(settings.CONF_DIR, 'storage-aggregation.conf')
 STORAGE_LISTS_DIR = join(settings.CONF_DIR, 'lists')
 
-def getFilesystemPath(metric):
-  metric_path = metric.replace('.',sep).lstrip(sep) + '.wsp'
-  return join(settings.LOCAL_DATA_DIR, metric_path)
-
 
 class Schema:
   def test(self, metric):

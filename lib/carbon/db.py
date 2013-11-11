@@ -14,9 +14,11 @@ limitations under the License."""
 
 import whisper
 import importlib
+import os
+from os.path import join, dirname, exists, sep
 from abc import ABCMeta,abstractmethod
 from carbon.conf import settings
-from carbon.storage import getFilesystemPath
+from carbon import log
 
 
 # management.py:    value = whisper.info(wsp_path)['aggregationMethod']
@@ -45,6 +47,10 @@ class DB:
     def update_many(self, metric, datapoints):
         pass
 
+def getFilesystemPath(metric):
+  metric_path = metric.replace('.',sep).lstrip(sep) + '.wsp'
+  return join(settings.LOCAL_DATA_DIR, metric_path)
+
 class WhisperDB:
     def info(self,metric):
         return whisper.info(getFilesystemPath(metric))
@@ -53,22 +59,25 @@ class WhisperDB:
         return whisper.setAggregationMethod(getFilesystemPath(metric),value)
 
     def create(self,metric,archiveConfig,xFilesFactor,aggregationMethod,sparseCreate,fallocateCreate):
-        return whisper.create(getFilesystemPath(metric), archiveConfig,xFilesFactor,aggregationMethod,sparseCreate,fallocateCreate)
+        dbFilePath = getFilesystemPath(metric)
+        dbDir = dirname(dbFilePath)
+        try:
+            os.makedirs(dbDir, 0755)
+        except OSError as e:
+            log.err("%s" % e)
+        log.creates("creating database file %s (archive=%s xff=%s agg=%s)" %
+                    (dbFilePath, archiveConfig, xFilesFactor, aggregationMethod))
+        return whisper.create(dbFilePath, archiveConfig,xFilesFactor,aggregationMethod,sparseCreate,fallocateCreate)
 
     def update_many(self,metric,datapoints):
         return whisper.update_many(getFilesystemPath(metric), datapoints)
 
-
-def newWhisperDB(arg):
-    return WhisperDB()
-
 # application database
-APP_DB = WhisperDB()
+APP_DB = WhisperDB() # default implementation
 
-# if we've configured a module to override, put that one in place instead
-if (settings.DB_MODULE != "whisper"):
+# if we've configured a module to override, put that one in place instead of the default whisper db
+if (settings.DB_MODULE != "whisper" and settings.DB_INIT_FUNC != ""):
     m = importlib.import_module(settings.DB_MODULE)
     dbInitFunc = getattr(m,settings.DB_INIT_FUNC)
-    DB = dbInitFunc(settings.DB_INIT_ARG)
-
-assert isinstance(APP_DB,DB)
+    APP_DB = dbInitFunc(settings.DB_INIT_ARG)
+    assert isinstance(APP_DB,DB)

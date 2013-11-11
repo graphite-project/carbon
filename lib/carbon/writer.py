@@ -16,11 +16,10 @@ limitations under the License."""
 import os
 import time
 from os.path import exists, dirname
-
-import whisper
+from db import APP_DB
 from carbon import state
 from carbon.cache import MetricCache
-from carbon.storage import getFilesystemPath, loadStorageSchemas,\
+from carbon.storage import loadStorageSchemas,\
     loadAggregationSchemas
 from carbon.conf import settings
 from carbon import log, events, instrumentation
@@ -53,8 +52,7 @@ def optimalWriteOrder():
     if state.cacheTooFull and MetricCache.size < CACHE_SIZE_LOW_WATERMARK:
       events.cacheSpaceAvailable()
 
-    dbFilePath = getFilesystemPath(metric)
-    dbFileExists = exists(dbFilePath)
+    dbFileExists = APP_DB.exists(metric)
 
     if not dbFileExists:
       createCount += 1
@@ -80,7 +78,7 @@ def optimalWriteOrder():
       log.msg("MetricCache contention, skipping %s update for now" % metric)
       continue  # we simply move on to the next metric when this race condition occurs
 
-    yield (metric, datapoints, dbFilePath, dbFileExists)
+    yield (metric, datapoints, dbFileExists)
 
 
 def writeCachedDataPoints():
@@ -91,7 +89,7 @@ def writeCachedDataPoints():
   while MetricCache:
     dataWritten = False
 
-    for (metric, datapoints, dbFilePath, dbFileExists) in optimalWriteOrder():
+    for (metric, datapoints, dbFileExists) in optimalWriteOrder():
       dataWritten = True
 
       if not dbFileExists:
@@ -113,23 +111,16 @@ def writeCachedDataPoints():
         if not archiveConfig:
           raise Exception("No storage schema matched the metric '%s', check your storage-schemas.conf file." % metric)
 
-        dbDir = dirname(dbFilePath)
-        try:
-            os.makedirs(dbDir, 0755)
-        except OSError as e:
-            log.err("%s" % e)
-        log.creates("creating database file %s (archive=%s xff=%s agg=%s)" %
-                    (dbFilePath, archiveConfig, xFilesFactor, aggregationMethod))
-        whisper.create(dbFilePath, archiveConfig, xFilesFactor, aggregationMethod, settings.WHISPER_SPARSE_CREATE, settings.WHISPER_FALLOCATE_CREATE)
+        APP_DB.create(metric,archiveConfig, xFilesFactor, aggregationMethod, settings.WHISPER_SPARSE_CREATE, settings.WHISPER_FALLOCATE_CREATE)
         instrumentation.increment('creates')
 
       try:
         t1 = time.time()
-        whisper.update_many(dbFilePath, datapoints)
+        APP_DB.update_many(metric,datapoints)
         t2 = time.time()
         updateTime = t2 - t1
       except:
-        log.msg("Error writing to %s" % (dbFilePath))
+        log.msg("Error writing to %s" % (metric))
         log.err()
         instrumentation.increment('errors')
       else:

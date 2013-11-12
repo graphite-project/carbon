@@ -20,11 +20,11 @@ from abc import ABCMeta,abstractmethod
 from carbon.conf import settings
 from carbon import log
 
+# class DB is a generic DB layer to support graphite.  Plugins can provide an implementation satisfying the following functions
+# by configuring DB_MODULE, DB_INIT_FUNC and DB_INIT_ARG
 
-# management.py:    value = whisper.info(wsp_path)['aggregationMethod']
-# management.py:    old_value = whisper.setAggregationMethod(wsp_path, value)
-# writer.py:        whisper.create(dbFilePath, archiveConfig, xFilesFactor, aggregationMethod, settings.WHISPER_SPARSE_CREATE, settings.WHISPER_FALLOCATE_CREATE)
-# writer.py:        whisper.update_many(dbFilePath, datapoints)
+# the global variable APP_DB will be initialized as the return value of DB_MODULE.DB_INIT_FUNC(DB_INIT_ARG)
+# we will throw an error if the provided value does not implement our abstract class DB below
 
 
 class DB:
@@ -49,6 +49,10 @@ class DB:
 
     @abstractmethod
     def exists(self,metric):
+        pass
+
+    @abstractmethod
+    def fetch(self,metric,startTime,endTime):
         pass
 
 def getFilesystemPath(metric):
@@ -78,6 +82,10 @@ class WhisperDB:
 
     def exists(self,metric):
         return exists(getFilesystemPath(metric))
+
+    def fetch(self,metric,startTime,endTime):
+        return whisper.fetch(getFilesystemPath(metric),startTime,endTime)
+
 # application database
 APP_DB = WhisperDB() # default implementation
 

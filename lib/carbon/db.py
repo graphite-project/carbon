@@ -47,6 +47,10 @@ class DB:
     def update_many(self, metric, datapoints):
         pass
 
+    @abstractmethod
+    def exists(self,metric):
+        pass
+
 def getFilesystemPath(metric):
   metric_path = metric.replace('.',sep).lstrip(sep) + '.wsp'
   return join(settings.LOCAL_DATA_DIR, metric_path)
@@ -72,6 +76,8 @@ class WhisperDB:
     def update_many(self,metric,datapoints):
         return whisper.update_many(getFilesystemPath(metric), datapoints)
 
+    def exists(self,metric):
+        return exists(getFilesystemPath(metric))
 # application database
 APP_DB = WhisperDB() # default implementation
 

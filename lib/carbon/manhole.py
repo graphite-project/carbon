@@ -25,13 +25,14 @@ def createManholeListener():
   sshRealm = TerminalRealm()
   sshRealm.chainedProtocolFactory.protocolFactory = lambda _: Manhole(namespace)
 
-  # You can uncomment this if you're lazy and want insecure authentication instead
-  # of setting up keys.
-  #credChecker = checkers.InMemoryUsernamePasswordDatabaseDontUse(carbon='')
-  userKeys = {
-    settings.MANHOLE_USER : settings.MANHOLE_PUBLIC_KEY,
-  }
-  credChecker = PublicKeyChecker(userKeys)
+  if settings.MANHOLE_PUBLIC_KEY == 'None':
+    credChecker = checkers.InMemoryUsernamePasswordDatabaseDontUse()
+    credChecker.addUser(settings.MANHOLE_USER, '')
+  else:
+    userKeys = {
+        settings.MANHOLE_USER : settings.MANHOLE_PUBLIC_KEY,
+    }
+    credChecker = PublicKeyChecker(userKeys)
 
   sshPortal = portal.Portal(sshRealm)
   sshPortal.registerChecker(credChecker)

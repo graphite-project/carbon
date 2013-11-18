@@ -194,6 +194,7 @@ WHISPER_AUTOFLUSH = False
 # MANHOLE_INTERFACE = 127.0.0.1
 # MANHOLE_PORT = 7222
 # MANHOLE_USER = admin
+# MANHOLE_PUBLIC_KEY = None  # if you want an empty password
 # MANHOLE_PUBLIC_KEY = ssh-rsa AAAAB3NzaC1yc2EAAAABiwAaAIEAoxN0sv/e4eZCPpi3N3KYvyzRaBaMeS2RsOQ/cDuKv11dlNzVeiyc3RFmCv5Rjwn/lQ79y0zyHxw67qLyhQ/kDzINc4cY41ivuQXm2tPmgvexdrBv5nsfEpjs3gLZfJnyvlcVyWK/lId8WUvEWSWHTzsbtmXAF2raJMdgLTbQ8wE=
 
 # Patterns for all of the metrics this machine will store. Read more at

@@ -356,8 +356,8 @@ MAX_DATAPOINTS_PER_MESSAGE = 500
 # This defines how many aggregated datapoints the aggregator remembers for
 # each metric, in addition to aggregated datapoint for the most recent timestamp received.
 # An incoming datapoint will be aggregated if its timestamp is not older than 
-# MAX_AGGREGATION_INTERVALS * intervalSize seconds, relative to most recent timestamp
-# of the previous datapoints.
+#   MAX_AGGREGATION_INTERVALS * intervalSize seconds
+# relative to most recent timestamp of the previous datapoints.
 # Increase this value if datapoints can arrive out-of-order with respect to their timestamp.
 # If datapoints always arrive strictly in order of their timestamp, this could be 0. 
 MAX_AGGREGATION_INTERVALS = 5

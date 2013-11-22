@@ -33,6 +33,6 @@ setup(
   scripts=glob('bin/*'),
   package_data={ 'carbon' : ['*.xml'] },
   data_files=storage_dirs + conf_files, # + init_scripts,
-  install_requires=['twisted', 'txamqp'],
+  install_requires=['twisted == 11.1.0', 'txamqp'],
   **setup_kwargs
 )

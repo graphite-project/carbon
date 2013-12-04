@@ -21,7 +21,6 @@ import re
 from os.path import join, basename, dirname, normpath, exists, isdir
 from glob import glob
 
-from carbon.storage import StorageRule
 from carbon.database import TimeSeriesDatabase
 from carbon import log, util, state
 
@@ -77,9 +76,15 @@ defaults = dict(
   DESTINATIONS=[],
   MAX_DATAPOINTS_PER_MESSAGE=500,
   MAX_QUEUE_SIZE=10000,
+  QUEUE_LOW_WATERMARK_PCT=0.8,
+  TIME_TO_DEFER_SENDING=0.0001,
   RELAY_METHOD='rules',
   REPLICATION_FACTOR=1,
   USE_FLOW_CONTROL=False,
+  MIN_RESET_STAT_FLOW=1000,
+  MIN_RESET_RATIO=0.9,
+  MIN_RESET_INTERVAL=121,
+  USE_RATIO_RESET=False,
 
   # writer.conf
   MAX_CACHE_SIZE=2000000,
@@ -541,3 +546,5 @@ def _process_alive(pid):
       return True
     except OSError, err:
       return err.errno == errno.EPERM
+
+from carbon.storage import StorageRule

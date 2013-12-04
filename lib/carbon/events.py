@@ -25,6 +25,8 @@ class Event:
 metricReceived = Event('metricReceived')
 metricGenerated = Event('metricGenerated')
 metricProcessed = Event('metricProcessed')
+specialMetricReceived = Event('specialMetricReceived')
+specialMetricGenerated = Event('specialMetricGenerated')
 cacheFull = Event('cacheFull')
 cacheSpaceAvailable = Event('cacheSpaceAvailable')
 pauseReceivingMetrics = Event('pauseReceivingMetrics')
@@ -32,6 +34,7 @@ resumeReceivingMetrics = Event('resumeReceivingMetrics')
 
 # Default handlers
 metricReceived.addHandler(lambda metric, datapoint: state.instrumentation.increment('metrics_received'))
+specialMetricReceived.addHandler(lambda metric, datapoint: state.instrumentation.increment('metrics_received'))
 
 cacheFull.addHandler(lambda: state.instrumentation.increment('writer.cache_full_events'))
 cacheFull.addHandler(lambda: setattr(state, 'cacheTooFull', True))

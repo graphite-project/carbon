@@ -71,6 +71,11 @@ def setupPipeline(root_service, settings):
   events.metricReceived.addHandler(run_pipeline)
   events.metricGenerated.addHandler(run_pipeline)
 
+  #XXX This effectively reverts the desired behavior in b1a2aecb as I dont see a clear route to
+  # port to megacarbon. Perhaps a use case for passing a metric metadata dict along the pipeline?
+  events.specialMetricReceived.addHandler(run_pipeline)
+  events.specialMetricGenerated.addHandler(run_pipeline)
+
   def activate_processors():
     for processor in state.pipeline_processors:
       processor.pipeline_ready()

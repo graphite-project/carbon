@@ -16,6 +16,7 @@ PAGESIZE = os.sysconf('SC_PAGESIZE')
 # Module state
 metric_data = {}
 metric_data_lock = Lock()
+prior_data = {}
 custom_stats = {}
 counter_metrics = set([
   'metrics_received',

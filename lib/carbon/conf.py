@@ -242,13 +242,13 @@ class CarbonCacheOptions(usage.Options):
             self["action"] = "start"
         self.handleAction()
 
-        # If we are not running in debug mode or non-daemon mode, then log to a
+        # If we are not running in debug mode, then log to a
         # directory, otherwise log output will go to stdout. If parent options
         # are set to log to syslog, then use that instead.
         if not self["debug"]:
             if self.parent.get("syslog", None):
                 log.logToSyslog(self.parent["prefix"])
-            elif not self.parent["nodaemon"]:
+            else:
                 logdir = settings.LOG_DIR
                 if not isdir(logdir):
                     os.mkdir(logdir)

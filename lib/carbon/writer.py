@@ -110,8 +110,13 @@ def writeCachedDataPoints():
 
         if not archiveConfig:
           raise Exception("No storage schema matched the metric '%s', check your storage-schemas.conf file." % metric)
+        log.creates("creating database metric %s (metric=%s xff=%s agg=%s)" %
+                    (metric, archiveConfig, xFilesFactor, aggregationMethod))
 
-        APP_DB.create(metric,archiveConfig, xFilesFactor, aggregationMethod, settings.WHISPER_SPARSE_CREATE, settings.WHISPER_FALLOCATE_CREATE)
+        try:
+            APP_DB.create(metric,archiveConfig, xFilesFactor, aggregationMethod, settings.WHISPER_SPARSE_CREATE, settings.WHISPER_FALLOCATE_CREATE)
+        except OSError as e:
+            log.err("%s" % e)
         instrumentation.increment('creates')
 
       try:

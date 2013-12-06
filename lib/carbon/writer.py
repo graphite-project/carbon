@@ -39,6 +39,7 @@ instrumentation.configure_counters([
   'writer.write_errors',
   'writer.cache_full_events',
   'writer.cache_queries',
+  'writer.bulk_cache_queries',
 ])
 
 ONE_MILLION = 1000000  # I hate counting zeroes

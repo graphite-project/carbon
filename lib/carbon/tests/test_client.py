@@ -50,7 +50,7 @@ class ConnectedCarbonClientProtocolTest(TestCase):
     self.protocol.makeConnection(self.transport)
 
   @deferred(timeout=1.0)
-  def test_sendDatapoints(self):
+  def test_send_datapoint(self):
     def assert_sent():
       sent_data = self.transport.value()
       sent_datapoints = decode_sent(sent_data)

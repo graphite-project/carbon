@@ -1,5 +1,6 @@
 import re
-from carbon.conf import settings, ConfigError
+from carbon.conf import settings
+from carbon.exceptions import ConfigError
 from carbon.util import parseDestinations
 
 

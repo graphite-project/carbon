@@ -3,8 +3,9 @@ import time
 import re
 from twisted.internet.task import LoopingCall
 from carbon import instrumentation
-from carbon.pipeline import Processor
 from carbon.conf import settings
+from carbon.exceptions import ConfigError
+from carbon.pipeline import Processor
 from carbon import log
 
 

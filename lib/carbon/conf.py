@@ -21,8 +21,10 @@ import re
 from os.path import join, basename, dirname, normpath, exists, isdir
 from glob import glob
 
-from carbon.database import TimeSeriesDatabase
 from carbon import log, util, state
+from carbon.database import TimeSeriesDatabase
+from carbon.exceptions import ConfigError
+from carbon.storage import StorageRule
 
 from twisted.python import usage
 
@@ -237,20 +239,6 @@ class Filter(object):
 # The global settings singleton
 settings = CarbonConfiguration()
 state.settings = settings
-
-
-class ConfigError(Exception):
-  def __init__(self, message, filename=None):
-    if filename:
-      self.message = "%s: %s" % (filename, message)
-    else:
-      self.message = message
-    self.filename = filename
-
-  def __repr__(self):
-    return '<ConfigError(%s)>' % self.message
-  __str__ = __repr__
-
 
 
 class CarbonDaemonOptions(usage.Options):
@@ -552,5 +540,3 @@ def _process_alive(pid):
       return True
     except OSError, err:
       return err.errno == errno.EPERM
-
-from carbon.storage import StorageRule

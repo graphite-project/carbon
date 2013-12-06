@@ -7,8 +7,8 @@ from unittest import TestCase
 from mock import Mock, mock_open, patch
 
 from twisted.python.usage import Options
-from carbon.conf import CarbonConfiguration, CarbonDaemonOptions, ConfigError, Filter
-
+from carbon.conf import CarbonConfiguration, CarbonDaemonOptions, Filter
+from carbon.exceptions import ConfigError
 
 def mock_open_iter(mock=None, read_data=None):
   """Allow the mocked file handle to be iterated over. Unfortunately, this

@@ -16,7 +16,7 @@ import os, re
 
 from os.path import join, exists
 from carbon.util import pickle, parseRetentionDefs
-from carbon.conf import ConfigError
+from carbon.exceptions import ConfigError
 
 
 class StorageRule(object):

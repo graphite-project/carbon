@@ -304,6 +304,11 @@ class CarbonDaemonOptions(usage.Options):
         logdir = settings.LOG_DIR
         if not isdir(logdir):
           os.makedirs(logdir)
+          if settings.USER:
+            # We have not yet switched to the specified user,
+            # but that user must be able to create files in this
+            # directory.
+            os.chown(logdir, self.parent["uid"], self.parent["gid"])
         log.logToDir(logdir)
 
   def parseArgs(self, *args):

@@ -15,8 +15,8 @@ limitations under the License."""
 import os, re
 
 from os.path import join, exists
-from carbon.conf import ConfigError
 from carbon.util import pickle, parseRetentionDefs
+from carbon.conf import ConfigError
 
 
 class StorageRule(object):
@@ -78,3 +78,4 @@ class ListChecker(object):
         fh.close()
 
     return metric in self.members
+

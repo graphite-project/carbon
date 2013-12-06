@@ -58,7 +58,7 @@ class CarbonClientProtocol(Int32StringReceiver):
 
   def _sendDatapoints(self, datapoints):
     self.sendString(pickle.dumps(datapoints, protocol=-1))
-    instrumentation.increment(self.sent, len(datapoints))
+    instrumentation.increment(self.batchesSent, len(datapoints))
     instrumentation.increment(self.batchesSent)
     self.factory.checkQueue()
 
@@ -97,7 +97,7 @@ class CarbonClientProtocol(Int32StringReceiver):
     if settings.USE_RATIO_RESET is True:
       if not self.connectionQualityMonitor():
         self.resetConnectionForQualityReasons("Sent: {0}, Received: {1}".format(
-          instrumentation.prior_data.get(self.sent, 0),
+          instrumentation.prior_data.get(self.batchesSent, 0),
           instrumentation.prior_data.get('metricsReceived', 0)))
 
     self._sendDatapoints(self.factory.takeSomeFromQueue())
@@ -123,7 +123,7 @@ class CarbonClientProtocol(Int32StringReceiver):
     False means that quality is bad
 
     """
-    destination_sent = float(instrumentation.prior_data.get(self.sent, 0))
+    destination_sent = float(instrumentation.prior_data.get(self.batchesSent, 0))
     total_received = float(instrumentation.prior_data.get('metricsReceived', 0))
     instrumentation.increment(self.slowConnectionReset, 0)
     if total_received < settings.MIN_RESET_STAT_FLOW:

@@ -153,6 +153,7 @@ class AMQPReconnectingFactory(ReconnectingClientFactory):
     self.verbose = verbose
 
   def buildProtocol(self, addr):
+    self.resetDelay()
     p = self.protocol(self.delegate, self.vhost, self.spec)
     p.factory = self
     return p

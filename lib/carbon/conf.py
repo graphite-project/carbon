@@ -248,7 +248,7 @@ class CarbonCacheOptions(usage.Options):
         if not self["debug"]:
             if self.parent.get("syslog", None):
                 log.logToSyslog(self.parent["prefix"])
-            else:
+            elif not self.parent["consolelog"]:
                 logdir = settings.LOG_DIR
                 if not isdir(logdir):
                     os.mkdir(logdir)
@@ -408,6 +408,9 @@ def get_default_parser(usage="%prog [options] <start|stop|status>"):
     parser.add_option(
         "--nodaemon", action="store_true",
         help="Run in the foreground")
+    parser.add_option(
+        "--consolelog", action="store_true",
+        help="Log to standard out")
     parser.add_option(
         "--profile",
         help="Record performance profile data to the given file")

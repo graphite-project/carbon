@@ -82,7 +82,3 @@ class HashIntegrityTest(unittest.TestCase):
         self.assertEqual(
                 len([n[0] for n in ring.ring]),
             len(set([n[0] for n in ring.ring])))
-
-
-
-unittest.main()

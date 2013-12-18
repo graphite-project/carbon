@@ -2,6 +2,7 @@ import copy
 import os
 import pwd
 import sys
+import __builtin__
 
 from os.path import abspath, basename, dirname
 try:
@@ -48,8 +49,8 @@ def run_twistd_plugin(filename):
       return
 
     # This isn't as evil as you might think
-    __builtins__["instance"] = options.instance
-    __builtins__["program"] = program
+    __builtin__.instance = options.instance
+    __builtin__.program = program
 
     # Then forward applicable options to either twistd or to the plugin itself.
     twistd_options = ["--no_save"]

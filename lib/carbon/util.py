@@ -17,10 +17,6 @@ except:
 
 from twisted.python.util import initgroups
 from twisted.scripts.twistd import runApp
-from twisted.scripts._twistd_unix import daemonize
-
-
-daemonize = daemonize # Backwards compatibility
 
 
 def dropprivs(user):

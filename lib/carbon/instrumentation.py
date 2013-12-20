@@ -77,7 +77,7 @@ def append(metric, value):
   finally:
     metric_data_lock.release()
 
-def max(metric, value):
+def record_max(metric, value):
   try:
     if metric_data[metric] < value:
       metric_data[metric] = value

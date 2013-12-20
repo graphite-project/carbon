@@ -87,9 +87,9 @@ class CarbonClientProtocol(Int32StringReceiver):
     chained_invocation_delay = 0.0001
     queueSize = self.factory.queueSize
 
-    instrumentation.max(self.relayMaxQueueLength, queueSize)
+    instrumentation.record_max(self.relayMaxQueueLength, queueSize)
     if self.paused:
-      instrumentation.max(self.queuedUntilReady, queueSize)
+      instrumentation.record_max(self.queuedUntilReady, queueSize)
       return
     if not self.factory.hasQueuedDatapoints():
       return

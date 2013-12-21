@@ -51,6 +51,7 @@ defaults = dict(
   AMQP_EXCHANGE='graphite',
   AMQP_METRIC_NAME_IN_BODY=False,
   AMQP_VERBOSE=False,
+  AMQP_SPEC='',
   BIND_PATTERNS='#',
 
   # daemon.conf

@@ -23,7 +23,6 @@ from os.path import join, basename, dirname, normpath, exists, isdir
 from glob import glob
 
 from carbon.storage import StorageRule
-from carbon.database import TimeSeriesDatabase
 from carbon import log, util, state
 
 from twisted.python import usage
@@ -494,7 +493,7 @@ def read_writer_configs():
   if db_plugin is not None:
     # expect package.class or package.module.class
     module_name, _, cls_name = db_plugin.rpartition(".") 
-    if not all(module_name, cls_name):
+    if not all((module_name, cls_name)):
       raise ConfigError("Could not extract module name and class name from "\
         "DATABASE_PLUGIN %s" % (db_plugin,))
     try:

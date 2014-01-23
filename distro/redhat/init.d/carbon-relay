@@ -120,7 +120,7 @@ status(){
 }
 
 if [ -n $2 ]; then
-    $ONLY_INSTANCE = $2
+    ONLY_INSTANCE = $2
 fi
 
 case "$1" in

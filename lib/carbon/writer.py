@@ -19,8 +19,7 @@ from os.path import exists, dirname
 from db import APP_DB
 from carbon import state
 from carbon.cache import MetricCache
-from carbon.storage import loadStorageSchemas,\
-    loadAggregationSchemas
+from carbon.storage import loadStorageSchemas,loadAggregationSchemas
 from carbon.conf import settings
 from carbon import log, events, instrumentation
 

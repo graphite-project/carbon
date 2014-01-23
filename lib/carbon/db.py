@@ -1,16 +1,59 @@
 import importlib
+import whisper
+from os.path import sep,dirname,join,exists
+from os import makedirs
 from carbon.conf import settings
-from graphitedata.tsdb import TSDB
-from graphitedata.whispertsdb import WhisperTSDB
 
 
+
+# default implementation
+class WhisperDB():
+    __slots__ = ('dataDir')
+
+    def __init__(self, dataDir):
+        self.dataDir = dataDir
+
+
+    def getFilesystemPath(self, metric):
+        metric_path = metric.replace('.', sep).lstrip(sep) + '.wsp'
+        return join(self.dataDir, metric_path)
+
+    def info(self, metric):
+        return whisper.info(self.getFilesystemPath(metric))
+
+    def setAggregationMethod(self, metric, aggregationMethod, xFilesFactor=None):
+        return whisper.setAggregationMethod(self.getFilesystemPath(metric), aggregationMethod, xFilesFactor)
+
+    def create(self, metric, archiveConfig, xFilesFactor=None, aggregationMethod=None, sparse=False,
+               useFallocate=False):
+        dbFilePath = self.getFilesystemPath(metric)
+        dbDir = dirname(dbFilePath)
+
+        try:
+            if not (exists(dbDir)):
+                makedirs(dbDir, 0755)
+        except Exception as e:
+            print("Error creating dir " + dbDir + " : " + e)
+        return whisper.create(dbFilePath, archiveConfig, xFilesFactor, aggregationMethod, sparse, useFallocate)
+
+    def update_many(self, metric, datapoints):
+        return whisper.update_many(self.getFilesystemPath(metric), datapoints)
+
+    def exists(self, metric):
+        return whisper.exists(self.getFilesystemPath(metric))
+
+    def fetch(self, metric, startTime, endTime):
+        return whisper.fetch(self.getFilesystemPath(metric), startTime, endTime)
+
+def NewWhisperDB():
+    return WhisperDB(settings.LOCAL_DATA_DIR)
+
+
+def get_db(initFunc):
+  module_name, class_name = initFunc.rsplit('.', 1)
+  module = importlib.import_module(module_name)
+  return getattr(module, class_name)()
 
 # application database
-APP_DB = WhisperTSDB(settings.LOCAL_DATA_DIR) # default implementation
 
-# if we've configured a module to override, put that one in place instead of the default whisper db
-if (settings.DB_MODULE != "whisper" and settings.DB_INIT_FUNC != ""):
-    m = importlib.import_module(settings.DB_MODULE)
-    dbInitFunc = getattr(m,settings.DB_INIT_FUNC)
-    APP_DB = dbInitFunc(settings.DB_INIT_ARG)
-    assert isinstance(APP_DB,TSDB)
+APP_DB = get_db(settings.DB_INIT_FUNC)

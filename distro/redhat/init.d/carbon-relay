@@ -21,13 +21,9 @@ function die {
 
 start(){
     cd $GRAPHITE_DIR;
-
-    for INSTANCE in ${INSTANCES}; do
-        if [ "${INSTANCE}" == "${CARBON_DAEMON}" ]; then
-            INSTANCE="a";
-        fi;
-        echo "Starting carbon-${CARBON_DAEMON}:${INSTANCE}..."
-        bin/carbon-${CARBON_DAEMON}.py --instance=${INSTANCE} start;
+    if [ -n $ONLY_INSTANCE ]; then
+        echo "Starting carbon-${CARBON_DAEMON}:${ONLY_INSTANCE}..."
+        bin/carbon-${CARBON_DAEMON}.py --instance=${ONLY_INSTANCE} start;
 
         if [ $? -eq 0 ]; then
             echo_success
@@ -35,23 +31,34 @@ start(){
             echo_failure
         fi;
         echo ""
-    done;
+    else
+        for INSTANCE in ${INSTANCES}; do
+            if [ "${INSTANCE}" == "${CARBON_DAEMON}" ]; then
+                INSTANCE="a";
+            fi;
+            echo "Starting carbon-${CARBON_DAEMON}:${INSTANCE}..."
+            bin/carbon-${CARBON_DAEMON}.py --instance=${INSTANCE} start;
+
+            if [ $? -eq 0 ]; then
+                echo_success
+            else
+                echo_failure
+            fi;
+            echo ""
+        done;
+    fi
 }
 
 stop(){
     cd $GRAPHITE_DIR
+    if [ -n $ONLY_INSTANCE ]; then
+        echo "Stopping carbon-${CARBON_DAEMON}:${ONLY_INSTANCE}..."
+        bin/carbon-${CARBON_DAEMON}.py --instance=${ONLY_INSTANCE} stop
 
-    for INSTANCE in ${INSTANCES}; do
-        if [ "${INSTANCE}" == "${CARBON_DAEMON}" ]; then
-            INSTANCE="a";
-        fi;
-        echo "Stopping carbon-${CARBON_DAEMON}:${INSTANCE}..."
-        bin/carbon-${CARBON_DAEMON}.py --instance=${INSTANCE} stop
-
-        if [ `sleep 3; /usr/bin/pgrep -f "carbon-${CARBON_DAEMON}.py --instance=${INSTANCE}" | /usr/bin/wc -l` -gt 0 ]; then
+        if [ `sleep 3; /usr/bin/pgrep -f "carbon-${CARBON_DAEMON}.py --instance=${ONLY_INSTANCE}" | /usr/bin/wc -l` -gt 0 ]; then
             echo "Carbon did not stop yet. Sleeping longer, then force killing it...";
             sleep 20;
-            /usr/bin/pkill -9 -f "carbon-${CARBON_DAEMON}.py --instance=${INSTANCE}";
+            /usr/bin/pkill -9 -f "carbon-${CARBON_DAEMON}.py --instance=${ONLY_INSTANCE}";
         fi;
 
         if [ $? -eq 0 ]; then
@@ -60,17 +67,34 @@ stop(){
             echo_failure
         fi;
         echo ""
-    done;
+    else
+        for INSTANCE in ${INSTANCES}; do
+            if [ "${INSTANCE}" == "${CARBON_DAEMON}" ]; then
+                INSTANCE="a";
+            fi;
+            echo "Stopping carbon-${CARBON_DAEMON}:${INSTANCE}..."
+            bin/carbon-${CARBON_DAEMON}.py --instance=${INSTANCE} stop
+
+            if [ `sleep 3; /usr/bin/pgrep -f "carbon-${CARBON_DAEMON}.py --instance=${INSTANCE}" | /usr/bin/wc -l` -gt 0 ]; then
+                echo "Carbon did not stop yet. Sleeping longer, then force killing it...";
+                sleep 20;
+                /usr/bin/pkill -9 -f "carbon-${CARBON_DAEMON}.py --instance=${INSTANCE}";
+            fi;
+
+            if [ $? -eq 0 ]; then
+                echo_success
+            else
+                echo_failure
+            fi;
+            echo ""
+        done;
+    fi
 }
 
 status(){
     cd $GRAPHITE_DIR;
-
-    for INSTANCE in ${INSTANCES}; do
-        if [ "${INSTANCE}" == "${CARBON_DAEMON}" ]; then
-            INSTANCE="a";
-        fi;
-        bin/carbon-${CARBON_DAEMON}.py --instance=${INSTANCE} status;
+    if [ -n $ONLY_INSTANCE ]; then
+        bin/carbon-${CARBON_DAEMON}.py --instance=${ONLY_INSTANCE} status;
     
         if [ $? -eq 0 ]; then
             echo_success
@@ -78,8 +102,26 @@ status(){
             echo_failure
         fi;
         echo ""
-    done;
+    else
+        for INSTANCE in ${INSTANCES}; do
+            if [ "${INSTANCE}" == "${CARBON_DAEMON}" ]; then
+                INSTANCE="a";
+            fi;
+            bin/carbon-${CARBON_DAEMON}.py --instance=${INSTANCE} status;
+    
+            if [ $? -eq 0 ]; then
+                echo_success
+            else
+                echo_failure
+            fi;
+            echo ""
+        done;
+    fi
 }
+
+if [ -n $2 ]; then
+    $ONLY_INSTANCE = $2
+fi
 
 case "$1" in
   start)

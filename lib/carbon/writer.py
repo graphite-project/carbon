@@ -16,6 +16,7 @@ limitations under the License."""
 import os
 import time
 from os.path import exists, dirname
+import errno
 
 import whisper
 from carbon import state
@@ -117,7 +118,7 @@ def writeCachedDataPoints():
         try:
           os.makedirs(dbDir, 0755)
         except OSError as e:
-          if e.errno != 17:
+          if e.errno != errno.EEXIST:
             log.err("%s" % e)
         log.creates("creating database file %s (archive=%s xff=%s agg=%s)" %
                     (dbFilePath, archiveConfig, xFilesFactor, aggregationMethod))

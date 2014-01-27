@@ -1,5 +1,5 @@
 #!/bin/bash
-# chkconfig:   - 25 75
+# chkconfig: - 25 75
 # description: carbon-cache
 # processname: carbon-cache
 
@@ -10,9 +10,10 @@ if [ -e /etc/rc.d/init.d/functions ]; then
     . /etc/rc.d/init.d/functions
 fi
 
-CARBON_DAEMON="cache"
+DAEMON="cache"
 GRAPHITE_DIR="/opt/graphite"
-INSTANCES=$(grep "^\[${CARBON_DAEMON}" ${GRAPHITE_DIR}/conf/carbon.conf | cut -d \[ -f 2 | cut -d \] -f 1 | cut -d : -f 2)
+LOG_DIR="/var/log/graphite"
+INSTANCES=$(grep "^\[${DAEMON}" ${GRAPHITE_DIR}/conf/carbon.conf | cut -d \[ -f 2 | cut -d \] -f 1 | cut -d : -f 2)
 
 function die {
   echo $1
@@ -20,10 +21,9 @@ function die {
 }
 
 start(){
-    cd $GRAPHITE_DIR
-    if [ -n $ONLY_INSTANCE ]; then
-        echo "Starting carbon-${CARBON_DAEMON}:${ONLY_INSTANCE}..."
-        bin/carbon-${CARBON_DAEMON}.py --instance=${ONLY_INSTANCE} start
+    if [ ! -z $ONLY_INSTANCE ]; then
+        echo "Starting carbon-${DAEMON}:${ONLY_INSTANCE}..."
+        $GRAPHITE_DIR/bin/carbon-${DAEMON}.py --instance=${ONLY_INSTANCE} --pidfile=$LOG_DIR/${DAEMON}-${ONLY_INSTANCE}/carbon-${DAEMON}.pid --logdir=$LOG_DIR/${DAEMON}_${ONLY_INSTANCE} start
 
         if [ $? -eq 0 ]; then
             echo_success
@@ -33,11 +33,11 @@ start(){
         echo ""
     else
         for INSTANCE in ${INSTANCES}; do
-            if [ "${INSTANCE}" == "${CARBON_DAEMON}" ]; then
+            if [ "${INSTANCE}" == "${DAEMON}" ]; then
                 INSTANCE="a"
             fi
-            echo "Starting carbon-${CARBON_DAEMON}:${INSTANCE}..."
-            bin/carbon-${CARBON_DAEMON}.py --instance=${INSTANCE} start
+            echo "Starting carbon-${DAEMON}:${INSTANCE}..."
+            $GRAPHITE_DIR/bin/carbon-${DAEMON}.py --instance=${INSTANCE} --pidfile=$LOG_DIR/${DAEMON}-${INSTANCE}/carbon-${DAEMON}.pid --logdir=$LOG_DIR/${DAEMON}_${INSTANCE} start
 
             if [ $? -eq 0 ]; then
                 echo_success
@@ -51,15 +51,15 @@ start(){
 
 stop(){
     cd $GRAPHITE_DIR
-    if [ -n $ONLY_INSTANCE ]; then
+    if [ ! -z $ONLY_INSTANCE ]; then
         echo "Stopping carbon-${CARBON_DAEMON}:${ONLY_INSTANCE}..."
-        bin/carbon-${CARBON_DAEMON}.py --instance=${ONLY_INSTANCE} stop
+        $GRAPHITE_DIR/bin/carbon-${DAEMON}.py --instance=${ONLY_INSTANCE} --pidfile=$LOG_DIR/${DAEMON}-${ONLY_INSTANCE}/carbon-${DAEMON}.pid --logdir=$LOG_DIR/${DAEMON}_${ONLY_INSTANCE} stop
         sleep 20
-        pid=$(/usr/bin/pgrep -f "carbon-${CARBON_DAEMON}.py --instance=${ONLY_INSTANCE}")
+        pid=$(/usr/bin/pgrep -f "carbon-${DAEMON}.py --instance=${ONLY_INSTANCE}")
         if [ $(/usr/sbin/netstat -lnp | grep $pid | grep ":2.*" | /usr/bin/wc -l) -gt 0 ]; then
-            echo "Carbon did not release ports yet. Sleeping longer, then force killing it..."
+            echo "Instance ${INSTANCE} did not release ports yet. Sleeping longer, then force killing it..."
             sleep 5
-            /usr/bin/pkill -9 -f "carbon-${CARBON_DAEMON}.py --instance=${ONLY_INSTANCE}"
+            /usr/bin/pkill -9 -f "carbon-${DAEMON}.py --instance=${ONLY_INSTANCE}"
         fi
 
         if [ $? -eq 0 ]; then
@@ -73,14 +73,14 @@ stop(){
             if [ "${INSTANCE}" == "${CARBON_DAEMON}" ]; then
                 INSTANCE="a"
             fi
-            echo "Stopping carbon-${CARBON_DAEMON}:${INSTANCE}..."
-            bin/carbon-${CARBON_DAEMON}.py --instance=${INSTANCE} stop
+            echo "Stopping carbon-${DAEMON}:${INSTANCE}..."
+            $GRAPHITE_DIR/bin/carbon-${DAEMON}.py --instance=${INSTANCE} --pidfile=$LOG_DIR/${DAEMON}-${INSTANCE}/carbon-${DAEMON}.pid --logdir=$LOG_DIR/${DAEMON}_${INSTANCE} stop
             sleep 20
-            pid=$(/usr/bin/pgrep -f "carbon-${CARBON_DAEMON}.py --instance=${ONLY_INSTANCE}")
+            pid=$(/usr/bin/pgrep -f "carbon-${DAEMON}.py --instance=${INSTANCE}")
             if [ $(/usr/sbin/netstat -lnp | grep $pid | grep ":2.*" | /usr/bin/wc -l) -gt 0 ]; then
-                echo "Carbon did not release yet. Sleeping longer, then force killing it..."
+                echo "Instance ${INSTANCE} did not release ports yet. Sleeping longer, then force killing it..."
                 sleep 5
-                /usr/bin/pkill -9 -f "carbon-${CARBON_DAEMON}.py --instance=${INSTANCE}"
+                /usr/bin/pkill -9 -f "carbon-${DAEMON}.py --instance=${INSTANCE}"
             fi
 
             if [ $? -eq 0 ]; then
@@ -95,8 +95,8 @@ stop(){
 
 status(){
     cd $GRAPHITE_DIR;
-    if [ -n $ONLY_INSTANCE ]; then
-        bin/carbon-${CARBON_DAEMON}.py --instance=${ONLY_INSTANCE} status
+    if [ ! -z $ONLY_INSTANCE ]; then
+        $GRAPHITE_DIR/bin/carbon-${DAEMON}.py --instance=${ONLY_INSTANCE} --pidfile=$LOG_DIR/${DAEMON}-${ONLY_INSTANCE}/carbon-${DAEMON}.pid --logdir=$LOG_DIR/${DAEMON}_${ONLY_INSTANCE} start
     
         if [ $? -eq 0 ]; then
             echo_success
@@ -106,10 +106,10 @@ status(){
         echo ""
     else
         for INSTANCE in ${INSTANCES}; do
-            if [ "${INSTANCE}" == "${CARBON_DAEMON}" ]; then
+            if [ "${INSTANCE}" == "${DAEMON}" ]; then
                 INSTANCE="a"
             fi
-            bin/carbon-${CARBON_DAEMON}.py --instance=${INSTANCE} status
+            $GRAPHITE_DIR/bin/carbon-${DAEMON}.py --instance=${INSTANCE} --pidfile=$LOG_DIR/${DAEMON}-${INSTANCE}/carbon-${DAEMON}.pid --logdir=$LOG_DIR/${DAEMON}_${INSTANCE} start
     
             if [ $? -eq 0 ]; then
                 echo_success
@@ -127,7 +127,7 @@ fi
 
 case "$1" in
   start)
-    start 
+    start
     ;;
   stop)
     stop
@@ -143,4 +143,3 @@ case "$1" in
     echo $"Usage: $0 {start|stop|restart|status}"
     exit 1
 esac
-

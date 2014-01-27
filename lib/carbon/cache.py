@@ -23,6 +23,7 @@ except:
 
 class _MetricCache(defaultdict):
   def __init__(self, defaultfactory=deque, method="sorted"):
+    self.size = 0
     self.method = method
     if self.method == "sorted":
       self.queue = self.gen_queue()
@@ -39,11 +40,8 @@ class _MetricCache(defaultdict):
       while queue:
         yield queue.pop()[0]
 
-  @property
-  def size(self):
-    return reduce(lambda x, y: x + len(y), self.values(), 0)
-
   def store(self, metric, datapoint):
+    self.size += 1
     self[metric].append(datapoint)
     if self.isFull():
       log.msg("MetricCache is full: self.size=%d" % self.size)
@@ -59,11 +57,13 @@ class _MetricCache(defaultdict):
       raise KeyError(metric)
     elif not metric and self.method == "max":
       metric = max(self.items(), key=lambda x: len(x[1]))[0]
+      datapoints = (metric, super(_MetricCache, self).pop(metric))
     elif not metric and self.method == "naive":
-      return self.popitem()
+      datapoints = self.popitem()
     elif not metric and self.method == "sorted":
       metric = self.queue.next()
-    datapoints = (metric, super(_MetricCache, self).pop(metric))
+      datapoints = (metric, super(_MetricCache, self).pop(metric))
+    self.size -= len(datapoints[1])
     return datapoints
 
   @property

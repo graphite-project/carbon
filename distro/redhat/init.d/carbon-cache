@@ -50,7 +50,6 @@ start(){
 }
 
 stop(){
-    cd $GRAPHITE_DIR
     if [ ! -z $ONLY_INSTANCE ]; then
         echo "Stopping carbon-${CARBON_DAEMON}:${ONLY_INSTANCE}..."
         $GRAPHITE_DIR/bin/carbon-${DAEMON}.py --instance=${ONLY_INSTANCE} --pidfile=$LOG_DIR/${DAEMON}-${ONLY_INSTANCE}/carbon-${DAEMON}.pid --logdir=$LOG_DIR/${DAEMON}_${ONLY_INSTANCE} stop
@@ -94,7 +93,6 @@ stop(){
 }
 
 status(){
-    cd $GRAPHITE_DIR;
     if [ ! -z $ONLY_INSTANCE ]; then
         $GRAPHITE_DIR/bin/carbon-${DAEMON}.py --instance=${ONLY_INSTANCE} --pidfile=$LOG_DIR/${DAEMON}-${ONLY_INSTANCE}/carbon-${DAEMON}.pid --logdir=$LOG_DIR/${DAEMON}_${ONLY_INSTANCE} start
     

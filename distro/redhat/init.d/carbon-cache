@@ -12,7 +12,7 @@ fi
 
 CARBON_DAEMON="cache"
 GRAPHITE_DIR="/opt/graphite"
-INSTANCES=`grep "^\[${CARBON_DAEMON}" ${GRAPHITE_DIR}/conf/carbon.conf | cut -d \[ -f 2 | cut -d \] -f 1 | cut -d : -f 2`
+INSTANCES=$(grep "^\[${CARBON_DAEMON}" ${GRAPHITE_DIR}/conf/carbon.conf | cut -d \[ -f 2 | cut -d \] -f 1 | cut -d : -f 2)
 
 function die {
   echo $1
@@ -57,10 +57,10 @@ stop(){
         sleep 20
         pid=$(/usr/bin/pgrep -f "carbon-${CARBON_DAEMON}.py --instance=${ONLY_INSTANCE}")
         if [ $(/usr/sbin/netstat -lnp | grep $pid | grep ":2.*" | /usr/bin/wc -l) -gt 0 ]; then
-            echo "Carbon did not release ports yet. Sleeping longer, then force killing it...";
+            echo "Carbon did not release ports yet. Sleeping longer, then force killing it..."
             sleep 5
             /usr/bin/pkill -9 -f "carbon-${CARBON_DAEMON}.py --instance=${ONLY_INSTANCE}"
-        fi;
+        fi
 
         if [ $? -eq 0 ]; then
             echo_success
@@ -71,14 +71,14 @@ stop(){
     else
         for INSTANCE in ${INSTANCES}; do
             if [ "${INSTANCE}" == "${CARBON_DAEMON}" ]; then
-                INSTANCE="a";
-            fi;
+                INSTANCE="a"
+            fi
             echo "Stopping carbon-${CARBON_DAEMON}:${INSTANCE}..."
             bin/carbon-${CARBON_DAEMON}.py --instance=${INSTANCE} stop
             sleep 20
             pid=$(/usr/bin/pgrep -f "carbon-${CARBON_DAEMON}.py --instance=${ONLY_INSTANCE}")
             if [ $(/usr/sbin/netstat -lnp | grep $pid | grep ":2.*" | /usr/bin/wc -l) -gt 0 ]; then
-                echo "Carbon did not stop yet. Sleeping longer, then force killing it...";
+                echo "Carbon did not release yet. Sleeping longer, then force killing it..."
                 sleep 5
                 /usr/bin/pkill -9 -f "carbon-${CARBON_DAEMON}.py --instance=${INSTANCE}"
             fi

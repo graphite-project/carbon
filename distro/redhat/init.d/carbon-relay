@@ -57,7 +57,7 @@ stop(){
         sleep 20
         pid=$(/usr/bin/pgrep -f "carbon-${CARBON_DAEMON}.py --instance=${ONLY_INSTANCE}")
         if [ $(/usr/sbin/netstat -lnp | grep $pid | grep ":2.*" | /usr/bin/wc -l) -gt 0 ]; then
-            echo "Carbon did not stop yet. Sleeping longer, then force killing it..."
+            echo "Carbon did not release ports yet. Sleeping longer, then force killing it..."
             sleep 5
             /usr/bin/pkill -9 -f "carbon-${CARBON_DAEMON}.py --instance=${ONLY_INSTANCE}"
         fi
@@ -78,7 +78,7 @@ stop(){
             sleep 20
             pid=$(/usr/bin/pgrep -f "carbon-${CARBON_DAEMON}.py --instance=${INSTANCE}")
             if [ $(/usr/sbin/netstat -lnp | grep $pid | grep ":2.*" | /usr/bin/wc -l) -gt 0 ]; then
-                echo "Carbon did not stop yet. Sleeping longer, then force killing it..."
+                echo "Carbon did not release yet. Sleeping longer, then force killing it..."
                 sleep 5
                 /usr/bin/pkill -9 -f "carbon-${CARBON_DAEMON}.py --instance=${INSTANCE}"
             fi

@@ -40,7 +40,7 @@ class WhisperDB():
         return whisper.update_many(self.getFilesystemPath(metric), datapoints)
 
     def exists(self, metric):
-        return whisper.exists(self.getFilesystemPath(metric))
+        return exists(self.getFilesystemPath(metric))
 
     def fetch(self, metric, startTime, endTime):
         return whisper.fetch(self.getFilesystemPath(metric), startTime, endTime)

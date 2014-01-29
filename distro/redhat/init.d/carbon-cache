@@ -13,6 +13,7 @@ fi
 DAEMON="cache"
 GRAPHITE_DIR="/opt/graphite"
 LOG_DIR="/var/log/graphite"
+CONF="/opt/graphite/conf"
 INSTANCES=$(grep "^\[${DAEMON}" ${GRAPHITE_DIR}/conf/carbon.conf | cut -d \[ -f 2 | cut -d \] -f 1 | cut -d : -f 2)
 
 function die {
@@ -23,7 +24,7 @@ function die {
 start(){
     if [ ! -z $ONLY_INSTANCE ]; then
         echo "Starting carbon-${DAEMON}:${ONLY_INSTANCE}..."
-        $GRAPHITE_DIR/bin/carbon-${DAEMON}.py --instance=${ONLY_INSTANCE} --pidfile=$LOG_DIR/${DAEMON}-${ONLY_INSTANCE}/carbon-${DAEMON}.pid --logdir=$LOG_DIR/${DAEMON}_${ONLY_INSTANCE} start
+        $GRAPHITE_DIR/bin/carbon-${DAEMON}.py --instance=${ONLY_INSTANCE} --pidfile=$LOG_DIR/${DAEMON}-${ONLY_INSTANCE}/carbon-${DAEMON}.pid --logdir=$LOG_DIR/${DAEMON}_${ONLY_INSTANCE} --config=${CONF} start
 
         if [ $? -eq 0 ]; then
             echo_success
@@ -37,7 +38,7 @@ start(){
                 INSTANCE="a"
             fi
             echo "Starting carbon-${DAEMON}:${INSTANCE}..."
-            $GRAPHITE_DIR/bin/carbon-${DAEMON}.py --instance=${INSTANCE} --pidfile=$LOG_DIR/${DAEMON}-${INSTANCE}/carbon-${DAEMON}.pid --logdir=$LOG_DIR/${DAEMON}_${INSTANCE} start
+            $GRAPHITE_DIR/bin/carbon-${DAEMON}.py --instance=${INSTANCE} --pidfile=$LOG_DIR/${DAEMON}-${INSTANCE}/carbon-${DAEMON}.pid --logdir=$LOG_DIR/${DAEMON}_${INSTANCE} --config=${CONF} start
 
             if [ $? -eq 0 ]; then
                 echo_success
@@ -52,7 +53,7 @@ start(){
 stop(){
     if [ ! -z $ONLY_INSTANCE ]; then
         echo "Stopping carbon-${CARBON_DAEMON}:${ONLY_INSTANCE}..."
-        $GRAPHITE_DIR/bin/carbon-${DAEMON}.py --instance=${ONLY_INSTANCE} --pidfile=$LOG_DIR/${DAEMON}-${ONLY_INSTANCE}/carbon-${DAEMON}.pid --logdir=$LOG_DIR/${DAEMON}_${ONLY_INSTANCE} stop
+        $GRAPHITE_DIR/bin/carbon-${DAEMON}.py --instance=${ONLY_INSTANCE} --pidfile=$LOG_DIR/${DAEMON}-${ONLY_INSTANCE}/carbon-${DAEMON}.pid --logdir=$LOG_DIR/${DAEMON}_${ONLY_INSTANCE} --config=${CONF} stop
         sleep 20
         pid=$(/usr/bin/pgrep -f "carbon-${DAEMON}.py --instance=${ONLY_INSTANCE}")
         if [ $(/usr/sbin/netstat -lnp | grep $pid | grep ":2.*" | /usr/bin/wc -l) -gt 0 ]; then
@@ -60,7 +61,7 @@ stop(){
             sleep 5
             /usr/bin/pkill -9 -f "carbon-${DAEMON}.py --instance=${ONLY_INSTANCE}"
         fi
-
+        rm -f $LOG_DIR/${DAEMON}-${ONLY_INSTANCE}/carbon-${DAEMON}.pid
         if [ $? -eq 0 ]; then
             echo_success
         else
@@ -81,7 +82,7 @@ stop(){
                 sleep 5
                 /usr/bin/pkill -9 -f "carbon-${DAEMON}.py --instance=${INSTANCE}"
             fi
-
+            rm -f $LOG_DIR/${DAEMON}-${ONLY_INSTANCE}/carbon-${DAEMON}.pid
             if [ $? -eq 0 ]; then
                 echo_success
             else

@@ -14,10 +14,12 @@ class WhisperDB():
         self.dataDir = dataDir
 
 
+    # private method
     def getFilesystemPath(self, metric):
         metric_path = metric.replace('.', sep).lstrip(sep) + '.wsp'
         return join(self.dataDir, metric_path)
 
+    # public API
     def info(self, metric):
         return whisper.info(self.getFilesystemPath(metric))
 
@@ -41,9 +43,6 @@ class WhisperDB():
 
     def exists(self, metric):
         return exists(self.getFilesystemPath(metric))
-
-    def fetch(self, metric, startTime, endTime):
-        return whisper.fetch(self.getFilesystemPath(metric), startTime, endTime)
 
 def NewWhisperDB():
     return WhisperDB(settings.LOCAL_DATA_DIR)

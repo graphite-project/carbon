@@ -490,6 +490,16 @@ def read_writer_configs():
   settings['STORAGE_RULES'] = load_storage_rules(settings)
   settings['CACHE_SIZE_LOW_WATERMARK'] = settings.MAX_CACHE_SIZE * 0.95
 
+  # Import any configured database plugin class
+  db_plugin = db_settings['DATABASE_PLUGIN']
+  
+  if db_plugin is not None:
+    try:
+      import importlib
+      importlib.import_module(db_plugin)
+    except ImportError:
+      raise ConfigError("No database plugin class found for plugin '%s', %s" % (db_plugin, str(e)))
+
   # Database-specific settings
   if db not in TimeSeriesDatabase.plugins:
     raise ConfigError("No database plugin implemented for '%s'" % db)

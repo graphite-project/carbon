@@ -173,6 +173,7 @@ WHISPER_AUTOFLUSH = False
 
 # To configure special settings for the carbon-cache instance 'b', uncomment this:
 #[cache:b]
+# DB_INIT_FUNC=graphitedata.plugin.WhisperDB
 #LINE_RECEIVER_PORT = 2103
 #PICKLE_RECEIVER_PORT = 2104
 #CACHE_QUERY_PORT = 7102

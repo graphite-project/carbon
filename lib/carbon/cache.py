@@ -19,7 +19,10 @@ try:
     from collections import defaultdict
 except:
     from util import defaultdict
+import re
 
+RE_DOUBLEDOTS = re.compile("(\\.\\.+)")
+RE_SURROUNDINGDOTS = re.compile("(^\\.+|\\.+$)")
 
 class _MetricCache(defaultdict):
   def __init__(self, defaultfactory=deque, method="sorted"):
@@ -44,6 +47,7 @@ class _MetricCache(defaultdict):
     return reduce(lambda x, y: x + len(y), self.values(), 0)
 
   def store(self, metric, datapoint):
+    metric = RE_SURROUNDINGDOTS.sub("", RE_DOUBLEDOTS.sub(".", metric))
     self[metric].append(datapoint)
     if self.isFull():
       log.msg("MetricCache is full: self.size=%d" % self.size)

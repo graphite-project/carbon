@@ -13,15 +13,11 @@ See the License for the specific language governing permissions and
 limitations under the License."""
 
 
-import os
 import time
-from os.path import exists, dirname
-
-import whisper
+from db import APP_DB
 from carbon import state
 from carbon.cache import MetricCache
-from carbon.storage import getFilesystemPath, loadStorageSchemas,\
-    loadAggregationSchemas
+from carbon.storage import loadStorageSchemas,loadAggregationSchemas
 from carbon.conf import settings
 from carbon import log, events, instrumentation
 
@@ -44,17 +40,16 @@ def optimalWriteOrder():
   global createCount
   metrics = MetricCache.counts()
 
-  t = time.time()
+  time_ = time.time()
   metrics.sort(key=lambda item: item[1], reverse=True)  # by queue size, descending
   log.debug("Sorted %d cache queues in %.6f seconds" % (len(metrics),
-                                                        time.time() - t))
+                                                        time.time() - time_))
 
   for metric, queueSize in metrics:
     if state.cacheTooFull and MetricCache.size < CACHE_SIZE_LOW_WATERMARK:
       events.cacheSpaceAvailable()
 
-    dbFilePath = getFilesystemPath(metric)
-    dbFileExists = exists(dbFilePath)
+    dbFileExists = APP_DB.exists(metric)
 
     if not dbFileExists:
       createCount += 1
@@ -80,18 +75,18 @@ def optimalWriteOrder():
       log.msg("MetricCache contention, skipping %s update for now" % metric)
       continue  # we simply move on to the next metric when this race condition occurs
 
-    yield (metric, datapoints, dbFilePath, dbFileExists)
+    yield (metric, datapoints, dbFileExists)
 
 
 def writeCachedDataPoints():
   "Write datapoints until the MetricCache is completely empty"
   updates = 0
-  lastSecond = 0
+  last_second = 0
 
   while MetricCache:
     dataWritten = False
 
-    for (metric, datapoints, dbFilePath, dbFileExists) in optimalWriteOrder():
+    for (metric, datapoints, dbFileExists) in optimalWriteOrder():
       dataWritten = True
 
       if not dbFileExists:
@@ -112,44 +107,42 @@ def writeCachedDataPoints():
 
         if not archiveConfig:
           raise Exception("No storage schema matched the metric '%s', check your storage-schemas.conf file." % metric)
+        log.creates("creating database metric %s (metric=%s xff=%s agg=%s)" %
+                    (metric, archiveConfig, xFilesFactor, aggregationMethod))
 
-        dbDir = dirname(dbFilePath)
         try:
-            os.makedirs(dbDir, 0755)
+          APP_DB.create(metric, archiveConfig, xFilesFactor, aggregationMethod, settings.WHISPER_SPARSE_CREATE, settings.WHISPER_FALLOCATE_CREATE)
         except OSError as e:
-            log.err("%s" % e)
-        log.creates("creating database file %s (archive=%s xff=%s agg=%s)" %
-                    (dbFilePath, archiveConfig, xFilesFactor, aggregationMethod))
-        whisper.create(dbFilePath, archiveConfig, xFilesFactor, aggregationMethod, settings.WHISPER_SPARSE_CREATE, settings.WHISPER_FALLOCATE_CREATE)
+          log.err("%s" % e)
         instrumentation.increment('creates')
 
       try:
-        t1 = time.time()
-        whisper.update_many(dbFilePath, datapoints)
-        t2 = time.time()
-        updateTime = t2 - t1
+        time1 = time.time()
+        APP_DB.update_many(metric, datapoints)
+        time2 = time.time()
+        update_time = time2 - time1
       except:
-        log.msg("Error writing to %s" % (dbFilePath))
+        log.msg("Error writing to %s" % (metric))
         log.err()
         instrumentation.increment('errors')
       else:
-        pointCount = len(datapoints)
-        instrumentation.increment('committedPoints', pointCount)
-        instrumentation.append('updateTimes', updateTime)
+        point_count = len(datapoints)
+        instrumentation.increment('committedPoints', point_count)
+        instrumentation.append('updateTimes', update_time)
 
         if settings.LOG_UPDATES:
-          log.updates("wrote %d datapoints for %s in %.5f seconds" % (pointCount, metric, updateTime))
+          log.updates("wrote %d datapoints for %s in %.5f seconds" % (point_count, metric, update_time))
 
         # Rate limit update operations
-        thisSecond = int(t2)
+        this_second = int(time2)
 
-        if thisSecond != lastSecond:
-          lastSecond = thisSecond
+        if this_second != last_second:
+          last_second = this_second
           updates = 0
         else:
           updates += 1
           if updates >= settings.MAX_UPDATES_PER_SECOND:
-            time.sleep(int(t2 + 1) - t2)
+            time.sleep(int(time2 + 1) - time2)
 
     # Avoid churning CPU when only new metrics are in the cache
     if not dataWritten:
@@ -185,27 +178,26 @@ def reloadAggregationSchemas():
 
 
 def shutdownModifyUpdateSpeed():
-    try:
-        settings.MAX_UPDATES_PER_SECOND = settings.MAX_UPDATES_PER_SECOND_ON_SHUTDOWN
-        log.msg("Carbon shutting down.  Changed the update rate to: " + str(settings.MAX_UPDATES_PER_SECOND_ON_SHUTDOWN))
-    except KeyError:
-        log.msg("Carbon shutting down.  Update rate not changed")
+  try:
+    settings.MAX_UPDATES_PER_SECOND = settings.MAX_UPDATES_PER_SECOND_ON_SHUTDOWN
+    log.msg("Carbon shutting down.  Changed the update rate to: " + str(settings.MAX_UPDATES_PER_SECOND_ON_SHUTDOWN))
+  except KeyError:
+    log.msg("Carbon shutting down.  Update rate not changed")
 
 
 class WriterService(Service):
+  def __init__(self):
+    self.storage_reload_task = LoopingCall(reloadStorageSchemas)
+    self.aggregation_reload_task = LoopingCall(reloadAggregationSchemas)
 
-    def __init__(self):
-        self.storage_reload_task = LoopingCall(reloadStorageSchemas)
-        self.aggregation_reload_task = LoopingCall(reloadAggregationSchemas)
+  def startService(self):
+    self.storage_reload_task.start(60, False)
+    self.aggregation_reload_task.start(60, False)
+    reactor.addSystemEventTrigger('before', 'shutdown', shutdownModifyUpdateSpeed)
+    reactor.callInThread(writeForever)
+    Service.startService(self)
 
-    def startService(self):
-        self.storage_reload_task.start(60, False)
-        self.aggregation_reload_task.start(60, False)
-        reactor.addSystemEventTrigger('before', 'shutdown', shutdownModifyUpdateSpeed)
-        reactor.callInThread(writeForever)
-        Service.startService(self)
-
-    def stopService(self):
-        self.storage_reload_task.stop()
-        self.aggregation_reload_task.stop()
-        Service.stopService(self)
+  def stopService(self):
+    self.storage_reload_task.stop()
+    self.aggregation_reload_task.stop()
+    Service.stopService(self)

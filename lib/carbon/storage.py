@@ -15,7 +15,7 @@ limitations under the License."""
 import os, re
 import whisper
 
-from os.path import join, exists, sep
+from os.path import join, exists
 from carbon.conf import OrderedConfigParser, settings
 from carbon.exceptions import CarbonConfigException
 from carbon.util import pickle
@@ -36,7 +36,6 @@ class Schema:
 
 
 class DefaultSchema(Schema):
-
   def __init__(self, name, archives):
     self.name = name
     self.archives = archives
@@ -46,7 +45,6 @@ class DefaultSchema(Schema):
 
 
 class PatternSchema(Schema):
-
   def __init__(self, name, pattern, archives):
     self.name = name
     self.pattern = pattern
@@ -58,7 +56,6 @@ class PatternSchema(Schema):
 
 
 class ListSchema(Schema):
-
   def __init__(self, name, listName, archives):
     self.name = name
     self.listName = listName
@@ -67,9 +64,9 @@ class ListSchema(Schema):
 
     if exists(self.path):
       self.mtime = os.stat(self.path).st_mtime
-      fh = open(self.path, 'rb')
-      self.members = pickle.load(fh)
-      fh.close()
+      file_handle = open(self.path, 'rb')
+      self.members = pickle.load(file_handle)
+      file_handle.close()
 
     else:
       self.mtime = 0
@@ -89,8 +86,7 @@ class ListSchema(Schema):
 
 
 class Archive:
-
-  def __init__(self,secondsPerPoint,points):
+  def __init__(self, secondsPerPoint, points):
     self.secondsPerPoint = int(secondsPerPoint)
     self.points = int(points)
 
@@ -98,7 +94,7 @@ class Archive:
     return "Archive = (Seconds per point: %d, Datapoints to save: %d)" % (self.secondsPerPoint, self.points) 
 
   def getTuple(self):
-    return (self.secondsPerPoint,self.points)
+    return (self.secondsPerPoint, self.points)
 
   @staticmethod
   def fromString(retentionDef):

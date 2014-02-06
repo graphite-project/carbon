@@ -1,5 +1,4 @@
 import traceback
-import whisper
 from carbon import log
 from carbon.db import APP_DB
 

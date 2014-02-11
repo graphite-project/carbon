@@ -6,7 +6,15 @@ This file is a fork of `ceres-maintenace` which uses a combination of reading
 from disk, using a CeresTree and creating CeresNodes directly. It follows the 
 same principles as `ceres-maintenace`.
 
- 
+**Notes:** 
+
+1. Current way to run this script::
+
+  export GRAPHITE_ROOT=/vagrant/src/carbon
+  ./acquia-maintenance.py --configdir=/opt/graphite/conf/carbon-daemons/writer/ acquia_rollup
+  
+2. The bottom of this script contains a hard coded IP address and keyspace 
+for cassandra. 
 """
 
 import os

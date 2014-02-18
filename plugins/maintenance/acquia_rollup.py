@@ -4,9 +4,15 @@ A maintenance plugin designed to work with the `acquia-maintenance` script.
 This script is a fork of `rollup.py` designed to work with the 
 `carbon_cassandra_plugin`.
 """
+import datetime
 import time
 
 from carbon_cassandra_plugin import carbon_cassandra_db
+
+def fmt_unix(timestamp):
+  return datetime.datetime.fromtimestamp(int(timestamp)).strftime(
+    '%Y-%m-%d %H:%M:%S')
+
 
 #######################################################
 # Put your custom aggregation logic in this function! #
@@ -64,7 +70,10 @@ def do_rollup(node, fineArchive, coarseArchive):
   # TODO: Remove debugging code.
   print "Rollup called on node %s from %s to %s" % (node.nodePath, 
     fineArchive, coarseArchive)
-  overflowSlices = [s for s in fineArchive['slices'] if s.startTime < fineArchive['startTime']]
+  overflowSlices = [
+    s for s in fineArchive['slices'] 
+    if s.startTime < fineArchive['startTime']
+  ]
   if not overflowSlices:
     return
 
@@ -83,7 +92,7 @@ def do_rollup(node, fineArchive, coarseArchive):
       datapoints = slice.read(slice.startTime, fineArchive['startTime'])
       overflowDatapoints.extend( list(datapoints) )  
     overflowDatapoints.sort()
-    
+    print "Fine archive has %s overflowDatapoints" % (len(overflowDatapoints))
     fineStep = fineArchive['precision']
     coarseStep = coarseArchive['precision']
     deletePriorTo = coarseArchive['startTime'] + (coarseStep * coarseArchive['retention'])
@@ -97,7 +106,13 @@ def do_rollup(node, fineArchive, coarseArchive):
       windowStart = coarseArchive['startTime'] + (i * coarseStep)
       windowEnd = windowStart + coarseStep
 
-      fineDatapoints = [d for d in overflowDatapoints if d[0] >= windowStart and d[0] < windowEnd]
+      fineDatapoints = [
+        d for d in overflowDatapoints 
+        if d[0] >= windowStart and d[0] < windowEnd
+      ]
+      print "Found %s data points for retention %s in coarse archive %s from"\
+        "%s to %s" % (len(fineDatapoints), i, coarseStep, 
+        fmt_unix(windowStart), fmt_unix(windowEnd))
       
       if fineDatapoints:
         knownValues = [value for (timestamp,value) in fineDatapoints if value is not None]
@@ -112,9 +127,12 @@ def do_rollup(node, fineArchive, coarseArchive):
         fineValues = [d[1] for d in fineDatapoints]
 
         written = False
+
         for slice in coarseArchive['slices']:
           if slice.startTime <= windowStart and slice.endTime >= windowStart:
             slice.write([coarseDatapoint])
+            print "Wrote %s data points to existing coarse archive %s" % (
+              len(coarseDatapoint), slice.timeStep)
             written = True
             break
 
@@ -126,6 +144,8 @@ def do_rollup(node, fineArchive, coarseArchive):
           newSlice = carbon_cassandra_db.DataSlice.create(node, windowStart, 
             coarseStep)
           newSlice.write([coarseDatapoint])
+          print "Wrote %s data points to new coarse archive %s" % (
+            len(coarseDatapoint), slice.timeStep)
           coarseArchive['slices'].append(newSlice)
           deletePriorTo = min(deletePriorTo, windowStart)
 

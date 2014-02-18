@@ -110,7 +110,7 @@ class EventDispatcher:
     for handler in self.handlers.get(event, []):
       try:
         handler(*args, **kwargs)
-      except:
+      except (Exception):
         log("--- Error in %s event-handler ---" % event)
         log( traceback.format_exc() )
         log('-' * 80)
@@ -160,12 +160,12 @@ class MissingRequiredParam(Exception):
 class PluginFail(Exception):
   pass
 
-def _walk(tree, dispatch, nodePath):
+def _walk(tree, dispatch, nodePath, useDC):
   """Recursively walk the self and childs nodes in `tree` below `nodePath`
   calling the `dispatch` function for each visit.
   """
 
-  childs = tree.selfAndChildPaths(nodePath)
+  childs = tree.selfAndChildPaths(nodePath, dcName=useDC)
   if not childs:
     dispatch('directory_empty', nodePath)
     return
@@ -175,14 +175,14 @@ def _walk(tree, dispatch, nodePath):
       if child != nodePath:
         dispatch('node_found', tree.getNode(child))
       else:
-        _walk(tree, dispatch, child)
+        _walk(tree, dispatch, child, useDC=useDC)
     else:
       if (child != nodePath) and (nodePath != "*"):
         dispatch('directory_found', child)
-      _walk(tree, dispatch, child)
+      _walk(tree, dispatch, child, useDC=useDC)
   return
 
-def _parse_lars(option, opt, value, parser):
+def _split_csv(option, opt, value, parser):
   """Callback function to parse a list args from CSV format."""
   setattr(parser.values, option.dest, value.split(','))
 
@@ -203,9 +203,10 @@ if __name__ == '__main__':
                     default='localhost',
                     type='string',
                     action='callback',
-                    callback=_parse_lars,
+                    callback=_split_csv,
                     help="List of servers in Cassandra cluster: localhost1,localhost2.")
-
+  parser.add_option('--dc-name', default=None, 
+                    help="Name of the Cassandra Data Centre to rollup nodes from.")
   options, args = parser.parse_args()
 
   if not options.configdir:
@@ -271,10 +272,12 @@ if __name__ == '__main__':
   if not (options.daemon or options.log):
     logfile = sys.stdout
 
-  # Defaults to 'graphite' keyspace on 'localhost' Cassandra.
-  tree = carbon_cassandra_db.DataTree("/", options.keyspace, options.serverlist)
+  # pass the DC name so we can specify dcName=True when calling 
+  # selfAndChildPaths later. 
+  tree = carbon_cassandra_db.DataTree("/", options.keyspace, 
+    options.serverlist, localDCName=options.dc_name)
 
-    # Begin walking the tree
+  # Begin walking the tree
   dispatch('maintenance_start', tree)
-  _walk(tree, dispatch, "*")
+  _walk(tree, dispatch, "*", useDC=True if options.dc_name else False)
   dispatch('maintenance_complete', tree)

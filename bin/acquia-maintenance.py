@@ -2,19 +2,19 @@
 """
 Runs maintenance tasks using the carbon_cassandra_plugin.
 
-This file is a fork of `ceres-maintenace` which uses a combination of reading 
-from disk, using a CeresTree and creating CeresNodes directly. It follows the 
+This file is a fork of `ceres-maintenace` which uses a combination of reading
+from disk, using a CeresTree and creating CeresNodes directly. It follows the
 same principles as `ceres-maintenace`.
 
-**Notes:** 
+**Notes:**
 
 1. Current way to run this script::
 
   export GRAPHITE_ROOT=/vagrant/src/carbon
-  ./acquia-maintenance.py --configdir=/opt/graphite/conf/carbon-daemons/writer/ acquia_rollup
-  
-2. The bottom of this script contains a hard coded IP address and keyspace 
-for cassandra. 
+  ./acquia-maintenance.py --configdir=/opt/graphite/conf/carbon-daemons/writer/ \
+      acquia_rollup --keyspace=graphite --serverlist=127.0.0.1,127.0.0.2
+
+2. `optparse` is deprecated as of Python 2.7
 """
 
 import os
@@ -161,15 +161,15 @@ class PluginFail(Exception):
   pass
 
 def _walk(tree, dispatch, nodePath):
-  """Recursively walk the self and childs nodes in `tree` below `nodePath` 
+  """Recursively walk the self and childs nodes in `tree` below `nodePath`
   calling the `dispatch` function for each visit.
   """
-  
+
   childs = tree.selfAndChildPaths(nodePath)
   if not childs:
     dispatch('directory_empty', nodePath)
     return
-  
+
   for child, isMetric in childs:
     if isMetric:
       if child != nodePath:
@@ -181,7 +181,11 @@ def _walk(tree, dispatch, nodePath):
         dispatch('directory_found', child)
       _walk(tree, dispatch, child)
   return
-  
+
+def _parse_lars(option, opt, value, parser):
+  """Callback function to parse a list args from CSV format."""
+  setattr(parser.values, option.dest, value.split(','))
+
 if __name__ == '__main__':
   default_plugindir = os.path.join(root_dir, 'plugins', 'maintenance')
   parser = OptionParser(usage='''%prog [options] plugin [plugin2 ...] [key=val ...]''')
@@ -193,6 +197,14 @@ if __name__ == '__main__':
   parser.add_option('--plugindir', default=default_plugindir,
                     help="Specify path to the plugin directory (default: %s)" % default_plugindir)
   parser.add_option('--configdir', default=None, help="Path to the carbon-daemon instance configuration directory")
+  parser.add_option('--keyspace', default='graphite',
+                    help="Keyspace in which to initialize carbon.")
+  parser.add_option('--serverlist',
+                    default='localhost',
+                    type='string',
+                    action='callback',
+                    callback=_parse_lars,
+                    help="List of servers in Cassandra cluster: localhost1,localhost2.")
 
   options, args = parser.parse_args()
 
@@ -258,14 +270,11 @@ if __name__ == '__main__':
 
   if not (options.daemon or options.log):
     logfile = sys.stdout
-  
-  # TODO: add the server names and keyspace as command line args. 
-  tree = carbon_cassandra_db.DataTree("/", "graphite", ["172.16.1.18"])
+
+  # Defaults to 'graphite' keyspace on 'localhost' Cassandra.
+  tree = carbon_cassandra_db.DataTree("/", options.keyspace, options.serverlist)
 
     # Begin walking the tree
   dispatch('maintenance_start', tree)
   _walk(tree, dispatch, "*")
   dispatch('maintenance_complete', tree)
-
-
-

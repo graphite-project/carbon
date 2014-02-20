@@ -220,7 +220,7 @@ def _tokenRangesForNodes(keyspace, serverList, targetNodes):
       serverList,))
   
   # TODO: this is the wrong function, it returns ALL endpoints for each token
-  # range. We want ot use describe_token_map to get the primary tokens
+  # range. We want to use describe_token_map to get the primary tokens
   # for a cassandra node.
   # TODO: do we need to filter by DC here ? 
   targetNodesSet = set(targetNodes)

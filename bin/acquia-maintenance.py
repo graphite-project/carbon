@@ -23,6 +23,8 @@ import sys
 import time
 import traceback
 
+from pycassa.system_manager import SystemManager
+
 from carbon_cassandra_plugin import carbon_cassandra_db
 
 # Make carbon imports available for some functionality
@@ -160,28 +162,79 @@ class MissingRequiredParam(Exception):
 class PluginFail(Exception):
   pass
 
-def _walk(tree, dispatch, nodePath, useDC):
-  """Recursively walk the self and childs nodes in `tree` below `nodePath`
-  calling the `dispatch` function for each visit.
+
+def _visitRange(tree, visitor, useDC, startToken, endToken):
+  """Visit the data nodes in between `startToken` and `endToken` and call the 
+  `visitor` with the nodePath and isMetric flag.
+  
+  `useDC` is passed to selfAndChildPaths(). 
+  
   """
 
-  childs = tree.selfAndChildPaths(nodePath, dcName=useDC)
-  if not childs:
-    dispatch('directory_empty', nodePath)
-    return
+  pathIter = tree.selfAndChildPaths(None, dcName=useDC, 
+      startToken=startToken, endToken=endToken)
 
-  for child, isMetric in childs:
-    if isMetric:
-      if child != nodePath:
-        dispatch('node_found', tree.getNode(child))
-      else:
-        _walk(tree, dispatch, child, useDC=useDC)
-    else:
-      if (child != nodePath) and (nodePath != "*"):
-        dispatch('directory_found', child)
-      _walk(tree, dispatch, child, useDC=useDC)
+  for childPath, isMetric in pathIter:
+    # we do not know what the parent is.
+    # well we could get it from the child, but I dont want to.
+    visitor(None, childPath, isMetric)
+  return
+  
+def _visitTree(tree, visitor, nodePath, useDC):
+  """Recursively walk the self and childs nodes in `tree` below `nodePath`
+  calling the `visitor` function for each visit with nodePath and isMetric.
+  
+  If the visitor returns True a recursive call is made to visit the children
+  for the current nodePath.
+  """
+
+  pathIter = tree.selfAndChildPaths(nodePath, dcName=useDC)
+  
+  for childPath, isMetric in pathIter:
+    if visitor(nodePath, childPath, isMetric):
+      _visitTree(tree, visitor, childPath, useDC=useDC)
   return
 
+def _tokenRangesForNodes(keyspace, serverList, targetNodes):
+  """Get a list of the token ranges owned by the nodes in targetNodes 
+  by calling one of the nodes in serverList.
+  
+  The list can be used to partition the maintenance process, e.g. run a 
+  rollup daemon on each cassandra node that only works with carbon nodes in 
+  the cassandra nodes primary token ranges. 
+  
+  Return a list of of [ (startToken, endToken, nodeIP)]
+  """
+  
+  sysManager = None
+  for server in serverList:
+    sysManager = SystemManager(server)
+    try:
+      sysManager.describe_cluster_name()
+    except (Exception) as e:
+      sysManager = None
+    else:
+      break
+  if not sysManager:
+    raise RuntimeError("Could not connect to cassandra nodes %s" % (
+      serverList,))
+  
+  # TODO: this is the wrong function, it returns ALL endpoints for each token
+  # range. We want ot use describe_token_map to get the primary tokens
+  # for a cassandra node.
+  # TODO: do we need to filter by DC here ? 
+  targetNodesSet = set(targetNodes)
+  tokenRanges = []
+  for tokenRange in sysManager.describe_ring(keyspace):
+      nodes = targetNodesSet & set(tokenRange.rpc_endpoints)
+      if nodes:
+        # HACK: there may be many nodes, because we need describe_token_map
+        # use the a randome one for now. 
+        tokenRanges.append((tokenRange.start_token, tokenRange.end_token, 
+          nodes.pop()))
+  return tokenRanges
+  
+  
 def _split_csv(option, opt, value, parser):
   """Callback function to parse a list args from CSV format."""
   setattr(parser.values, option.dest, value.split(','))
@@ -200,13 +253,20 @@ if __name__ == '__main__':
   parser.add_option('--keyspace', default='graphite',
                     help="Keyspace in which to initialize carbon.")
   parser.add_option('--serverlist',
-                    default='localhost',
+                    default=["localhost",],
                     type='string',
                     action='callback',
                     callback=_split_csv,
                     help="List of servers in Cassandra cluster: localhost1,localhost2.")
   parser.add_option('--dc-name', default=None, 
                     help="Name of the Cassandra Data Centre to rollup nodes from.")
+  parser.add_option('--rollup-targets', default=[],
+                    type='string',
+                    action='callback',
+                    callback=_split_csv, 
+                    help="Cassandra Node IPs to rollup metrics for.")
+
+                    
   options, args = parser.parse_args()
 
   if not options.configdir:
@@ -245,11 +305,6 @@ if __name__ == '__main__':
     sys.exit(1)
   dispatcher = EventDispatcher()
 
-  def dispatch(event, *args):
-    if options.verbose:
-      log("%s :: %s" % (event, args))
-    dispatcher(event, *args)
-
   for plugin in plugins:
     try:
       plugin.load()
@@ -272,12 +327,44 @@ if __name__ == '__main__':
   if not (options.daemon or options.log):
     logfile = sys.stdout
 
+  def _dispatch(eventType, *args):
+    if options.verbose:
+      log("%s :: %s" % (eventType, args))
+    dispatcher(eventType, *args)
+
+  def _nodePathVisitor(parentPath, childPath, isMetric):
+    """Visitor
+    
+    Returns true if the children should be visited. See the _visit* functions    
+    """
+    if isMetric:
+      if childPath != parentPath:
+        _dispatch('node_found', tree.getNode(childPath))
+      else:
+        # visit the children of this childPath
+        return True
+    else:
+      # got a branch node
+      return True
+
   # pass the DC name so we can specify dcName=True when calling 
   # selfAndChildPaths later. 
   tree = carbon_cassandra_db.DataTree("/", options.keyspace, 
     options.serverlist, localDCName=options.dc_name)
 
   # Begin walking the tree
-  dispatch('maintenance_start', tree)
-  _walk(tree, dispatch, "*", useDC=True if options.dc_name else False)
-  dispatch('maintenance_complete', tree)
+  _dispatch('maintenance_start', tree)
+
+  if options.rollup_targets: 
+    # work on a sub set of the data nodes whose nodePath is in the the 
+    # token ranges owned by the cassandra nodes in rollup_targets
+    for startToken, endToken, nodeIP in _tokenRangesForNodes(
+      options.keyspace, options.serverlist, options.rollup_targets):
+      
+      _visitRange(tree, _nodePathVisitor, 
+        True if options.dc_name else False, startToken, endToken)
+  else:
+    # work on all the data nodes, or all those in the named DC
+    _visitTree(tree, _nodePathVisitor, "*", 
+      True if options.dc_name else False)
+  _dispatch('maintenance_complete', tree)

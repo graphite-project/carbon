@@ -70,6 +70,7 @@ def do_rollup(node, fineArchive, coarseArchive):
   # TODO: Remove debugging code.
   print "Rollup called on node %s from %s to %s" % (node.nodePath, 
     fineArchive, coarseArchive)
+    
   overflowSlices = [
     s for s in fineArchive['slices'] 
     if s.startTime < fineArchive['startTime']
@@ -79,7 +80,6 @@ def do_rollup(node, fineArchive, coarseArchive):
 
   if coarseArchive is None: # delete the old datapoints
     # TODO: Ensure old data points are deleted using TTL or modern dance
-    # we use TTL to delete data
     #   for slice in overflowSlices:
     #     try:
     #       slice.deleteBefore(fineArchive['startTime'])
@@ -92,7 +92,7 @@ def do_rollup(node, fineArchive, coarseArchive):
       datapoints = slice.read(slice.startTime, fineArchive['startTime'])
       overflowDatapoints.extend( list(datapoints) )  
     overflowDatapoints.sort()
-    print "Fine archive has %s overflowDatapoints" % (len(overflowDatapoints))
+
     fineStep = fineArchive['precision']
     coarseStep = coarseArchive['precision']
     deletePriorTo = coarseArchive['startTime'] + (coarseStep * coarseArchive['retention'])
@@ -110,9 +110,6 @@ def do_rollup(node, fineArchive, coarseArchive):
         d for d in overflowDatapoints 
         if d[0] >= windowStart and d[0] < windowEnd
       ]
-      print "Found %s data points for retention %s in coarse archive %s from"\
-        "%s to %s" % (len(fineDatapoints), i, coarseStep, 
-        fmt_unix(windowStart), fmt_unix(windowEnd))
       
       if fineDatapoints:
         knownValues = [value for (timestamp,value) in fineDatapoints if value is not None]
@@ -131,8 +128,6 @@ def do_rollup(node, fineArchive, coarseArchive):
         for slice in coarseArchive['slices']:
           if slice.startTime <= windowStart and slice.endTime >= windowStart:
             slice.write([coarseDatapoint])
-            print "Wrote %s data points to existing coarse archive %s" % (
-              len(coarseDatapoint), slice.timeStep)
             written = True
             break
 
@@ -144,8 +139,6 @@ def do_rollup(node, fineArchive, coarseArchive):
           newSlice = carbon_cassandra_db.DataSlice.create(node, windowStart, 
             coarseStep)
           newSlice.write([coarseDatapoint])
-          print "Wrote %s data points to new coarse archive %s" % (
-            len(coarseDatapoint), slice.timeStep)
           coarseArchive['slices'].append(newSlice)
           deletePriorTo = min(deletePriorTo, windowStart)
 

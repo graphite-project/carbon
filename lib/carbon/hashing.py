@@ -23,6 +23,8 @@ class ConsistentHashRing:
     for i in range(self.replica_count):
       replica_key = "%s:%d" % (node, i)
       position = self.compute_ring_position(replica_key)
+      while position in [r[0] for r in self.ring]:
+        position = position + 1
       entry = (position, node)
       bisect.insort(self.ring, entry)
 

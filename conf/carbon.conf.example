@@ -38,6 +38,7 @@ USER =
 # Limit the size of the cache to avoid swapping or becoming CPU bound.
 # Sorts and serving cache queries gets more expensive as the cache grows.
 # Use the value "inf" (infinity) for an unlimited cache size.
+# value should be an integer number of metric datapoints.
 MAX_CACHE_SIZE = inf
 
 # Limits the number of whisper update_many() calls per second, which effectively

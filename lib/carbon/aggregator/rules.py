@@ -22,6 +22,9 @@ class RuleManager:
     self.read_task.start(10, now=False)
 
   def read_rules(self):
+
+    self.rules_file = '/opt/graphite/conf/aggregation-rules.conf'
+
     if not exists(self.rules_file):
       self.clear()
       return

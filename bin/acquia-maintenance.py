@@ -219,19 +219,39 @@ def _tokenRangesForNodes(keyspace, serverList, targetNodes):
     raise RuntimeError("Could not connect to cassandra nodes %s" % (
       serverList,))
   
-  # TODO: this is the wrong function, it returns ALL endpoints for each token
-  # range. We want to use describe_token_map to get the primary tokens
-  # for a cassandra node.
-  # TODO: do we need to filter by DC here ? 
+  # Get a list of the token ranges in the cluster.
+  # create {endToken : tokenRange} from the list of TokenRanges
+  allRanges = {
+    tokenRange.end_token : tokenRange
+    for tokenRange in sysManager.describe_ring(keyspace)
+  }
+  
+  # get the tokens assigned to the nodes we care about
+  # dict {'endToken' : ip_address}
   targetNodesSet = set(targetNodes)
+  assignments = { 
+    endToken : nodeIP
+    for endToken, nodeIP in sysManager.describe_token_map().iteritems()
+    if nodeIP in targetNodesSet
+  }
+  
+  # merge to find the token ranges for the nodes we care about.
   tokenRanges = []
-  for tokenRange in sysManager.describe_ring(keyspace):
-      nodes = targetNodesSet & set(tokenRange.rpc_endpoints)
-      if nodes:
-        # HACK: there may be many nodes, because we need describe_token_map
-        # use the a randome one for now. 
-        tokenRanges.append((tokenRange.start_token, tokenRange.end_token, 
-          nodes.pop()))
+  seenRanges = set()
+  for endToken, nodeIP in assignments.iteritems():
+      try:
+        thisRange = allRanges[endToken]
+      except (KeyError) as e:
+        raise RuntimeError("Could not match assigned token %s from %s to a "\
+          "token range from describe_ring()" % (endToken, nodeIP))
+      
+      assert nodeIP in thisRange.endpoints
+      assert thisRange not in seenRanges
+      seenRanges.add(thisRange)
+      
+      tokenRanges.append((thisRange.start_token, thisRange.end_token, nodeIP))
+  
+  assert len(tokenRanges) == len(assignments)
   return tokenRanges
   
   

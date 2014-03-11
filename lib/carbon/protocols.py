@@ -1,4 +1,5 @@
 import time
+import zlib
 
 from twisted.internet import reactor
 from twisted.internet.protocol import DatagramProtocol
@@ -62,7 +63,7 @@ class MetricReceiver:
       return
     if int(datapoint[0]) == -1: # use current time if none given: https://github.com/graphite-project/carbon/issues/54
       datapoint = (time.time(), datapoint[1])
-    
+
     events.metricReceived(metric, datapoint)
 
 
@@ -90,6 +91,19 @@ class MetricDatagramReceiver(MetricReceiver, DatagramProtocol):
         self.metricReceived(metric, datapoint)
       except:
         log.listener('invalid line received from %s, ignoring' % host)
+
+
+class ZlibMetricDatagramReceiver(MetricDatagramReceiver):
+  def datagramReceived(self, data, (host, port)):
+    try:
+      data = zlib.decompress(data, zlib.MAX_WBITS|32) # gzip or zlib w/ header
+    except zlib.error:
+      try:
+        data = zlib.decompress(data, -zlib.MAX_WBITS) # deflate
+      except zlib.error:
+        # not zlib encoded
+        pass
+    MetricDatagramReceiver.datagramReceived(self, data, (host, port))
 
 
 class MetricPickleReceiver(MetricReceiver, Int32StringReceiver):

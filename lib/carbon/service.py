@@ -1,4 +1,5 @@
 """Copyright 2009 Chris Davis
+Copyright 2014 Damien Nozay
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -40,6 +41,7 @@ class CarbonRootService(MultiService):
 def createBaseService(config):
     from carbon.conf import settings
     from carbon.protocols import (MetricLineReceiver, MetricPickleReceiver,
+                                  ZlibMetricDatagramReceiver,
                                   MetricDatagramReceiver)
 
     root_service = CarbonRootService()
@@ -75,6 +77,12 @@ def createBaseService(config):
         service = UDPServer(int(settings.UDP_RECEIVER_PORT),
                             MetricDatagramReceiver(),
                             interface=settings.UDP_RECEIVER_INTERFACE)
+        service.setServiceParent(root_service)
+
+    if settings.ENABLE_ZLIB_UDP_LISTENER:
+        service = UDPServer(int(settings.ZLIB_UDP_RECEIVER_PORT),
+                            ZlibMetricDatagramReceiver(),
+                            interface=settings.ZLIB_UDP_RECEIVER_INTERFACE)
         service.setServiceParent(root_service)
 
     if use_amqp:

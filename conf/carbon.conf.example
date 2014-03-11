@@ -73,6 +73,12 @@ ENABLE_UDP_LISTENER = False
 UDP_RECEIVER_INTERFACE = 0.0.0.0
 UDP_RECEIVER_PORT = 2003
 
+# Set this to True to enable the UDP listener with smart zlib decompression.
+# By default this is off, because it is experimental.
+ENABLE_ZLIB_UDP_LISTENER = False
+ZLIB_UDP_RECEIVER_INTERFACE = 0.0.0.0
+ZLIB_UDP_RECEIVER_PORT = 2003
+
 PICKLE_RECEIVER_INTERFACE = 0.0.0.0
 PICKLE_RECEIVER_PORT = 2004
 

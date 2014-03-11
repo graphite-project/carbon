@@ -1,5 +1,6 @@
 #!/usr/bin/python
 """Copyright 2008 Orbitz WorldWide
+Copyright 2014 Damien Nozay
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -19,6 +20,7 @@ import time
 import socket
 import platform
 import subprocess
+import zlib
 
 CARBON_SERVER = '127.0.0.1'
 CARBON_PORT = 2003
@@ -39,7 +41,7 @@ def get_loadavg():
         output = re.split("[\s,]+", stdout)
         return output[-3:]
 
-def run(sock, delay):
+def run(send, delay, use_zlib):
     """Make the client go go go"""
     while True:
         now = int(time.time())
@@ -50,33 +52,54 @@ def run(sock, delay):
         lines.append("system.loadavg_5min %s %d" % (loadavg[1], now))
         lines.append("system.loadavg_15min %s %d" % (loadavg[2], now))
         message = '\n'.join(lines) + '\n' #all lines must end in a newline
-        print "sending message"
-        print '-' * 80
-        print message
-        sock.sendall(message)
+        if use_zlib:
+            compressed = zlib.compress(message)
+            print "sending compressed message (%sB => %sB)" % (
+                len(message), len(compressed))
+            send(compressed)
+        else:
+            print "sending message"
+            print '-' * 80
+            print message
+            send(message)
         time.sleep(delay)
 
 def main():
     """Wrap it all up together"""
     delay = DELAY
+    use_zlib = False
     if len(sys.argv) > 1:
         arg = sys.argv[1]
         if arg.isdigit():
             delay = int(arg)
         else:
             sys.stderr.write("Ignoring non-integer argument. Using default: %ss\n" % delay)
+    if len(sys.argv) > 2:
+        arg = sys.argv[2]
+        use_zlib = arg.lower() in ('true', 'yes')
 
-    sock = socket.socket()
-    try:
-        sock.connect( (CARBON_SERVER, CARBON_PORT) )
-    except socket.error:
-        raise SystemExit("Couldn't connect to %(server)s on port %(port)d, is carbon-cache.py running?" % { 'server':CARBON_SERVER, 'port':CARBON_PORT })
+    if use_zlib:
+        # use UDP and test out ZlibMetricDatagramReceiver
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        def udp_send(message):
+            sock.sendto(message, (CARBON_SERVER, CARBON_PORT))
+        send = udp_send
+    else:
+        sock = socket.socket()
+        try:
+            sock.connect( (CARBON_SERVER, CARBON_PORT) )
+        except socket.error:
+            raise SystemExit("Couldn't connect to %(server)s on port %(port)d, is carbon-cache.py running?" % { 'server':CARBON_SERVER, 'port':CARBON_PORT })
+        send = sock.sendall
 
     try:
-        run(sock, delay)
+        run(send, delay, use_zlib)
     except KeyboardInterrupt:
         sys.stderr.write("\nExiting on CTRL-c\n")
-        sys.exit(0)
+    finally:
+        sock.close()
+
+    sys.exit(0)
 
 if __name__ == "__main__":
     main()

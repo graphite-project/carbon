@@ -78,21 +78,35 @@ def do_rollup(node, fineArchive, coarseArchive):
     metadata = node.readMetadata()
     xff = metadata.get('xFilesFactor')
 
+
+    tsMin = 2147472000
+    tsMax = 0
+    for d in overflowDatapoints:
+      tsMin = min( tsMin , d[0] )
+      tsMax = max( tsMax , d[0] )
+
+
     # We define a window corresponding to exactly one coarse datapoint
     # Then we use it to select datapoints for aggregation
     for i in range(coarseArchive['retention']):
       windowStart = coarseArchive['startTime'] + (i * coarseStep)
-      windowEnd = windowStart + coarseStep
-      fineDatapoints = [d for d in overflowDatapoints if d[0] >= windowStart and d[0] < windowEnd]
+      windowEnd   = windowStart + coarseStep
+      fineDatapoints = []
+      if(     windowStart <= tsMin <= windowEnd   
+          or  ( tsMin <= windowStart and tsMax >= windowEnd )
+          or  windowStart <= tsMax <= windowEnd  
+      ):  
+        fineDatapoints = [d for d in overflowDatapoints if d[0] >= windowStart and d[0] < windowEnd]
+      
 
-      if fineDatapoints:
+      if len(fineDatapoints) > 0:
         knownValues = [value for (timestamp,value) in fineDatapoints if value is not None]
         if not knownValues:
           continue
         knownPercent = float(len(knownValues)) / len(fineDatapoints)
         if knownPercent < xff:  # we don't have enough data to aggregate!
           continue
-        
+      
         coarseValue = aggregate(node, fineDatapoints)
         coarseDatapoint = (windowStart, coarseValue)
         fineValues = [d[1] for d in fineDatapoints]
@@ -113,6 +127,7 @@ def do_rollup(node, fineArchive, coarseArchive):
           newSlice.write([coarseDatapoint])
           coarseArchive['slices'].append(newSlice)
           deletePriorTo = min(deletePriorTo, windowStart)
+
 
     # Delete the overflow from the fine archive
     for slice in overflowSlices:

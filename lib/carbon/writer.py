@@ -37,6 +37,15 @@ schemas = loadStorageSchemas()
 agg_schemas = loadAggregationSchemas()
 CACHE_SIZE_LOW_WATERMARK = settings.MAX_CACHE_SIZE * 0.95
 
+flush = 0
+shuttingDown = 0
+
+if settings.LOW_CACHE_SIZE == float('inf'):
+  LOW_CACHE_SIZE = 0.8 * settings.MAX_CACHE_SIZE
+else:
+  LOW_CACHE_SIZE = settings.LOW_CACHE_SIZE
+
+
 
 def optimalWriteOrder():
   """Generates metrics with the most cached values first and applies a soft
@@ -53,6 +62,9 @@ def optimalWriteOrder():
   for metric, queueSize in metrics:
     if state.cacheTooFull and MetricCache.size < CACHE_SIZE_LOW_WATERMARK:
       events.cacheSpaceAvailable()
+    
+    if queueSize < settings.MIN_DATAPOINTS_PER_UPDATE and flush == 0:
+      break
 
     dbFilePath = getFilesystemPath(metric)
     dbFileExists = exists(dbFilePath)
@@ -88,9 +100,16 @@ def writeCachedDataPoints():
   "Write datapoints until the MetricCache is completely empty"
   updates = 0
   lastSecond = 0
-
+  
+  global flush
+ 
   while MetricCache:
     dataWritten = False
+
+    if MetricCache.size >= LOW_CACHE_SIZE or shuttingDown == 1:
+      flush = 1
+    else:
+      flush = 0
 
     for (metric, datapoints, dbFilePath, dbFileExists) in optimalWriteOrder():
       dataWritten = True
@@ -187,12 +206,13 @@ def reloadAggregationSchemas():
 
 
 def shutdownModifyUpdateSpeed():
+    global shuttingDown 
     try:
         settings.MAX_UPDATES_PER_SECOND = settings.MAX_UPDATES_PER_SECOND_ON_SHUTDOWN
         log.msg("Carbon shutting down.  Changed the update rate to: " + str(settings.MAX_UPDATES_PER_SECOND_ON_SHUTDOWN))
     except KeyError:
         log.msg("Carbon shutting down.  Update rate not changed")
-
+    shuttingDown = 1
 
 class WriterService(Service):
 

@@ -74,7 +74,9 @@ class MetricLineReceiver(MetricReceiver, LineOnlyReceiver):
       metric, value, timestamp = line.strip().split()
       datapoint = ( float(timestamp), float(value) )
     except:
-      log.listener('invalid line received from client %s, ignoring' % self.peerName)
+      if len(line) > 400:
+        line = line[:400] + '...'
+      log.listener('invalid line received from client %s, ignoring  [%s]' % (self.peerName, line.strip()))
       return
 
     self.metricReceived(metric, datapoint)
@@ -89,7 +91,9 @@ class MetricDatagramReceiver(MetricReceiver, DatagramProtocol):
 
         self.metricReceived(metric, datapoint)
       except:
-        log.listener('invalid line received from %s, ignoring' % host)
+        if len(line) > 400:
+          line = line[:400] + '...'
+        log.listener('invalid line received from %s, ignoring  [%s]' % (host, line.strip()))
 
 
 class MetricPickleReceiver(MetricReceiver, Int32StringReceiver):

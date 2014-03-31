@@ -251,7 +251,7 @@ class CarbonCacheOptions(usage.Options):
             elif not self.parent["nodaemon"]:
                 logdir = settings.LOG_DIR
                 if not isdir(logdir):
-                    os.mkdir(logdir)
+                    os.makedirs(logdir)
                     if settings.USER:
                         # We have not yet switched to the specified user,
                         # but that user must be able to create files in this

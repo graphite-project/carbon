@@ -124,7 +124,7 @@ class AggregationRule:
 
       regex_pattern_parts.append(regex_part)
 
-    regex_pattern = '\\.'.join(regex_pattern_parts)
+    regex_pattern = '\\.'.join(regex_pattern_parts) + '$'
     self.regex = re.compile(regex_pattern)
 
   def build_template(self):

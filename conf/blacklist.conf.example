@@ -3,3 +3,10 @@
 # match one of these expressions will be dropped
 # This file is reloaded automatically when changes are made
 ^some\.noisy\.metric\.prefix\..*
+
+# Reject metrics with multiple or surrounding dots, since they lead to
+# counter intuitive behavior when read (they can be read from disk but not
+# from carbon-cache, at least with whisper data back-end)
+\.\.
+^\.
+\.$

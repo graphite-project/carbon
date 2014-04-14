@@ -4,10 +4,10 @@ import time
 import struct
 
 from thrift.transport import TSocket
-from graphitedata.tsdb import TSDB
-from graphitedata.hbase.ttypes import *
-from graphitedata.hbase.Hbase import Client
-from graphitedata import util
+from carbon.lib.carbon.tsdb import TSDB
+from carbon.lib.carbon.hbase.ttypes import *
+from carbon.lib.carbon.hbase.Hbase import Client
+from carbon.lib.carbon import util
 
 
 # we manage a namespace table (NS) and then a data table (data)
@@ -420,4 +420,3 @@ def _deduplicate(entries):
         if entry not in yielded:
             yielded.add(entry)
             yield entry
-

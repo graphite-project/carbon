@@ -116,11 +116,10 @@ def writeCachedDataPoints():
         dbDir = dirname(dbFilePath)
         try:
           APP_DB.create(metric, retention_config, xFilesFactor, aggregationMethod, settings.WHISPER_SPARSE_CREATE, settings.WHISPER_FALLOCATE_CREATE)
+          instrumentation.increment('creates')
         except OSError as e:
           if e.errno != errno.EEXIST:
             log.err("%s" % e)
-
-        instrumentation.increment('creates')
 
       try:
         t1 = time.time()

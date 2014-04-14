@@ -13,8 +13,8 @@ fi
 DAEMON="cache"
 GRAPHITE_DIR="/opt/graphite"
 LOG_DIR="/var/log/graphite"
-CONF="/opt/graphite/conf"
-INSTANCES=$(grep "^\[${DAEMON}" ${GRAPHITE_DIR}/conf/carbon.conf | cut -d \[ -f 2 | cut -d \] -f 1 | cut -d : -f 2)
+CONF="${GRAPHITE_DIR}/conf/carbon.conf"
+INSTANCES=$(grep "^\[${DAEMON}" ${CONF} | cut -d \[ -f 2 | cut -d \] -f 1 | cut -d : -f 2)
 
 function die {
   echo $1
@@ -95,7 +95,7 @@ stop(){
 
 status(){
     if [ ! -z $ONLY_INSTANCE ]; then
-        $GRAPHITE_DIR/bin/carbon-${DAEMON}.py --instance=${ONLY_INSTANCE} --pidfile=$LOG_DIR/${DAEMON}-${ONLY_INSTANCE}/carbon-${DAEMON}.pid --logdir=$LOG_DIR/${DAEMON}_${ONLY_INSTANCE} start
+        $GRAPHITE_DIR/bin/carbon-${DAEMON}.py --instance=${ONLY_INSTANCE} --pidfile=$LOG_DIR/${DAEMON}-${ONLY_INSTANCE}/carbon-${DAEMON}.pid --logdir=$LOG_DIR/${DAEMON}_${ONLY_INSTANCE} status
     
         if [ $? -eq 0 ]; then
             echo_success
@@ -108,7 +108,7 @@ status(){
             if [ "${INSTANCE}" == "${DAEMON}" ]; then
                 INSTANCE="a"
             fi
-            $GRAPHITE_DIR/bin/carbon-${DAEMON}.py --instance=${INSTANCE} --pidfile=$LOG_DIR/${DAEMON}-${INSTANCE}/carbon-${DAEMON}.pid --logdir=$LOG_DIR/${DAEMON}_${INSTANCE} start
+            $GRAPHITE_DIR/bin/carbon-${DAEMON}.py --instance=${INSTANCE} --pidfile=$LOG_DIR/${DAEMON}-${INSTANCE}/carbon-${DAEMON}.pid --logdir=$LOG_DIR/${DAEMON}_${INSTANCE} status
     
             if [ $? -eq 0 ]; then
                 echo_success
@@ -139,6 +139,6 @@ case "$1" in
     start
     ;;
   *)
-    echo $"Usage: $0 {start|stop|restart|status}"
+    echo $"Usage: $0 {start|stop|restart|status} ({instance})"
     exit 1
 esac

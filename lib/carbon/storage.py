@@ -26,11 +26,6 @@ STORAGE_SCHEMAS_CONFIG = join(settings.CONF_DIR, 'storage-schemas.conf')
 STORAGE_AGGREGATION_CONFIG = join(settings.CONF_DIR, 'storage-aggregation.conf')
 STORAGE_LISTS_DIR = join(settings.CONF_DIR, 'lists')
 
-def getFilesystemPath(metric):
-  metric_path = metric.replace('.',sep).lstrip(sep) + '.wsp'
-  return join(settings.LOCAL_DATA_DIR, metric_path)
-
-
 class Schema:
   def test(self, metric):
     raise NotImplementedError()
@@ -71,9 +66,8 @@ class ListSchema(Schema):
 
     if exists(self.path):
       self.mtime = os.stat(self.path).st_mtime
-      fh = open(self.path, 'rb')
-      self.members = pickle.load(fh)
-      fh.close()
+      with open(self.path, 'rb') as file_handle:
+        self.members = pickle.load(file_handle)
 
     else:
       self.mtime = 0
@@ -85,9 +79,8 @@ class ListSchema(Schema):
 
       if current_mtime > self.mtime:
         self.mtime = current_mtime
-        fh = open(self.path, 'rb')
-        self.members = pickle.load(fh)
-        fh.close()
+        with open(self.path, 'rb') as fh:
+          self.members = pickle.load(fh)
 
     return metric in self.members
 

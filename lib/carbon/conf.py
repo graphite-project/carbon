@@ -78,6 +78,7 @@ defaults = dict(
   AGGREGATION_RULES='aggregation-rules.conf',
   REWRITE_RULES='rewrite-rules.conf',
   RELAY_RULES='relay-rules.conf',
+  DB_INIT_FUNC="carbon.db.NewWhisperDB",
 )
 
 

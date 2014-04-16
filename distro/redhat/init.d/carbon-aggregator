@@ -58,7 +58,7 @@ stop(){
         $GRAPHITE_DIR/bin/carbon-${DAEMON}.py --instance=${ONLY_INSTANCE} --pidfile=$LOG_DIR/${DAEMON}-${ONLY_INSTANCE}/carbon-${DAEMON}.pid --logdir=$LOG_DIR/${DAEMON}_${ONLY_INSTANCE} --config=${CONF} stop
         sleep 20
         pid=$(/usr/bin/pgrep -f "carbon-${DAEMON}.py --instance=${ONLY_INSTANCE}")
-        if [ $(/usr/sbin/netstat -lnp | grep $pid | grep ":2.*" | /usr/bin/wc -l) -gt 0 ]; then
+        if [ $(/bin/netstat -lnp | grep $pid | grep ":2.*" | /usr/bin/wc -l) -gt 0 ]; then
             echo "Instance ${INSTANCE} did not release ports yet. Sleeping longer, then force killing it..."
             sleep 5
             /usr/bin/pkill -9 -f "carbon-${DAEMON}.py --instance=${ONLY_INSTANCE}"
@@ -79,7 +79,7 @@ stop(){
             $GRAPHITE_DIR/bin/carbon-${DAEMON}.py --instance=${INSTANCE} --pidfile=$LOG_DIR/${DAEMON}-${INSTANCE}/carbon-${DAEMON}.pid --logdir=$LOG_DIR/${DAEMON}_${INSTANCE} --config=${CONF} stop
             sleep 20
             pid=$(/usr/bin/pgrep -f "carbon-${DAEMON}.py --instance=${INSTANCE}")
-            if [ $(/usr/sbin/netstat -lnp | grep $pid | grep ":2.*" | /usr/bin/wc -l) -gt 0 ]; then
+            if [ $(/bin/netstat -lnp | grep $pid | grep ":2.*" | /usr/bin/wc -l) -gt 0 ]; then
                 echo "Instance ${INSTANCE} did not release ports yet. Sleeping longer, then force killing it..."
                 sleep 5
                 /usr/bin/pkill -9 -f "carbon-${DAEMON}.py --instance=${INSTANCE}"
@@ -123,7 +123,7 @@ status(){
 }
 
 if [ -n $2 ]; then
-    ONLY_INSTANCE = $2
+    ONLY_INSTANCE=$2
 fi
 
 case "$1" in

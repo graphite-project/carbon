@@ -108,7 +108,7 @@ def writeCachedDataPoints():
             xFilesFactor, aggregationMethod = schema.archives
             break
 
-        if not retentionConfig:
+        if not retention_config:
           raise Exception("No storage schema matched the metric '%s', check your storage-schemas.conf file." % metric)
         log.creates("creating database metric %s (metric=%s xff=%s agg=%s)" %
                    (metric, retention_config, xFilesFactor, aggregationMethod))

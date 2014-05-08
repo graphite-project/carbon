@@ -3,14 +3,9 @@
 import errno
 import os
 from os.path import join, exists, dirname
-from carbon.util import PluginRegistrar
-
-
 
 class TimeSeriesDatabase(object):
   "Abstract base class for Carbon database backends"
-  __metaclass__ = PluginRegistrar
-  plugins = {}
 
   #def read(self, metric, start_time, end_time):
   #  after 1.1 merge

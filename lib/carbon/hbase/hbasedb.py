@@ -4,10 +4,14 @@ import time
 import struct
 
 from thrift.transport import TSocket
-from carbon.lib.carbon.tsdb import TSDB
-from carbon.lib.carbon.hbase.ttypes import *
-from carbon.lib.carbon.hbase.Hbase import Client
-from carbon.lib.carbon import util
+from carbon.tsdb import TSDB
+from carbon.hbase.ttypes import *
+from carbon.hbase.Hbase import Client
+#from carbon.hbase.Hbase import BatchMutation
+from carbon import util
+from carbon import log
+
+from thriftpool import client as tpClient
 
 
 # we manage a namespace table (NS) and then a data table (data)
@@ -56,19 +60,37 @@ class HbaseTSDB(TSDB):
         # set up client
         self.metaTable = table_prefix + "META"
         self.dataTable = table_prefix + "DATA"
-        socket = TSocket.TSocket(host, port)
-        self.transport = TTransport.TBufferedTransport(socket)
-        protocol = TBinaryProtocol.TBinaryProtocol(self.transport)
-        self.client = Client(protocol)
-        self.transport.open()
+        self.client = tpClient.Client(iface_cls=Client,
+            host=host,
+            port=port,
+            pool_size=20,
+            retries=3)
+#        socket = TSocket.TSocket(host, port)
+#        self.transport = TTransport.TBufferedTransport(socket)
+#        protocol = TBinaryProtocol.TBinaryProtocol(self.transport)
+#        self.client = Client(protocol)
+#        self.transport.open()
         # ensure both our tables exist
         tables = self.client.getTableNames()
         if self.metaTable not in tables:
-            self.client.createTable(self.metaTable, [ColumnDescriptor("cf:")])
+            self.client.createTable(self.metaTable, [ColumnDescriptor("cf:", compression="Snappy")])
             # add counter record
             self.client.atomicIncrement(self.metaTable, "CTR", "cf:CTR", 1)
         if self.dataTable not in tables:
-            self.client.createTable(self.dataTable, [ColumnDescriptor("cf:")])
+            self.client.createTable(self.dataTable, [ColumnDescriptor("cf:", compression="Snappy")])
+       #self.transport.close()
+
+    def __refresh_thrift_client(self):
+         log.cache("Attempting to refresh thrift client") 
+         self.transport.close()
+         time.sleep(0.25)
+         self.transport.open()
+#        socket = TSocket.TSocket(host, port)
+#        self.transport = TTransport.TBufferedTransport(socket)
+#        protocol = TBinaryProtocol.TBinaryProtocol(self.transport)
+#        self.client = Client(protocol)
+#        self.transport.open()
+       
 
 
     # returns info for the underlying db (including 'aggregationMethod')
@@ -90,22 +112,27 @@ class HbaseTSDB(TSDB):
     #}
     #
     def info(self, metric):
+        #self.transport.open()
         # info is stored as serialized map under META#METRIC
-        key = "m_" + metric
+        # key = "m_" + metric 
         result = self.client.get(self.metaTable, "m_" + metric, "cf:INFO", None)
         if len(result) == 0:
             raise Exception("No metric " + metric)
-        return json.loads(result[0].value)
+        val = json.loads(result[0].value)
+        #self.transport.close()
+        return val
 
     # aggregationMethod specifies the method to use when propogating data (see ``whisper.aggregationMethods``)
     # xFilesFactor specifies the fraction of data points in a propagation interval that must have known values for a propagation to occur.  If None, the existing xFilesFactor in path will not be changed
     def setAggregationMethod(self, metric, aggregationMethod, xFilesFactor=None):
+        #self.transport.open()
         currInfo = self.info(metric)
         currInfo['aggregationMethod'] = aggregationMethod
         currInfo['xFilesFactor'] = xFilesFactor
 
         infoJson = json.dumps(currInfo)
         self.client.mutateRow(self.metaTable, "m_" + metric, [Mutation(column="cf:INFO", value=infoJson)], None)
+        #self.transport.close()
         return
 
 
@@ -113,6 +140,7 @@ class HbaseTSDB(TSDB):
     # xFilesFactor specifies the fraction of data points in a propagation interval that must have known values for a propagation to occur
     # aggregationMethod specifies the function to use when propogating data (see ``whisper.aggregationMethods``)
     def create(self, metric, archiveList, xFilesFactor, aggregationMethod, isSparse, doFallocate):
+        #self.transport.open()
 
         #for a in archiveList:
         #    a['archiveId'] = (self.client.atomicIncrement(self.metaTable,"CTR","cf:CTR",1))
@@ -155,7 +183,7 @@ class HbaseTSDB(TSDB):
             if len(parentLink) == 0:
                 self.client.mutateRow(self.metaTable, metricParentKey,
                                       [Mutation(column="cf:c_" + part, value=metricKey)], None)
-
+        #self.transport.close()
 
     def update_many(self, metric, points, retention_config):
         """Update many datapoints.
@@ -166,6 +194,7 @@ class HbaseTSDB(TSDB):
 
         """
 
+#        log.cache(retention_config)
         info = self.info(metric)
         now = int(time.time())
         archives = iter(info['archives'])
@@ -196,23 +225,27 @@ class HbaseTSDB(TSDB):
             self.__archive_update_many(info, currentArchive, currentPoints)
 
     def __archive_update_many(self, info, archive, points):
+        #self.transport.open()
         numPoints = archive['points']
         step = archive['secondsPerPoint']
         archiveId = archive['archiveId']
         alignedPoints = [(timestamp - (timestamp % step), value)
                          for (timestamp, value) in points]
         alignedPoints = dict(alignedPoints).items() # Take the last val of duplicates
-
+        mutationsbatch = []
         for timestamp, value in alignedPoints:
             slot = int((timestamp / step) % numPoints)
             rowkey = struct.pack(KEY_FMT, archiveId, slot)
             rowval = struct.pack(VAL_FMT, timestamp, value)
-            self.client.mutateRow(self.dataTable, rowkey, [Mutation(column="cf:d", value=rowval)], None)
+            mutationsbatch.append(BatchMutation(rowkey, [Mutation(column="cf:d", value=rowval, writeToWAL=False)]))
+#            self.client.mutateRow(self.dataTable, rowkey, [Mutation(column="cf:d", value=rowval)], None)
+
+#        log.cache("Length of batch: %d" %(len(mutationsbatch)))
+        self.client.mutateRows(self.dataTable, mutationsbatch, None)
 
         #Now we propagate the updates to lower-precision archives
         higher = archive
         lowerArchives = [arc for arc in info['archives'] if arc['secondsPerPoint'] > archive['secondsPerPoint']]
-
         for lower in lowerArchives:
             fit = lambda i: i - (i % lower['secondsPerPoint'])
             lowerIntervals = [fit(p[0]) for p in alignedPoints]
@@ -225,6 +258,7 @@ class HbaseTSDB(TSDB):
             if not propagateFurther:
                 break
             higher = lower
+        #self.transport.close()
 
     def __propagate(self, info, timestamp, higher, lower):
         aggregationMethod = info['aggregationMethod']
@@ -233,13 +267,12 @@ class HbaseTSDB(TSDB):
         # we want to update the items from higher between these two
         intervalStart = timestamp - (timestamp % lower['secondsPerPoint'])
         intervalEnd = intervalStart + lower['secondsPerPoint']
-
-        higherResData = self.__archive_fetch(higher['archiveId'], intervalStart, intervalEnd)
-
+        (higherResInfo, higherResData) = self.__archive_fetch(higher, intervalStart, intervalEnd)
+        
         known_datapts = [v for v in higherResData if v is not None] # strip out "nones"
         if (len(known_datapts) / len(higherResData)) > xff: # we have enough data, so propagate downwards
             aggregateValue = util.aggregate(aggregationMethod, known_datapts)
-            lowerSlot = timestamp / lower['secondsPerPoint'] % lower['numPoints']
+            lowerSlot = timestamp / lower['secondsPerPoint'] % lower['points']
             rowkey = struct.pack(KEY_FMT, lower['archiveId'], lowerSlot)
             rowval = struct.pack(VAL_FMT, timestamp, aggregateValue)
             self.client.mutateRow(self.dataTable, rowkey, [Mutation(column="cf:d", value=rowval)], None)
@@ -260,12 +293,27 @@ class HbaseTSDB(TSDB):
         for t in ranges:
             startkey = struct.pack(KEY_FMT, archive['archiveId'], t[0])
             endkey = struct.pack(KEY_FMT, archive['archiveId'], t[1])
-            scannerId = self.client.scannerOpenWithStop(self.dataTable, startkey, endkey, ["cf:d"], None)
+
+            ### Testing
+            scan = TScan(startRow = startkey, 
+                         stopRow = endkey, 
+                         timestamp = None, 
+                         caching = 2000, 
+                         filterString = None,
+                         batchSize = None, 
+                         sortColumns = False)
+
+            scannerId = self.client.scannerOpenWithScan(self.dataTable, scan, {})
+            ###
+
+
+            #scannerId = self.client.scannerOpenWithStop(self.dataTable, startkey, endkey, ["cf:d"], None)
 
             numSlots = (endTime - startTime) / archive['secondsPerPoint']
             ret = [None] * numSlots
 
-            for row in self.client.scannerGetList(scannerId, 100000):
+            for row in self.client.scannerGetList(scannerId, 10000000):
+#            for row in self.client.scannerGetList(scannerId, None):
                 (timestamp, value) = struct.unpack(VAL_FMT, row.columns["cf:d"].value)
                 if timestamp >= startTime and timestamp <= endTime:
                     returnslot = int((timestamp - startTime) / archive['secondsPerPoint']) % numSlots
@@ -276,7 +324,13 @@ class HbaseTSDB(TSDB):
 
 
     def exists(self, metric):
-        return len(self.client.getRow(self.metaTable, "m_" + metric, None)) > 0
+#        try:
+        metric_len = len(self.client.getRow(self.metaTable, "m_" + metric, None))
+        return metric_len > 0
+#        except: 
+#            self.__refresh_thrift_client()
+#            metric_len = len(self.client.getRow(self.metaTable, "m_" + metric, None))
+#            return metric_len > 0
 
 
     # fromTime is an epoch time
@@ -286,6 +340,7 @@ class HbaseTSDB(TSDB):
     # where timeInfo is itself a tuple of (fromTime, untilTime, step)
     # Returns None if no data can be returned
     def fetch(self, info, fromTime, untilTime):
+        #self.transport.open()
         now = int(time.time())
         if untilTime is None:
             untilTime = now
@@ -306,7 +361,9 @@ class HbaseTSDB(TSDB):
         for archive in info['archives']:
             if archive['retention'] >= diff:
                 break
-        return self.__archive_fetch(archive, fromTime, untilTime)
+        (timeInfo, ret) = self.__archive_fetch(archive, fromTime, untilTime)
+        #self.transport.close()
+        return timeInfo, ret
 
     # returns [ start, end ] where start,end are unixtime ints
     def get_intervals(self, metric):
@@ -317,9 +374,11 @@ class HbaseTSDB(TSDB):
     # returns list of metrics as strings
     def find_nodes(self, query):
         # break query into parts
+        #self.transport.open()
         clean_pattern = query.pattern.replace('\\', '')
         pattern_parts = clean_pattern.split('.')
         ret = self._find_paths("ROOT", pattern_parts)
+        #self.transport.close()
         return ret
 
     def _find_paths(self, currNodeRowKey, patterns):
@@ -338,8 +397,9 @@ class HbaseTSDB(TSDB):
 
         subnodes = {}
         for k, v in nodeRow[0].columns.items():
+#            log.cache("key: %s, value: %s" %(k, v))
             if k.startswith("cf:c_"): # branches start with c_
-                key = k.split("_", 2)[1] # pop off cf:c_ prefix
+                key = k.split("_", 1)[1] # pop off cf:c_ prefix
                 subnodes[key] = v.value
 
         matching_subnodes = match_entries(subnodes.keys(), pattern)
@@ -364,7 +424,7 @@ class HbaseTSDB(TSDB):
                 nodeRow = self.client.getRow(self.metaTable, rowKey, None)
                 if len(nodeRow) == 0:
                     continue
-                metric = rowKey.split("_", 2)[1] # pop off "m_" in key
+                metric = rowKey.split("_", 1)[1] # pop off "m_" in key
                 if "cf:INFO" in nodeRow[0].columns:
                     info = json.loads(nodeRow[0].columns["cf:INFO"].value)
                     start = time.time() - info['maxRetention']

@@ -3,13 +3,14 @@ import whisper
 from os.path import sep, dirname, join, exists
 from os import makedirs
 from carbon.conf import settings
+from carbon import log
 
 class WhisperDB(object):
   """
   WhisperDB is the default Whisper database implementation for the 
   pluggable storage system.
   """
-  __slots__ = ('dataDir')
+  __slots__ = ('dataDir',)
 
   def __init__(self, dataDir):
     self.dataDir = dataDir
@@ -32,7 +33,7 @@ class WhisperDB(object):
       if not (exists(dbDir)):
         makedirs(dbDir, 0755)
     except Exception as e:
-      print("Error creating dir " + dbDir + " : " + e)
+      log.creates("Error creating dir " + dbDir + " : " + e)
     return whisper.create(dbFilePath, retention_config, xFilesFactor, aggregationMethod, sparse, useFallocate)
 
   def update_many(self, metric, datapoints, retention_config):

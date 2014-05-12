@@ -113,7 +113,6 @@ def writeCachedDataPoints():
         log.creates("creating database metric %s (metric=%s xff=%s agg=%s)" %
                    (metric, retention_config, xFilesFactor, aggregationMethod))
 
-        dbDir = dirname(dbFilePath)
         try:
           APP_DB.create(metric, retention_config, xFilesFactor, aggregationMethod, settings.WHISPER_SPARSE_CREATE, settings.WHISPER_FALLOCATE_CREATE)
           instrumentation.increment('creates')

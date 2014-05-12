@@ -1,21 +1,22 @@
-from conf import Settings
-from . import GRAPHITE_STORAGE_DIR
-from carbon.lib.carbon.hbase.hbasedb import HbaseTSDB
-from carbon.lib.carbon.whispertsdb import WhisperTSDB
+from carbon.conf import settings
+from carbon.hbase.hbasedb import HbaseTSDB
+from carbon.whispertsdb import WhisperTSDB
+import os
 from os.path import join
 
-hbaseDefaults = dict(
-    THRIFT_HOST="localhost",
-    THRIFT_PORT=9090,
-    TABLE_PREFIX="graphite_",
-)
-def HbaseDB():
-    cfg = Settings(hbaseDefaults,"hbase")
-    return HbaseTSDB(cfg.THRIFT_HOST,cfg.THRIFT_PORT,cfg.TABLE_PREFIX)
+import sys
+sys.path.append('/usr/local/rnt/webapp')
 
-whisperDefaults = dict(
-    WHISPER_STORAGE_DIR=join(GRAPHITE_STORAGE_DIR,"whisper")
-)
+from graphite import local_settings
+
+CONF_DIR = local_settings.CONF_DIR
+
+def HbaseDB():
+    if not settings.has_key('THRIFT_HOST'):
+        settings.readFrom(join(CONF_DIR, 'graphite-db.conf'), 'HbaseDB')
+    return HbaseTSDB(settings.THRIFT_HOST,settings.THRIFT_PORT,settings.GRAPHITE_PREFIX)
+
 def WhisperDB():
-    config = Settings(whisperDefaults,"whisper")
-    return WhisperTSDB(config.WHISPER_STORAGE_DIR)
+    if not settings.has_key('WHISPER_STORAGE_DIR'):
+        settings.readFrom(join(CONF_DIR, 'graphite-db.conf'), 'WhisperDB')
+    return WhisperTSDB(settings.WHISPER_STORAGE_DIR)

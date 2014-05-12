@@ -26,7 +26,7 @@ function die {
 start(){
     if [ ! -z $ONLY_INSTANCE ]; then
         echo "Starting carbon-${DAEMON}:${ONLY_INSTANCE}..."
-        $GRAPHITE_DIR/bin/carbon-${DAEMON}.py --instance=${ONLY_INSTANCE} --pidfile=$LOG_DIR/${DAEMON}-${ONLY_INSTANCE}/carbon-${DAEMON}.pid --logdir=$LOG_DIR/${DAEMON}_${ONLY_INSTANCE} --config=${CONF} start
+        $GRAPHITE_DIR/bin/carbon-${DAEMON}.py --instance=${ONLY_INSTANCE} --pidfile=$LOG_DIR/${DAEMON}-${ONLY_INSTANCE}/carbon-${DAEMON}.pid --logdir=$LOG_DIR/${DAEMON}-${ONLY_INSTANCE} --config=${CONF} start
 
         if [ $? -eq 0 ]; then
             echo_success
@@ -40,7 +40,7 @@ start(){
                 INSTANCE="a"
             fi
             echo "Starting carbon-${DAEMON}:${INSTANCE}..."
-            $GRAPHITE_DIR/bin/carbon-${DAEMON}.py --instance=${INSTANCE} --pidfile=$LOG_DIR/${DAEMON}-${INSTANCE}/carbon-${DAEMON}.pid --logdir=$LOG_DIR/${DAEMON}_${INSTANCE} --config=${CONF} start
+            $GRAPHITE_DIR/bin/carbon-${DAEMON}.py --instance=${INSTANCE} --pidfile=$LOG_DIR/${DAEMON}-${INSTANCE}/carbon-${DAEMON}.pid --logdir=$LOG_DIR/${DAEMON}-${INSTANCE} --config=${CONF} start
 
             if [ $? -eq 0 ]; then
                 echo_success
@@ -55,7 +55,7 @@ start(){
 stop(){
     if [ ! -z $ONLY_INSTANCE ]; then
         echo "Stopping carbon-${CARBON_DAEMON}:${ONLY_INSTANCE}..."
-        $GRAPHITE_DIR/bin/carbon-${DAEMON}.py --instance=${ONLY_INSTANCE} --pidfile=$LOG_DIR/${DAEMON}-${ONLY_INSTANCE}/carbon-${DAEMON}.pid --logdir=$LOG_DIR/${DAEMON}_${ONLY_INSTANCE} --config=${CONF} stop
+        $GRAPHITE_DIR/bin/carbon-${DAEMON}.py --instance=${ONLY_INSTANCE} --pidfile=$LOG_DIR/${DAEMON}-${ONLY_INSTANCE}/carbon-${DAEMON}.pid --logdir=$LOG_DIR/${DAEMON}-${ONLY_INSTANCE} --config=${CONF} stop
         sleep 20
         pid=$(/usr/bin/pgrep -f "carbon-${DAEMON}.py --instance=${ONLY_INSTANCE}")
         if [ ! -z $pid ]; then
@@ -66,7 +66,7 @@ stop(){
                 /usr/bin/pkill -9 -f "carbon-${DAEMON}.py --instance=${ONLY_INSTANCE}"
             fi
         fi
-        rm -f $LOG_DIR/${DAEMON}-${ONLY_INSTANCE}/carbon-${DAEMON}.pid
+
         if [ $? -eq 0 ]; then
             echo_success
         else
@@ -79,7 +79,7 @@ stop(){
                 INSTANCE="a"
             fi
             echo "Stopping carbon-${DAEMON}:${INSTANCE}..."
-            $GRAPHITE_DIR/bin/carbon-${DAEMON}.py --instance=${INSTANCE} --pidfile=$LOG_DIR/${DAEMON}-${INSTANCE}/carbon-${DAEMON}.pid --logdir=$LOG_DIR/${DAEMON}_${INSTANCE} --config=${CONF} stop
+            $GRAPHITE_DIR/bin/carbon-${DAEMON}.py --instance=${INSTANCE} --pidfile=$LOG_DIR/${DAEMON}-${INSTANCE}/carbon-${DAEMON}.pid --logdir=$LOG_DIR/${DAEMON}-${INSTANCE} --config=${CONF} stop
             sleep 20
             pid=$(/usr/bin/pgrep -f "carbon-${DAEMON}.py --instance=${INSTANCE}")
             if [ ! -z $pid ]; then
@@ -103,7 +103,7 @@ stop(){
 
 status(){
     if [ ! -z $ONLY_INSTANCE ]; then
-        $GRAPHITE_DIR/bin/carbon-${DAEMON}.py --instance=${ONLY_INSTANCE} --pidfile=$LOG_DIR/${DAEMON}-${ONLY_INSTANCE}/carbon-${DAEMON}.pid --logdir=$LOG_DIR/${DAEMON}_${ONLY_INSTANCE} --config=${CONF} status
+        $GRAPHITE_DIR/bin/carbon-${DAEMON}.py --instance=${ONLY_INSTANCE} --pidfile=$LOG_DIR/${DAEMON}-${ONLY_INSTANCE}/carbon-${DAEMON}.pid --logdir=$LOG_DIR/${DAEMON}-${ONLY_INSTANCE} --config=${CONF} status
     
         if [ $? -eq 0 ]; then
             echo_success
@@ -116,7 +116,7 @@ status(){
             if [ "${INSTANCE}" == "${DAEMON}" ]; then
                 INSTANCE="a"
             fi
-            $GRAPHITE_DIR/bin/carbon-${DAEMON}.py --instance=${INSTANCE} --pidfile=$LOG_DIR/${DAEMON}-${INSTANCE}/carbon-${DAEMON}.pid --logdir=$LOG_DIR/${DAEMON}_${INSTANCE} --config=${CONF} status
+            $GRAPHITE_DIR/bin/carbon-${DAEMON}.py --instance=${INSTANCE} --pidfile=$LOG_DIR/${DAEMON}-${INSTANCE}/carbon-${DAEMON}.pid --logdir=$LOG_DIR/${DAEMON}-${INSTANCE} --config=${CONF} status
     
             if [ $? -eq 0 ]; then
                 echo_success

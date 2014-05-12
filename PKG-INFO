@@ -1,0 +1,10 @@
+Metadata-Version: 1.0
+Name: carbon
+Version: 0.9.10
+Summary: Backend data caching and persistence daemon for Graphite
+Home-page: https://launchpad.net/graphite
+Author: Chris Davis
+Author-email: chrismd@gmail.com
+License: Apache Software License 2.0
+Description: UNKNOWN
+Platform: UNKNOWN

@@ -79,6 +79,9 @@ defaults = dict(
   REWRITE_RULES='rewrite-rules.conf',
   RELAY_RULES='relay-rules.conf',
   DB_INIT_FUNC="carbon.db.NewWhisperDB",
+#  THRIFT_PORT=9090,
+#  THRIFT_HOST='localhost',
+#  TABLE_PREFIX='graphite_',
 )
 
 
@@ -168,7 +171,6 @@ class Settings(dict):
 
 
 settings = Settings()
-settings.update(defaults)
 
 
 class CarbonCacheOptions(usage.Options):
@@ -486,6 +488,7 @@ def read_config(program, options, **kwargs):
     """
     settings = Settings()
     settings.update(defaults)
+    
 
     # Initialize default values if not set yet.
     for name, value in kwargs.items():
@@ -555,5 +558,8 @@ def read_config(program, options, **kwargs):
             options["pidfile"] or
             join(settings["PID_DIR"], '%s.pid' % program))
         settings["LOG_DIR"] = (options["logdir"] or settings["LOG_DIR"])
+
+    settings.readFrom(join(settings['CONF_DIR'], 'graphite-db.conf'),
+        settings['DB_INIT_FUNC'].split('.')[2])
 
     return settings

@@ -13,14 +13,15 @@ def process(metric, datapoint):
     metric = rule.apply(metric)
 
   aggregate_metrics = []
+  aggregated = False
 
   for rule in RuleManager.rules:
     aggregate_metric = rule.get_aggregate_metric(metric)
 
     if aggregate_metric is None:
       continue
-    else:
-      aggregate_metrics.append(aggregate_metric)
+    aggregate_metrics.append(aggregate_metric)
+    aggregated = True
 
     buffer = BufferManager.get_buffer(aggregate_metric)
 
@@ -33,6 +34,6 @@ def process(metric, datapoint):
     metric = rule.apply(metric)
 
   if metric not in aggregate_metrics:
-    if settings.LOG_AGGREGATOR_MISSES:
+    if settings.LOG_AGGREGATOR_MISSES and not aggregated:
       log.msg("Couldn't match metric %s with any aggregation rule. Passing on un-aggregated." % metric)
     events.metricGenerated(metric, datapoint)

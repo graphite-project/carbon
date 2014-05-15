@@ -1,3 +1,6 @@
+#Source: https://github.com/amuraru/thrift-connection-pool
+#Licensed under the Apache 2.0 license
+
 import operator
 import inspect
 

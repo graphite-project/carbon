@@ -64,6 +64,7 @@ stop(){
                 /usr/bin/pkill -9 -f "carbon-${DAEMON}.py --instance=${ONLY_INSTANCE}"
             fi
         fi
+        rm -f $LOG_DIR/${DAEMON}-${ONLY_INSTANCE}/carbon-${DAEMON}.pid
 
         if [ $? -eq 0 ]; then
             echo_success
@@ -88,6 +89,7 @@ stop(){
                     /usr/bin/pkill -9 -f "carbon-${DAEMON}.py --instance=${ONLY_INSTANCE}"
                 fi
             fi
+            rm -f $LOG_DIR/${DAEMON}-${INSTANCE}/carbon-${DAEMON}.pid
 
             if [ $? -eq 0 ]; then
                 echo_success

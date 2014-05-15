@@ -1,3 +1,6 @@
+#Source: https://github.com/amuraru/thrift-connection-pool
+#Licensed under the Apache 2.0 license
+
 from thrift.transport import TTransport
 from thrift.transport import TSocket
 from thrift.protocol import TBinaryProtocol

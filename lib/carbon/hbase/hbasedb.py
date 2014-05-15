@@ -65,11 +65,6 @@ class HbaseTSDB(TSDB):
             port=port,
             pool_size=20,
             retries=3)
-#        socket = TSocket.TSocket(host, port)
-#        self.transport = TTransport.TBufferedTransport(socket)
-#        protocol = TBinaryProtocol.TBinaryProtocol(self.transport)
-#        self.client = Client(protocol)
-#        self.transport.open()
         # ensure both our tables exist
         tables = self.client.getTableNames()
         if self.metaTable not in tables:
@@ -78,20 +73,18 @@ class HbaseTSDB(TSDB):
             self.client.atomicIncrement(self.metaTable, "CTR", "cf:CTR", 1)
         if self.dataTable not in tables:
             self.client.createTable(self.dataTable, [ColumnDescriptor("cf:", compression="Snappy")])
-       #self.transport.close()
+
+    def __get_rows(self, scanId):
+        row = self.client.scannerGet(scanId)
+        while row:
+            yield row
+            row = self.client.scannerGet(scanId)
 
     def __refresh_thrift_client(self):
          log.cache("Attempting to refresh thrift client") 
          self.transport.close()
          time.sleep(0.25)
          self.transport.open()
-#        socket = TSocket.TSocket(host, port)
-#        self.transport = TTransport.TBufferedTransport(socket)
-#        protocol = TBinaryProtocol.TBinaryProtocol(self.transport)
-#        self.client = Client(protocol)
-#        self.transport.open()
-       
-
 
     # returns info for the underlying db (including 'aggregationMethod')
 
@@ -112,27 +105,23 @@ class HbaseTSDB(TSDB):
     #}
     #
     def info(self, metric):
-        #self.transport.open()
         # info is stored as serialized map under META#METRIC
         # key = "m_" + metric 
         result = self.client.get(self.metaTable, "m_" + metric, "cf:INFO", None)
         if len(result) == 0:
             raise Exception("No metric " + metric)
         val = json.loads(result[0].value)
-        #self.transport.close()
         return val
 
     # aggregationMethod specifies the method to use when propogating data (see ``whisper.aggregationMethods``)
     # xFilesFactor specifies the fraction of data points in a propagation interval that must have known values for a propagation to occur.  If None, the existing xFilesFactor in path will not be changed
     def setAggregationMethod(self, metric, aggregationMethod, xFilesFactor=None):
-        #self.transport.open()
         currInfo = self.info(metric)
         currInfo['aggregationMethod'] = aggregationMethod
         currInfo['xFilesFactor'] = xFilesFactor
 
         infoJson = json.dumps(currInfo)
         self.client.mutateRow(self.metaTable, "m_" + metric, [Mutation(column="cf:INFO", value=infoJson)], None)
-        #self.transport.close()
         return
 
 
@@ -286,6 +275,8 @@ class HbaseTSDB(TSDB):
         endTime = int(endTime - (endTime % step) + step)
         startSlot = int((startTime / step) % numPoints)
         endSlot = int((endTime / step) % numPoints)
+        numSlots = (endTime - startTime) / archive['secondsPerPoint']
+        ret = [None] * numSlots
         if startSlot > endSlot: # we wrapped so make 2 queries
             ranges = [(0, endSlot + 1), (startSlot, numPoints)]
         else:
@@ -293,28 +284,16 @@ class HbaseTSDB(TSDB):
         for t in ranges:
             startkey = struct.pack(KEY_FMT, archive['archiveId'], t[0])
             endkey = struct.pack(KEY_FMT, archive['archiveId'], t[1])
-
-            ### Testing
-            scan = TScan(startRow = startkey, 
-                         stopRow = endkey, 
-                         timestamp = None, 
-                         caching = 2000, 
-                         filterString = None,
-                         batchSize = None, 
+            
+            scan = TScan(startRow = startkey, stopRow = endkey, 
+                         timestamp = None, caching = 2000, 
+                         filterString = None, batchSize = None, 
                          sortColumns = False)
 
             scannerId = self.client.scannerOpenWithScan(self.dataTable, scan, {})
-            ###
 
-
-            #scannerId = self.client.scannerOpenWithStop(self.dataTable, startkey, endkey, ["cf:d"], None)
-
-            numSlots = (endTime - startTime) / archive['secondsPerPoint']
-            ret = [None] * numSlots
-
-            for row in self.client.scannerGetList(scannerId, 10000000):
-#            for row in self.client.scannerGetList(scannerId, None):
-                (timestamp, value) = struct.unpack(VAL_FMT, row.columns["cf:d"].value)
+            for row in self.__get_rows(scannerId):
+                (timestamp, value) = struct.unpack(VAL_FMT, row[0].columns["cf:d"].value) # this is dumb.
                 if timestamp >= startTime and timestamp <= endTime:
                     returnslot = int((timestamp - startTime) / archive['secondsPerPoint']) % numSlots
                     ret[returnslot] = value
@@ -324,14 +303,8 @@ class HbaseTSDB(TSDB):
 
 
     def exists(self, metric):
-#        try:
         metric_len = len(self.client.getRow(self.metaTable, "m_" + metric, None))
         return metric_len > 0
-#        except: 
-#            self.__refresh_thrift_client()
-#            metric_len = len(self.client.getRow(self.metaTable, "m_" + metric, None))
-#            return metric_len > 0
-
 
     # fromTime is an epoch time
     # untilTime is also an epoch time, but defaults to now.
@@ -340,7 +313,6 @@ class HbaseTSDB(TSDB):
     # where timeInfo is itself a tuple of (fromTime, untilTime, step)
     # Returns None if no data can be returned
     def fetch(self, info, fromTime, untilTime):
-        #self.transport.open()
         now = int(time.time())
         if untilTime is None:
             untilTime = now
@@ -362,8 +334,19 @@ class HbaseTSDB(TSDB):
             if archive['retention'] >= diff:
                 break
         (timeInfo, ret) = self.__archive_fetch(archive, fromTime, untilTime)
-        #self.transport.close()
         return timeInfo, ret
+
+    def build_index(self, tmp_index):
+        scannerId = self.client.scannerOpen(self.metaTable, "", ['cf:INFO'], {})
+
+        t = time.time()
+        total_entries = 0
+        for row in self.__get_rows(scannerId):
+            total_entries += 1
+            tmp_index.write('%s\n' % row[0].row[2:])
+        tmp_index.flush()
+        self.client.scannerClose(scannerId)
+        log.msg("[IndexSearcher] index rebuild took %.6f seconds (%d entries)" % (time.time() - t, total_entries))
 
     # returns [ start, end ] where start,end are unixtime ints
     def get_intervals(self, metric):
@@ -374,11 +357,9 @@ class HbaseTSDB(TSDB):
     # returns list of metrics as strings
     def find_nodes(self, query):
         # break query into parts
-        #self.transport.open()
         clean_pattern = query.pattern.replace('\\', '')
         pattern_parts = clean_pattern.split('.')
         ret = self._find_paths("ROOT", pattern_parts)
-        #self.transport.close()
         return ret
 
     def _find_paths(self, currNodeRowKey, patterns):
@@ -397,7 +378,6 @@ class HbaseTSDB(TSDB):
 
         subnodes = {}
         for k, v in nodeRow[0].columns.items():
-#            log.cache("key: %s, value: %s" %(k, v))
             if k.startswith("cf:c_"): # branches start with c_
                 key = k.split("_", 1)[1] # pop off cf:c_ prefix
                 subnodes[key] = v.value

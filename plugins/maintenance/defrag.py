@@ -9,7 +9,7 @@ namespace = globals()
 for p in ('maxSlicesPerNode', 'maxSliceGap', 'mode'):
   if p not in params:
     raise MissingRequiredParam(p)
-  value = params.pop(p)
+  value = str(params.pop(p))
   if value.isdigit():
     value = int(value)
   namespace[p] = value

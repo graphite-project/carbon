@@ -62,7 +62,10 @@ class _MetricCache(defaultdict):
       datapoints = self.popitem()
     elif not metric and self.method == "sorted":
       metric = self.queue.next()
-      datapoints = (metric, super(_MetricCache, self).pop(metric))
+      # Save only last value for each timestamp
+      popped = super(_MetricCache, self).pop(metric)
+      ordered = sorted(dict(popped).items(), key=lambda x: x[0])
+      datapoints = (metric, deque(ordered))
     self.size -= len(datapoints[1])
     return datapoints
 

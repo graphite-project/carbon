@@ -30,8 +30,9 @@ class MetricCacheIntegrity(MockerTestCase):
         datapoint1 = (now - 10, float(1))
         datapoint2 = (now, float(2))
         MetricCache.store("d.e.f", datapoint1)
-        MetricCache.store("a.b.c", datapoint1)
+        # Simulate metrics arriving out of time
         MetricCache.store("a.b.c", datapoint2)
+        MetricCache.store("a.b.c", datapoint1)
 
         (m, d) = MetricCache.pop()
         self.assertEqual(("a.b.c", deque([datapoint1, datapoint2])), (m, d))

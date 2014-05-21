@@ -122,13 +122,13 @@ class InstrumentationService(Service):
           events.metricGenerated(metric_path, datapoint)
 
       else: # counters
-        metric_path = self.metric_prefix + metric
+        metric_path = self.metric_prefix + str(metric)
         datapoint = (now, data)
         events.metricGenerated(metric_path, datapoint)
 
     # metric functions
     for metric, func in metric_functions.items():
-      metric_path = self.metric_prefix + metric
+      metric_path = self.metric_prefix + str(metric)
       try:
         value = func()
       except:

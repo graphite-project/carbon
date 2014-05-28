@@ -76,7 +76,7 @@ class MetricLineReceiver(MetricReceiver, LineOnlyReceiver):
     except:
       if len(line) > 400:
         line = line[:400] + '...'
-      log.listener('invalid line received from client %s, ignoring  [%s]' % (self.peerName, line.strip()))
+      log.listener('invalid line received from client %s, ignoring  [%s]' % (self.peerName, line.strip().encode('string_escape')))
       return
 
     self.metricReceived(metric, datapoint)
@@ -93,7 +93,7 @@ class MetricDatagramReceiver(MetricReceiver, DatagramProtocol):
       except:
         if len(line) > 400:
           line = line[:400] + '...'
-        log.listener('invalid line received from %s, ignoring  [%s]' % (host, line.strip()))
+        log.listener('invalid line received from %s, ignoring  [%s]' % (host, line.strip().encode('string_escape')))
 
 
 class MetricPickleReceiver(MetricReceiver, Int32StringReceiver):

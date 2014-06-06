@@ -267,10 +267,19 @@ DESTINATIONS = 127.0.0.1:2004
 MAX_DATAPOINTS_PER_MESSAGE = 500
 MAX_QUEUE_SIZE = 10000
 
+# This is the percentage that the queue must be empty before it will accept
+# more messages.  For a larger site, if the queue is very large it makes sense
+# to tune this to allow for incoming stats.  So if you have an average
+# flow of 100k stats/minute, and a MAX_QUEUE_SIZE of 3,000,000, it makes sense
+# to allow stats to start flowing when you've cleared the queue to 95% since
+# you should have space to accommodate the next minute's worth of stats
+# even before the relay incrementally clears more of the queue
+QUEUE_LOW_WATERMARK_PCT = 0.8
+
 # Set this to False to drop datapoints when any send queue (sending datapoints
 # to a downstream carbon daemon) hits MAX_QUEUE_SIZE. If this is True (the
 # default) then sockets over which metrics are received will temporarily stop accepting
-# data until the send queues fall below 80% MAX_QUEUE_SIZE.
+# data until the send queues fall below QUEUE_LOW_WATERMARK_PCT * MAX_QUEUE_SIZE.
 USE_FLOW_CONTROL = True
 
 # Set this to True to enable whitelisting and blacklisting of metrics in

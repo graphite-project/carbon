@@ -8,7 +8,7 @@ from carbon.util import pickle
 from carbon import log, state, instrumentation
 
 
-SEND_QUEUE_LOW_WATERMARK = settings.MAX_QUEUE_SIZE * 0.8
+SEND_QUEUE_LOW_WATERMARK = settings.MAX_QUEUE_SIZE * settings.QUEUE_LOW_WATERMARK_PCT
 
 
 class CarbonClientProtocol(Int32StringReceiver):

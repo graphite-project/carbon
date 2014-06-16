@@ -78,3 +78,26 @@ according to the docs on the [Graphite wiki][].
 
 [Graphite wiki]: http://graphite.wikidot.com
 [examples/example-client.py]: https://github.com/graphite-project/carbon/blob/master/examples/example-client.py
+
+
+## Troubleshooting
+
+Carbon uses SQLite as its persistence layer. SQLite is meant to be a lightweight database, and thus can’t support a high level of concurrency. OperationalError: database is locked errors indicate that your application is experiencing more concurrency than sqlite can handle in default configuration. This error means that one thread or process has an exclusive lock on the database connection and another thread timed out waiting for the lock the be released.  If you see “Database is locked” errors
+
+Python’s SQLite wrapper has a default timeout value that determines how long the second thread is allowed to wait on the lock before it times out and raises the OperationalError: database is locked error.
+
+If you’re getting this error, you can solve it by:
+
+* Switching to another database backend. At a certain point SQLite becomes too “lite” for real-world applications, and these sorts of concurrency errors indicate you’ve reached that point.
+
+* Rewriting your code to reduce concurrency and ensure that database transactions are short-lived.
+
+* Increase the default timeout value by setting the timeout database option option:
+
+         'OPTIONS': {
+	         ...
+             'timeout': 20,
+             ...
+          }
+
+This will simply make SQLite wait a bit longer before throwing “database is locked” errors; it won’t really do anything to solve 

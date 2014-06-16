@@ -29,6 +29,8 @@
 #   PID_DIR        = /var/run/
 #
 #LOCAL_DATA_DIR = /opt/graphite/storage/whisper/
+# initializes graphitedata plugin DB
+# DB_INIT_FUNC=graphitedata.plugin.WhisperDB
 
 # Specify the user to drop privileges to
 # If this is blank carbon runs as the user that invokes it
@@ -172,6 +174,7 @@ WHISPER_AUTOFLUSH = False
 
 # To configure special settings for the carbon-cache instance 'b', uncomment this:
 #[cache:b]
+# DB_INIT_FUNC=graphitedata.plugin.WhisperDB
 #LINE_RECEIVER_PORT = 2103
 #PICKLE_RECEIVER_PORT = 2104
 #CACHE_QUERY_PORT = 7102

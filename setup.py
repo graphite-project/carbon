@@ -25,7 +25,11 @@ if platform.dist()[0] == 'redhat':
                                       'distro/redhat/init.d/carbon-relay',
                                       'distro/redhat/init.d/carbon-aggregator']) ]
     install_files += init_scripts
-
+elif platform.dist()[0] == 'Ubuntu' or platform.dist()[0] == 'debian':
+    init_scripts = [ ('/etc/init.d', ['distro/debian/init.d/carbon-cache',
+                                      'distro/debian/init.d/carbon-relay',
+                                      'distro/debian/init.d/carbon-aggregator']) ]
+    install_files += init_scripts
 
 setup(
   name='carbon',

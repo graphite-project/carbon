@@ -1,14 +1,22 @@
 #!/bin/bash
-# chkconfig:   - 25 75
-# description: carbon-aggregator
-# processname: carbon-aggregator
+### BEGIN INIT INFO
+# Provides:          carbon-aggregator
+# Required-Start:    $remote_fs $syslog
+# Required-Stop:     $remote_fs $syslog
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: Start carbon-aggregator at boot time
+# Description:       Aggregates Graphite metrics.
+### END INIT INFO
+
 
 export PYTHONPATH="$GRAPHITE_DIR/lib:$PYTHONPATH"
 
 # Source function library.
-if [ -e /etc/rc.d/init.d/functions ]; then
-    . /etc/rc.d/init.d/functions;
+if [ -e /lib/lsb/init-functions ]; then
+    . /lib/lsb/init-functions;
 fi;
+
 
 CARBON_DAEMON="aggregator"
 GRAPHITE_DIR="/opt/graphite"
@@ -28,13 +36,8 @@ start(){
         fi;
         echo "Starting carbon-${CARBON_DAEMON}:${INSTANCE}..."
         bin/carbon-${CARBON_DAEMON}.py --instance=${INSTANCE} start;
-
-        if [ $? -eq 0 ]; then
-            echo_success
-        else
-            echo_failure
-        fi;
-        echo ""
+        
+        log_end_msg $?
     done;
 }
 
@@ -56,12 +59,7 @@ stop(){
             fi;
         fi;
 
-        if [ $? -eq 0 ]; then
-            echo_success
-        else
-            echo_failure
-        fi;
-        echo ""
+        log_end_msg $?
     done;
 }
 
@@ -74,12 +72,7 @@ status(){
         fi;
         bin/carbon-${CARBON_DAEMON}.py --instance=${INSTANCE} status;
     
-        if [ $? -eq 0 ]; then
-            echo_success
-        else
-            echo_failure
-        fi;
-        echo ""
+        log_end_msg $?
     done;
 }
 

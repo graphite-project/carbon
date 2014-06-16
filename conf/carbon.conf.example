@@ -183,7 +183,6 @@ WHISPER_AUTOFLUSH = False
 # receiver, set this to False
 # LOG_LISTENER_CONN_SUCCESS = True
 
-
 [relay]
 LINE_RECEIVER_INTERFACE = 0.0.0.0
 LINE_RECEIVER_PORT = 2013
@@ -254,11 +253,10 @@ QUEUE_LOW_WATERMARK_PCT = 0.8
 # and then the queue is flushed and sent a small fraction of a second later.
 TIME_TO_DEFER_SENDING = 0.0001
 
-
 # Set this to False to drop datapoints when any send queue (sending datapoints
 # to a downstream carbon daemon) hits MAX_QUEUE_SIZE. If this is True (the
 # default) then sockets over which metrics are received will temporarily stop accepting
-# data until the send queues fall below 80% MAX_QUEUE_SIZE.
+# data until the send queues fall below QUEUE_LOW_WATERMARK_PCT * MAX_QUEUE_SIZE.
 USE_FLOW_CONTROL = True
 
 # Set this to True to enable whitelisting and blacklisting of metrics in
@@ -377,7 +375,7 @@ MAX_AGGREGATION_INTERVALS = 5
 # seconds. Set CARBON_METRIC_INTERVAL to 0 to disable instrumentation
 # CARBON_METRIC_PREFIX = carbon
 # CARBON_METRIC_INTERVAL = 60
-#
+
 # In order to turn off logging of successful connections for the line
 # receiver, set this to False
 # LOG_LISTENER_CONN_SUCCESS = True

@@ -50,13 +50,8 @@ class CarbonClientProtocol(Int32StringReceiver):
       self.connected = False
 
   def sendDatapoint(self, metric, datapoint):
-    instrumentation.max(self.relayMaxQueueLength, len(self.factory.queue))
-    if self.paused:
-      self.factory.enqueue(metric, datapoint)
-      instrumentation.increment(self.queuedUntilReady)
-    else:
-      self.factory.enqueue(metric, datapoint)
-      reactor.callLater(config.TIME_TO_DEFER_SENDING, self.sendQueued)
+    self.factory.enqueue(metric, datapoint)
+    reactor.callLater(config.TIME_TO_DEFER_SENDING, self.sendQueued)
 
   def _sendDatapoints(self, datapoints):
       self.sendString(pickle.dumps(datapoints, protocol=-1))
@@ -75,11 +70,16 @@ class CarbonClientProtocol(Int32StringReceiver):
     instant for the forseeable future - 1 uSec or so, I guess).
     """
     chained_invocation_delay = 0.000001
-    if self.paused or (not self.factory.hasQueuedDatapoints()):
+    queueSize = self.factory.queueSize
+
+    instrumentation.max(self.relayMaxQueueLength, queueSize)
+    if self.paused:
+      instrumentation.max(self.queuedUntilReady, queueSize)
+      return
+    if not self.factory.hasQueuedDatapoints():
       return
     
     self._sendDatapoints(self.factory.takeSomeFromQueue())
-    queueSize = self.factory.queueSize
     if (self.factory.queueFull.called and
         queueSize < SEND_QUEUE_LOW_WATERMARK):
       self.factory.queueHasSpace.callback(queueSize)
@@ -165,6 +165,12 @@ class CarbonClientFactory(ReconnectingClientFactory):
     return list(yield_max_datapoints())
 
   def checkQueue(self):
+    """Check if the queue is empty. If the queue isn't empty or
+    doesn't exist yet, then this will invoke the callback chain on the
+    self.queryEmpty Deferred chain with the argument 0, and will
+    re-set the queueEmpty callback chain with a new Deferred
+    object.
+    """
     if not self.queue:
       self.queueEmpty.callback(0)
       self.queueEmpty = Deferred()

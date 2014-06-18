@@ -51,7 +51,7 @@ class CarbonClientProtocol(Int32StringReceiver):
 
   def sendDatapoint(self, metric, datapoint):
     self.factory.enqueue(metric, datapoint)
-    reactor.callLater(config.TIME_TO_DEFER_SENDING, self.sendQueued)
+    reactor.callLater(settings.TIME_TO_DEFER_SENDING, self.sendQueued)
 
   def _sendDatapoints(self, datapoints):
       self.sendString(pickle.dumps(datapoints, protocol=-1))
@@ -63,7 +63,7 @@ class CarbonClientProtocol(Int32StringReceiver):
     """This should be the only method that will be used to send stats.
     In order to not hold the event loop and prevent stats from flowing
     in while we send them out, this will process
-    config.MAX_DATAPOINTS_PER_MESSAGE stats, send them, and if there
+    settings.MAX_DATAPOINTS_PER_MESSAGE stats, send them, and if there
     are still items in the queue, this will invoke reactor.callLater
     to schedule another run of sendQueued after a reasonable enough time
     for the destination to process what it has just received.
@@ -71,7 +71,7 @@ class CarbonClientProtocol(Int32StringReceiver):
     Given a queue size of one million stats, and using a
     chained_invocation_delay of 0.0001 seconds, you'd get 1,000
     sendQueued() invocations/second max.  With a
-    config.MAX_DATAPOINTS_PER_MESSAGE of 100, the rate of stats being
+    settings.MAX_DATAPOINTS_PER_MESSAGE of 100, the rate of stats being
     sent could theoretically be as high as 100,000 stats/sec, or
     6,000,000 stats/minute.  This is probably too high for a typical
     receiver to handle.

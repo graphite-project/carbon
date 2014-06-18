@@ -276,6 +276,11 @@ MAX_QUEUE_SIZE = 10000
 # even before the relay incrementally clears more of the queue
 QUEUE_LOW_WATERMARK_PCT = 0.8
 
+# To allow for batch efficiency from the pickle protocol and to benefit from
+# other batching advantages, all writes are deferred by putting them into a queue,
+# and then the queue is flushed a small fraction of a second later.
+TIME_TO_DEFER_SENDING = 0.0001
+
 # Set this to False to drop datapoints when any send queue (sending datapoints
 # to a downstream carbon daemon) hits MAX_QUEUE_SIZE. If this is True (the
 # default) then sockets over which metrics are received will temporarily stop accepting

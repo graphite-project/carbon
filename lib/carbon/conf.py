@@ -21,12 +21,12 @@ from os.path import join, dirname, normpath, exists, isdir
 from optparse import OptionParser
 from ConfigParser import ConfigParser
 
-import whisper
 from carbon import log
 from carbon.exceptions import CarbonConfigException
 
 from twisted.python import usage
 
+import whisper
 
 defaults = dict(
   USER="",
@@ -79,9 +79,10 @@ defaults = dict(
   REWRITE_RULES='rewrite-rules.conf',
   RELAY_RULES='relay-rules.conf',
   DB_INIT_FUNC="carbon.db.NewWhisperDB",
-#  THRIFT_PORT=9090,
-#  THRIFT_HOST='localhost',
-#  TABLE_PREFIX='graphite_',
+  THRIFT_PORT=9090,
+  THRIFT_HOST='localhost',
+  GRAPHITE_PREFIX='graphite_',
+  HBASE_BATCH_SIZE=10000,
 )
 
 

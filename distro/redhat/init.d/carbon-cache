@@ -52,11 +52,11 @@ start(){
 
 stop(){
     if [ ! -z $ONLY_INSTANCE ]; then
-        echo "Stopping carbon-${CARBON_DAEMON}:${ONLY_INSTANCE}..."
+        echo "Stopping carbon-${DAEMON}:${ONLY_INSTANCE}..."
         $GRAPHITE_DIR/bin/carbon-${DAEMON}.py --instance=${ONLY_INSTANCE} --pidfile=$LOG_DIR/${DAEMON}-${ONLY_INSTANCE}/carbon-${DAEMON}.pid --logdir=$LOG_DIR/${DAEMON}-${ONLY_INSTANCE} --config=${CONF} stop
         sleep 20
         pid=$(/usr/bin/pgrep -f "carbon-${DAEMON}.py --instance=${ONLY_INSTANCE}")
-        if [ ! -z $pid ]; then
+        if [[ ! -z $pid ]]; then
             ports=$(/bin/netstat -lnp | grep "${pid}" | grep ":2.*" | /usr/bin/wc -l)
             if [ $ports -gt 0 ]; then
                 echo "Instance ${ONLY_INSTANCE} did not release ports yet. Sleeping longer, then force killing it..."
@@ -73,14 +73,14 @@ stop(){
         echo ""
     else
         for INSTANCE in ${INSTANCES}; do
-            if [ "${INSTANCE}" == "${CARBON_DAEMON}" ]; then
+            if [ "${INSTANCE}" == "${DAEMON}" ]; then
                 INSTANCE="a"
             fi
             echo "Stopping carbon-${DAEMON}:${INSTANCE}..."
             $GRAPHITE_DIR/bin/carbon-${DAEMON}.py --instance=${INSTANCE} --pidfile=$LOG_DIR/${DAEMON}-${INSTANCE}/carbon-${DAEMON}.pid --logdir=$LOG_DIR/${DAEMON}-${INSTANCE} stop
             sleep 20
             pid=$(/usr/bin/pgrep -f "carbon-${DAEMON}.py --instance=${INSTANCE}")
-            if [ ! -z $pid ]; then
+            if [[ ! -z $pid ]]; then
                 ports=$(/bin/netstat -lnp | grep "${pid}" | grep ":2.*" | /usr/bin/wc -l)
                 if [ $ports -gt 0 ]; then
                     echo "Instance ${INSTANCE} did not release ports yet. Sleeping longer, then force killing it..."

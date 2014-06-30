@@ -1,0 +1,18 @@
+# Configuration for graphite-data plugins
+
+# OS environment variables can be used to tell carbon where graphite is
+# installed, where to read configuration from and where to write data.
+#
+# GRAPHITE_ROOT - Root directory of the graphite installation.
+# Can be set by environment variable, defaults to /opt/graphite
+# GRAPHITE_CONF_DIR - Configuration directory (where this file lives).
+# Defaults to $GRAPHITE_ROOT/conf/
+
+
+[HbaseDB]
+THRIFT_HOST=localhost
+THRIFT_PORT=9090
+GRAPHITE_PREFIX=graphite_
+
+[WhisperDB]
+WHISPER_STORAGE_DIR=/opt/graphite/storage/whisper

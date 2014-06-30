@@ -40,21 +40,17 @@ class MetricCache(dict):
     return self.size >= settings.MAX_CACHE_SIZE
 
   def pop(self, metric):
+    datapoints = []
     try:
       self.lock.acquire()
       datapoints = dict.pop(self, metric)
       self.size -= len(datapoints)
-      return datapoints
     finally:
       self.lock.release()
+    return datapoints
 
   def counts(self):
-    try:
-      self.lock.acquire()
-      return [ (metric, len(datapoints)) for (metric, datapoints) in self.items() ]
-    finally:
-      self.lock.release()
-
+    return [(metric, len(datapoints)) for (metric, datapoints) in self.items()]
 
 # Ghetto singleton
 MetricCache = MetricCache()

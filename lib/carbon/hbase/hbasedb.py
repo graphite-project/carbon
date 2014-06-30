@@ -7,7 +7,7 @@ from thrift.transport import TSocket
 from carbon.tsdb import TSDB
 from carbon.hbase.ttypes import *
 from carbon.hbase.Hbase import Client
-#from carbon.hbase.Hbase import BatchMutation
+from carbon.hbase.Hbase import BatchMutation
 from carbon import util
 from carbon import log
 
@@ -56,8 +56,10 @@ class ArchiveConfig:
 class HbaseTSDB(TSDB):
     __slots__ = ('transport', 'client', 'metaTable', 'dataTable')
 
-    def __init__(self, host, port, table_prefix):
+    def __init__(self, host, port, table_prefix, batch_size=1000, send_interval=60):
         # set up client
+        self.send_interval = send_interval
+        self.batch_size = batch_size
         self.metaTable = table_prefix + "META"
         self.dataTable = table_prefix + "DATA"
         self.client = tpClient.Client(iface_cls=Client,
@@ -65,23 +67,51 @@ class HbaseTSDB(TSDB):
             port=port,
             pool_size=20,
             retries=3)
+        self._mutations = []
+        self._send_time = time.time()
         # ensure both our tables exist
-        tables = self.client.getTableNames()
+        try:
+            tables = self.client.getTableNames()
+        except Exception as e:
+            log.msg('Retrieving HBase tables failed (%s). Re-attempting...' % e)
+            try:
+                tables = self.client.getTableNames()
+            except Exception as e:
+                log.msg("HBase tables still can't be retrieved. Tables offline?")
+                raise e
+
         if self.metaTable not in tables:
-            self.client.createTable(self.metaTable, [ColumnDescriptor("cf:", compression="Snappy")])
+            self.client.createTable(self.metaTable, 
+                [ColumnDescriptor("cf:", compression="Snappy", 
+                blockcache=True)])
             # add counter record
             self.client.atomicIncrement(self.metaTable, "CTR", "cf:CTR", 1)
         if self.dataTable not in tables:
-            self.client.createTable(self.dataTable, [ColumnDescriptor("cf:", compression="Snappy")])
+            self.client.createTable(self.dataTable, 
+            [ColumnDescriptor("cf:", compression="Snappy", bloomfilter='ROW')])
 
-    def __get_rows(self, scanId):
-        row = self.client.scannerGet(scanId)
+    def get_rows(self, scanId, how_many):
+        try:
+            row = self.client.scannerGetList(scanId, how_many)
+        except IllegalArgument:
+            log.msg('Bad scanner ID: %s' % scanId)
+            return
         while row:
             yield row
-            row = self.client.scannerGet(scanId)
+            try:
+                row = self.client.scannerGetList(scanId, how_many)
+            except IllegalArgument:
+                log.msg('Bad scanner ID: %s' % scanId)
+                break
+
+    def __send(self):
+        if ((time.time() - self._send_time) > self.send_interval) or (len(self._mutations) > self.batch_size):
+            self.client.mutateRows(self.dataTable, self._mutations, None)
+            self._send_time = time.time()
+            self._mutations = []
 
     def __refresh_thrift_client(self):
-         log.cache("Attempting to refresh thrift client") 
+         log.msg("Attempting to refresh thrift client") 
          self.transport.close()
          time.sleep(0.25)
          self.transport.open()
@@ -115,27 +145,28 @@ class HbaseTSDB(TSDB):
 
     # aggregationMethod specifies the method to use when propogating data (see ``whisper.aggregationMethods``)
     # xFilesFactor specifies the fraction of data points in a propagation interval that must have known values for a propagation to occur.  If None, the existing xFilesFactor in path will not be changed
-    def setAggregationMethod(self, metric, aggregationMethod, xFilesFactor=None):
+    def setAggregationMethod(self, metric, aggregationMethod, 
+        xFilesFactor=None):
+
         currInfo = self.info(metric)
         currInfo['aggregationMethod'] = aggregationMethod
         currInfo['xFilesFactor'] = xFilesFactor
 
         infoJson = json.dumps(currInfo)
-        self.client.mutateRow(self.metaTable, "m_" + metric, [Mutation(column="cf:INFO", value=infoJson)], None)
+        self.client.mutateRow(self.metaTable, "m_" + metric, 
+            [Mutation(column="cf:INFO", value=infoJson)], None)
         return
 
 
     # archiveList is a list of archives, each of which is of the form (secondsPerPoint,numberOfPoints)
     # xFilesFactor specifies the fraction of data points in a propagation interval that must have known values for a propagation to occur
     # aggregationMethod specifies the function to use when propogating data (see ``whisper.aggregationMethods``)
-    def create(self, metric, archiveList, xFilesFactor, aggregationMethod, isSparse, doFallocate):
-        #self.transport.open()
-
-        #for a in archiveList:
-        #    a['archiveId'] = (self.client.atomicIncrement(self.metaTable,"CTR","cf:CTR",1))
+    def create(self, metric, archiveList, xFilesFactor, aggregationMethod, 
+        isSparse, doFallocate):
 
         archiveMapList = [
-            {'archiveId': (self.client.atomicIncrement(self.metaTable, "CTR", "cf:CTR", 1)),
+            {'archiveId': (self.client.atomicIncrement(self.metaTable, 
+             "CTR", "cf:CTR", 1)),
              'secondsPerPoint': a[0],
              'points': a[1],
              'retention': a[0] * a[1],
@@ -144,7 +175,8 @@ class HbaseTSDB(TSDB):
         ]
         #newId = self.client.atomicIncrement(self.metaTable,"CTR","cf:CTR",1)
 
-        oldest = max([secondsPerPoint * points for secondsPerPoint, points in archiveList])
+        oldest = max([secondsPerPoint * points 
+            for secondsPerPoint, points in archiveList])
         # then write the metanode
         info = {
             'aggregationMethod': aggregationMethod,
@@ -152,7 +184,8 @@ class HbaseTSDB(TSDB):
             'xFilesFactor': xFilesFactor,
             'archives': archiveMapList,
         }
-        self.client.mutateRow(self.metaTable, "m_" + metric, [Mutation(column="cf:INFO", value=json.dumps(info))], None)
+        self.client.mutateRow(self.metaTable, "m_" + metric, 
+            [Mutation(column="cf:INFO", value=json.dumps(info))], None)
         # finally, ensure links exist
         metric_parts = metric.split('.')
         priorParts = ""
@@ -168,22 +201,22 @@ class HbaseTSDB(TSDB):
                 priorParts += "." + part
 
             # make sure parent of this node exists and is linked to us
-            parentLink = self.client.get(self.metaTable, metricParentKey, "cf:c_" + part, None)
+            parentLink = self.client.get(self.metaTable, metricParentKey, 
+                "cf:c_" + part, None)
             if len(parentLink) == 0:
                 self.client.mutateRow(self.metaTable, metricParentKey,
-                                      [Mutation(column="cf:c_" + part, value=metricKey)], None)
-        #self.transport.close()
+                                      [Mutation(column="cf:c_" + part, 
+                                      value=metricKey)], None)
 
     def update_many(self, metric, points, retention_config):
         """Update many datapoints.
 
         Keyword arguments:
         points  -- Is a list of (timestamp,value) points
-	retention_config -- Is silently ignored
+        retention_config -- Is silently ignored
 
         """
 
-#        log.cache(retention_config)
         info = self.info(metric)
         now = int(time.time())
         archives = iter(info['archives'])
@@ -192,10 +225,12 @@ class HbaseTSDB(TSDB):
 
         for point in points:
             age = now - point[0]
-
-            while currentArchive['retention'] < age: #we can't fit any more points in this archive
-                if currentPoints: #commit all the points we've found that it can fit
-                    currentPoints.reverse() #put points in chronological order
+            #we can't fit any more points in this archive
+            while currentArchive['retention'] < age: 
+                #commit all the points we've found that it can fit
+                if currentPoints: 
+                    #put points in chronological order
+                    currentPoints.reverse() 
                     self.__archive_update_many(info, currentArchive, currentPoints)
                     currentPoints = []
                 try:
@@ -208,48 +243,46 @@ class HbaseTSDB(TSDB):
                 break #drop remaining points that don't fit in the database
 
             currentPoints.append(point)
-
-        if currentArchive and currentPoints: #don't forget to commit after we've checked all the archives
+        #don't forget to commit after we've checked all the archives
+        if currentArchive and currentPoints: 
             currentPoints.reverse()
             self.__archive_update_many(info, currentArchive, currentPoints)
 
     def __archive_update_many(self, info, archive, points):
-        #self.transport.open()
         numPoints = archive['points']
         step = archive['secondsPerPoint']
         archiveId = archive['archiveId']
         alignedPoints = [(timestamp - (timestamp % step), value)
                          for (timestamp, value) in points]
-        alignedPoints = dict(alignedPoints).items() # Take the last val of duplicates
-        mutationsbatch = []
-        for timestamp, value in alignedPoints:
+
+        len_aligned = len(alignedPoints)
+        for i in xrange(0, len_aligned):
+            if i+1 < len_aligned and alignedPoints[i][0] == alignedPoints[i+1][0]:
+                continue
+            (timestamp, value) = alignedPoints[i]
             slot = int((timestamp / step) % numPoints)
             rowkey = struct.pack(KEY_FMT, archiveId, slot)
             rowval = struct.pack(VAL_FMT, timestamp, value)
-            mutationsbatch.append(BatchMutation(rowkey, [Mutation(column="cf:d", value=rowval, writeToWAL=False)]))
-#            self.client.mutateRow(self.dataTable, rowkey, [Mutation(column="cf:d", value=rowval)], None)
+            self._mutations.append(BatchMutation(rowkey, 
+                [Mutation(column="cf:d", value=rowval)]))
+            self.__send()
 
-#        log.cache("Length of batch: %d" %(len(mutationsbatch)))
-        self.client.mutateRows(self.dataTable, mutationsbatch, None)
-
-        #Now we propagate the updates to lower-precision archives
-        higher = archive
-        lowerArchives = [arc for arc in info['archives'] if arc['secondsPerPoint'] > archive['secondsPerPoint']]
+    def propagate(self, info, archives, points):
+        higher = archives.next()
+        lowerArchives = [arc for arc in info['archives'] if arc['secondsPerPoint'] > higher['secondsPerPoint']]
         for lower in lowerArchives:
             fit = lambda i: i - (i % lower['secondsPerPoint'])
-            lowerIntervals = [fit(p[0]) for p in alignedPoints]
+            lowerIntervals = [fit(p[0]) for p in points] # the points are already aligned
             uniqueLowerIntervals = set(lowerIntervals)
             propagateFurther = False
             for interval in uniqueLowerIntervals:
-                if self.__propagate(info, interval, higher, lower):
+                if self.__archive_propagate(info, interval, higher, lower):
                     propagateFurther = True
-
             if not propagateFurther:
                 break
             higher = lower
-        #self.transport.close()
 
-    def __propagate(self, info, timestamp, higher, lower):
+    def __archive_propagate(self, info, timestamp, higher, lower):
         aggregationMethod = info['aggregationMethod']
         xff = info['xFilesFactor']
 
@@ -257,16 +290,19 @@ class HbaseTSDB(TSDB):
         intervalStart = timestamp - (timestamp % lower['secondsPerPoint'])
         intervalEnd = intervalStart + lower['secondsPerPoint']
         (higherResInfo, higherResData) = self.__archive_fetch(higher, intervalStart, intervalEnd)
-        
+
         known_datapts = [v for v in higherResData if v is not None] # strip out "nones"
         if (len(known_datapts) / len(higherResData)) > xff: # we have enough data, so propagate downwards
             aggregateValue = util.aggregate(aggregationMethod, known_datapts)
             lowerSlot = timestamp / lower['secondsPerPoint'] % lower['points']
             rowkey = struct.pack(KEY_FMT, lower['archiveId'], lowerSlot)
             rowval = struct.pack(VAL_FMT, timestamp, aggregateValue)
-            self.client.mutateRow(self.dataTable, rowkey, [Mutation(column="cf:d", value=rowval)], None)
+            self._mutations.append(BatchMutation(rowkey, 
+                [Mutation(column="cf:d", value=rowval)]))
+            self.__send()
 
-    # returns list of values between the two times.  length is endTime - startTime / secondsPerPorint.
+    # returns list of values between the two times.  
+    # length is endTime - startTime / secondsPerPorint.
     # should be aligned with secondsPerPoint for proper results
     def __archive_fetch(self, archive, startTime, endTime):
         step = archive['secondsPerPoint']
@@ -287,17 +323,23 @@ class HbaseTSDB(TSDB):
             
             scan = TScan(startRow = startkey, stopRow = endkey, 
                          timestamp = None, caching = 2000, 
-                         filterString = None, batchSize = None, 
+                         filterString = None, batchSize = self.batch_size, 
                          sortColumns = False)
 
             scannerId = self.client.scannerOpenWithScan(self.dataTable, scan, {})
 
-            for row in self.__get_rows(scannerId):
-                (timestamp, value) = struct.unpack(VAL_FMT, row[0].columns["cf:d"].value) # this is dumb.
-                if timestamp >= startTime and timestamp <= endTime:
-                    returnslot = int((timestamp - startTime) / archive['secondsPerPoint']) % numSlots
-                    ret[returnslot] = value
-            self.client.scannerClose(scannerId)
+            for rows in self.__get_rows(scannerId, self.batch_size):
+                for row in rows:
+                    # this is dumb.
+                    (timestamp, value) = struct.unpack(VAL_FMT, row.columns["cf:d"].value) 
+                    if timestamp >= startTime and timestamp <= endTime:
+                        returnslot = int((timestamp - startTime) / archive['secondsPerPoint']) % numSlots
+                        ret[returnslot] = value
+            try:
+                self.client.scannerClose(scannerId)
+            except IllegalArgument:
+                log.msg("Invalid scan ID: %s" % scannerId)
+                continue
         timeInfo = (startTime, endTime, step)
         return timeInfo, ret
 
@@ -321,7 +363,8 @@ class HbaseTSDB(TSDB):
         if untilTime > now:
             untilTime = now
         if (fromTime > untilTime):
-            raise Exception("Invalid time interval: from time '%s' is after until time '%s'" % (fromTime, untilTime))
+            raise Exception("Invalid time interval: from time '%s' is after " +
+                "until time '%s'" % (fromTime, untilTime))
 
         if fromTime > now:  # from time in the future
             return None
@@ -337,22 +380,81 @@ class HbaseTSDB(TSDB):
         return timeInfo, ret
 
     def build_index(self, tmp_index):
-        scannerId = self.client.scannerOpen(self.metaTable, "", ['cf:INFO'], {})
+        scannerId = hbase.client.scannerOpenWithScan(hbase.metaTable,
+                        TScan(caching=2000, columns=['cf:INFO']), {})
 
         t = time.time()
         total_entries = 0
-        for row in self.__get_rows(scannerId):
-            total_entries += 1
-            tmp_index.write('%s\n' % row[0].row[2:])
+        for rows in self.__get_rows(scannerId, self.batch_size):
+            total_entries += len(rows)
+            for row in rows:
+                tmp_index.write('%s\n' % row.row[2:])
         tmp_index.flush()
-        self.client.scannerClose(scannerId)
-        log.msg("[IndexSearcher] index rebuild took %.6f seconds (%d entries)" % (time.time() - t, total_entries))
+        try:
+            self.client.scannerClose(scannerId)
+        except IllegalArgument:
+            log.msg("Invalid scan ID: %s" % scannerId)
+            pass
+        log.msg("[IndexSearcher] index rebuild took %.6f seconds (%d entries)" %
+             (time.time() - t, total_entries))
 
     # returns [ start, end ] where start,end are unixtime ints
     def get_intervals(self, metric):
         start = time.time() - self.info(metric)['maxRetention']
         end = time.time()
         return [start, end]
+
+    def find_metrics(self, query, currNodeRowKey="ROOT"):
+        from graphite.intervals import Interval, IntervalSet
+        from graphite.node import BranchNode, LeafNode
+
+        # break query into parts
+        clean_pattern = query.pattern.replace('\\', '')
+        patterns = clean_pattern.split('.')
+
+        pattern = patterns[0]
+        patterns = patterns[1:]
+
+        nodeRow = self.client.getRow(self.metaTable, currNodeRowKey, None)
+        if len(nodeRow) == 0:
+            return
+
+        subnodes = {}
+        for k, v in nodeRow[0].columns.items():
+            if k.startswith("cf:c_"): # branches start with c_
+                key = k.split("_", 1)[1] # pop off cf:c_ prefix
+                subnodes[key] = v.value
+
+        matching_subnodes = match_entries(subnodes.keys(), pattern)
+
+        if patterns: # we've still got more directories to traverse
+            for subnode in matching_subnodes:
+                rowKey = subnodes[subnode]
+                subNodeContents = self.client.getRow(self.metaTable, rowKey, None)
+
+                # leafs have a cf:INFO column describing their data
+                # we can't possibly match on a leaf here because we have more components in the pattern,
+                # so only recurse on branches
+                if "cf:INFO" not in subNodeContents[0].columns:
+                    for m in self.find_metrics(patterns, rowkey):
+                        yield m
+
+        else: # at the end of the pattern
+            for subnode in matching_subnodes:
+                rowKey = subnodes[subnode]
+                nodeRow = self.client.getRow(self.metaTable, rowKey, None)
+                if len(nodeRow) == 0:
+                    continue
+                metric = rowKey.split("_", 1)[1] # pop off "m_" in key
+                if "cf:INFO" in nodeRow[0].columns:
+                    info = json.loads(nodeRow[0].columns["cf:INFO"].value)
+                    start = time.time() - info['maxRetention']
+                    end = time.time()
+                    intervals = IntervalSet( [Interval(start, end)] )
+                    reader = HbaseReader(metric,intervals,info,self)
+                    yield LeafNode(metric, reader)
+                else:
+                    yield BranchNode(metric)
 
     # returns list of metrics as strings
     def find_nodes(self, query):
@@ -395,8 +497,6 @@ class HbaseTSDB(TSDB):
                 if "cf:INFO" not in subNodeContents[0].columns:
                     for m in self._find_paths(rowKey, patterns):
                         yield m
-
-
 
         else: # at the end of the pattern
             for subnode in matching_subnodes:

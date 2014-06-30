@@ -138,7 +138,13 @@ if USING_CPICKLE:
     def loads(cls, pickle_string):
       pickle_obj = pickle.Unpickler(StringIO(pickle_string))
       pickle_obj.find_global = cls.find_class
-      return pickle_obj.load()
+      try:
+        ret = pickle_obj.load()
+      except Exception as e:
+        log.msg('Bad Pickle!')
+        ret = None
+        pass
+      return ret
 
 else:
   class SafeUnpickler(pickle.Unpickler):

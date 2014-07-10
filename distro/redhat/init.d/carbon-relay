@@ -7,12 +7,14 @@ export PYTHONPATH="$GRAPHITE_DIR/lib:$PYTHONPATH"
 
 # Source function library.
 if [ -e /etc/rc.d/init.d/functions ]; then
-    . /etc/rc.d/init.d/functions;
-fi;
+    . /etc/rc.d/init.d/functions
+fi
 
-CARBON_DAEMON="relay"
+DAEMON="relay"
 GRAPHITE_DIR="/opt/graphite"
-INSTANCES=`grep "^\[${CARBON_DAEMON}" ${GRAPHITE_DIR}/conf/carbon.conf | cut -d \[ -f 2 | cut -d \] -f 1 | cut -d : -f 2`
+LOG_DIR="/var/log/graphite"
+CONF="${GRAPHITE_DIR}/conf/carbon.conf"
+INSTANCES=$(grep "^\[${DAEMON}" ${CONF} | cut -d \[ -f 2 | cut -d \] -f 1 | cut -d : -f 2)
 
 function die {
   echo $1
@@ -20,66 +22,115 @@ function die {
 }
 
 start(){
-    cd $GRAPHITE_DIR;
-
-    for INSTANCE in ${INSTANCES}; do
-        if [ "${INSTANCE}" == "${CARBON_DAEMON}" ]; then
-            INSTANCE="a";
-        fi;
-        echo "Starting carbon-${CARBON_DAEMON}:${INSTANCE}..."
-        bin/carbon-${CARBON_DAEMON}.py --instance=${INSTANCE} start;
+    if [ ! -z $ONLY_INSTANCE ]; then
+        echo "Starting carbon-${DAEMON}:${ONLY_INSTANCE}..."
+        $GRAPHITE_DIR/bin/carbon-${DAEMON}.py --instance=${ONLY_INSTANCE} --pidfile=$LOG_DIR/${DAEMON}-${ONLY_INSTANCE}/carbon-${DAEMON}.pid --logdir=$LOG_DIR/${DAEMON}-${ONLY_INSTANCE} --config=${CONF} start
 
         if [ $? -eq 0 ]; then
             echo_success
         else
             echo_failure
-        fi;
+        fi
         echo ""
-    done;
+    else
+        for INSTANCE in ${INSTANCES}; do
+            if [ "${INSTANCE}" == "${DAEMON}" ]; then
+                INSTANCE="a"
+            fi
+            echo "Starting carbon-${DAEMON}:${INSTANCE}..."
+            $GRAPHITE_DIR/bin/carbon-${DAEMON}.py --instance=${INSTANCE} --pidfile=$LOG_DIR/${DAEMON}-${INSTANCE}/carbon-${DAEMON}.pid --logdir=$LOG_DIR/${DAEMON}-${INSTANCE} --config=${CONF} start
+
+            if [ $? -eq 0 ]; then
+                echo_success
+            else
+                echo_failure
+            fi
+            echo ""
+        done
+    fi
 }
 
 stop(){
-    cd $GRAPHITE_DIR
-
-    for INSTANCE in ${INSTANCES}; do
-        if [ "${INSTANCE}" == "${CARBON_DAEMON}" ]; then
-            INSTANCE="a";
-        fi;
-        echo "Stopping carbon-${CARBON_DAEMON}:${INSTANCE}..."
-        bin/carbon-${CARBON_DAEMON}.py --instance=${INSTANCE} stop
-
-        if [ `sleep 3; /usr/bin/pgrep -f "carbon-${CARBON_DAEMON}.py --instance=${INSTANCE}" | /usr/bin/wc -l` -gt 0 ]; then
-            echo "Carbon did not stop yet. Sleeping longer, then force killing it...";
-            sleep 20;
-            /usr/bin/pkill -9 -f "carbon-${CARBON_DAEMON}.py --instance=${INSTANCE}";
-        fi;
+    if [ ! -z $ONLY_INSTANCE ]; then
+        echo "Stopping carbon-${DAEMON}:${ONLY_INSTANCE}..."
+        $GRAPHITE_DIR/bin/carbon-${DAEMON}.py --instance=${ONLY_INSTANCE} --pidfile=$LOG_DIR/${DAEMON}-${ONLY_INSTANCE}/carbon-${DAEMON}.pid --logdir=$LOG_DIR/${DAEMON}-${ONLY_INSTANCE} --config=${CONF} stop
+        sleep 20
+        pid=$(/usr/bin/pgrep -f "carbon-${DAEMON}.py --instance=${ONLY_INSTANCE}")
+        if [[ ! -z $pid ]]; then
+            ports=$(/bin/netstat -lnp | grep "${pid}" | grep ":2.*" | /usr/bin/wc -l)
+            if [ $ports -gt 0 ]; then
+                echo "Instance ${ONLY_INSTANCE} did not release ports yet. Sleeping longer, then force killing it..."
+                sleep 5
+                /usr/bin/pkill -9 -f "carbon-${DAEMON}.py --instance=${ONLY_INSTANCE}"
+            fi
+        fi
+        rm -f $LOG_DIR/${DAEMON}-${ONLY_INSTANCE}/carbon-${DAEMON}.pid
 
         if [ $? -eq 0 ]; then
             echo_success
         else
             echo_failure
-        fi;
+        fi
         echo ""
-    done;
+    else
+        for INSTANCE in ${INSTANCES}; do
+            if [ "${INSTANCE}" == "${DAEMON}" ]; then
+                INSTANCE="a"
+            fi
+            echo "Stopping carbon-${DAEMON}:${INSTANCE}..."
+            $GRAPHITE_DIR/bin/carbon-${DAEMON}.py --instance=${INSTANCE} --pidfile=$LOG_DIR/${DAEMON}-${INSTANCE}/carbon-${DAEMON}.pid --logdir=$LOG_DIR/${DAEMON}-${INSTANCE} --config=${CONF} stop
+            sleep 20
+            pid=$(/usr/bin/pgrep -f "carbon-${DAEMON}.py --instance=${ONLY_INSTANCE}")
+            if [[ ! -z $pid ]]; then
+                ports=$(/bin/netstat -lnp | grep "${pid}" | grep ":2.*" | /usr/bin/wc -l)
+                if [ $ports -gt 0 ]; then
+                    echo "Instance ${ONLY_INSTANCE} did not release ports yet. Sleeping longer, then force killing it..."
+                    sleep 5
+                    /usr/bin/pkill -9 -f "carbon-${DAEMON}.py --instance=${ONLY_INSTANCE}"
+                fi
+            fi
+            rm -f $LOG_DIR/${DAEMON}-${INSTANCE}/carbon-${DAEMON}.pid
+
+            if [ $? -eq 0 ]; then
+                echo_success
+            else
+                echo_failure
+            fi
+            echo ""
+        done
+    fi
 }
 
 status(){
-    cd $GRAPHITE_DIR;
-
-    for INSTANCE in ${INSTANCES}; do
-        if [ "${INSTANCE}" == "${CARBON_DAEMON}" ]; then
-            INSTANCE="a";
-        fi;
-        bin/carbon-${CARBON_DAEMON}.py --instance=${INSTANCE} status;
+    if [ ! -z $ONLY_INSTANCE ]; then
+        $GRAPHITE_DIR/bin/carbon-${DAEMON}.py --instance=${ONLY_INSTANCE} --pidfile=$LOG_DIR/${DAEMON}-${ONLY_INSTANCE}/carbon-${DAEMON}.pid --logdir=$LOG_DIR/${DAEMON}-${ONLY_INSTANCE} --config=${CONF} status
     
         if [ $? -eq 0 ]; then
             echo_success
         else
             echo_failure
-        fi;
+        fi
         echo ""
-    done;
+    else
+        for INSTANCE in ${INSTANCES}; do
+            if [ "${INSTANCE}" == "${DAEMON}" ]; then
+                INSTANCE="a"
+            fi
+            $GRAPHITE_DIR/bin/carbon-${DAEMON}.py --instance=${INSTANCE} --pidfile=$LOG_DIR/${DAEMON}-${INSTANCE}/carbon-${DAEMON}.pid --logdir=$LOG_DIR/${DAEMON}-${INSTANCE} --config=${CONF} status
+    
+            if [ $? -eq 0 ]; then
+                echo_success
+            else
+                echo_failure
+            fi
+            echo ""
+        done
+    fi
 }
+
+if [ -n $2 ]; then
+    ONLY_INSTANCE=$2
+fi
 
 case "$1" in
   start)
@@ -96,7 +147,6 @@ case "$1" in
     start
     ;;
   *)
-    echo $"Usage: $0 {start|stop|restart|status}"
+    echo $"Usage: $0 {start|stop|restart|status} ({instance})"
     exit 1
 esac
-

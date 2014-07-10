@@ -118,7 +118,10 @@ if USING_CPICKLE:
   class SafeUnpickler(object):
     PICKLE_SAFE = {
       'copy_reg' : set(['_reconstructor']),
-      '__builtin__' : set(['object']),
+      '__builtin__' : set(['list']),
+      'collections': set(['deque']),
+      'graphite.render.datalib': set(['TimeSeries']),
+      'graphite.intervals': set(['Interval', 'IntervalSet']),
     }
 
     @classmethod
@@ -135,13 +138,22 @@ if USING_CPICKLE:
     def loads(cls, pickle_string):
       pickle_obj = pickle.Unpickler(StringIO(pickle_string))
       pickle_obj.find_global = cls.find_class
-      return pickle_obj.load()
+      try:
+        ret = pickle_obj.load()
+      except Exception as e:
+        log.msg('Bad Pickle!')
+        ret = None
+        pass
+      return ret
 
 else:
   class SafeUnpickler(pickle.Unpickler):
     PICKLE_SAFE = {
       'copy_reg' : set(['_reconstructor']),
-      '__builtin__' : set(['object']),
+      '__builtin__' : set(['list']),
+      'collections': set(['deque']),
+      'graphite.render.datalib': set(['TimeSeries']),
+      'graphite.intervals': set(['Interval', 'IntervalSet']),
     }
     def find_class(self, module, name):
       if not module in self.PICKLE_SAFE:
@@ -155,10 +167,24 @@ else:
     @classmethod
     def loads(cls, pickle_string):
       return cls(StringIO(pickle_string)).load()
- 
 
 def get_unpickler(insecure=False):
   if insecure:
     return pickle
   else:
     return SafeUnpickler
+
+def aggregate(aggregationMethod, knownValues):
+    if aggregationMethod == 'average':
+        return float(sum(knownValues)) / float(len(knownValues))
+    elif aggregationMethod == 'sum':
+        return float(sum(knownValues))
+    elif aggregationMethod == 'last':
+        return knownValues[len(knownValues) - 1]
+    elif aggregationMethod == 'max':
+        return max(knownValues)
+    elif aggregationMethod == 'min':
+        return min(knownValues)
+    else:
+        raise Exception("Unrecognized aggregation method %s" %
+                        aggregationMethod)

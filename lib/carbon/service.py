@@ -149,7 +149,7 @@ def createAggregatorService(config):
     root_service = createBaseService(config)
 
     # Configure application components
-    router = ConsistentHashingRouter()
+    router = ConsistentHashingRouter(settings.REPLICATION_FACTOR)
     client_manager = CarbonClientManager(router)
     client_manager.setServiceParent(root_service)
 

@@ -88,7 +88,7 @@ class HbaseTSDB(TSDB):
             self.client.atomicIncrement(self.metaTable, "CTR", "cf:CTR", 1)
         if self.dataTable not in tables:
             self.client.createTable(self.dataTable, 
-            [ColumnDescriptor("cf:", compression="Snappy", bloomfilter='ROW')])
+            [ColumnDescriptor("cf:", compression="Snappy", bloomfilter='ROW', blockcache=True)])
 
     def get_rows(self, scanId, how_many):
         try:
@@ -328,7 +328,7 @@ class HbaseTSDB(TSDB):
 
             scannerId = self.client.scannerOpenWithScan(self.dataTable, scan, {})
 
-            for rows in self.__get_rows(scannerId, self.batch_size):
+            for rows in self.get_rows(scannerId, self.batch_size):
                 for row in rows:
                     # this is dumb.
                     (timestamp, value) = struct.unpack(VAL_FMT, row.columns["cf:d"].value) 
@@ -385,7 +385,7 @@ class HbaseTSDB(TSDB):
 
         t = time.time()
         total_entries = 0
-        for rows in self.__get_rows(scannerId, self.batch_size):
+        for rows in self.get_rows(scannerId, self.batch_size):
             total_entries += len(rows)
             for row in rows:
                 tmp_index.write('%s\n' % row.row[2:])
@@ -404,79 +404,57 @@ class HbaseTSDB(TSDB):
         end = time.time()
         return [start, end]
 
-    def find_metrics(self, query, currNodeRowKey="ROOT"):
-        from graphite.intervals import Interval, IntervalSet
-        from graphite.node import BranchNode, LeafNode
-
-        # break query into parts
-        clean_pattern = query.pattern.replace('\\', '')
-        patterns = clean_pattern.split('.')
-
-        pattern = patterns[0]
-        patterns = patterns[1:]
-
-        nodeRow = self.client.getRow(self.metaTable, currNodeRowKey, None)
-        if len(nodeRow) == 0:
-            return
-
-        subnodes = {}
-        for k, v in nodeRow[0].columns.items():
-            if k.startswith("cf:c_"): # branches start with c_
-                key = k.split("_", 1)[1] # pop off cf:c_ prefix
-                subnodes[key] = v.value
-
-        matching_subnodes = match_entries(subnodes.keys(), pattern)
-
-        if patterns: # we've still got more directories to traverse
-            for subnode in matching_subnodes:
-                rowKey = subnodes[subnode]
-                subNodeContents = self.client.getRow(self.metaTable, rowKey, None)
-
-                # leafs have a cf:INFO column describing their data
-                # we can't possibly match on a leaf here because we have more components in the pattern,
-                # so only recurse on branches
-                if "cf:INFO" not in subNodeContents[0].columns:
-                    for m in self.find_metrics(patterns, rowkey):
-                        yield m
-
-        else: # at the end of the pattern
-            for subnode in matching_subnodes:
-                rowKey = subnodes[subnode]
-                nodeRow = self.client.getRow(self.metaTable, rowKey, None)
-                if len(nodeRow) == 0:
-                    continue
-                metric = rowKey.split("_", 1)[1] # pop off "m_" in key
-                if "cf:INFO" in nodeRow[0].columns:
-                    info = json.loads(nodeRow[0].columns["cf:INFO"].value)
-                    start = time.time() - info['maxRetention']
-                    end = time.time()
-                    intervals = IntervalSet( [Interval(start, end)] )
-                    reader = HbaseReader(metric,intervals,info,self)
-                    yield LeafNode(metric, reader)
-                else:
-                    yield BranchNode(metric)
-
-    # returns list of metrics as strings
     def find_nodes(self, query):
+        from graphite.node import BranchNode, LeafNode
+        from graphite.intervals import Interval, IntervalSet
+
         # break query into parts
         clean_pattern = query.pattern.replace('\\', '')
-        pattern_parts = clean_pattern.split('.')
-        ret = self._find_paths("ROOT", pattern_parts)
-        return ret
+        pattern_parts = _cheaper_patterns(clean_pattern.split('.'))
+
+        if pattern_parts[0] == "*" or pattern_parts[0] == "ROOT":
+            start_string = "ROOT"
+        else:
+            start_string = "m_%s" % pattern_parts[0]
+        pattern_parts = pattern_parts[1:]
+
+        for subnode, subnodes in self._find_paths(start_string, pattern_parts):
+            rowKey = subnodes[subnode]
+
+            nodeRow = self.client.getRow(self.metaTable, rowKey, None)
+            if len(nodeRow) == 0:
+                continue
+            metric = rowKey.split("_", 1)[1] # pop off "m_" in key
+            if "cf:INFO" in nodeRow[0].columns:
+                info = json.loads(nodeRow[0].columns["cf:INFO"].value)
+                start = time.time() - info['maxRetention']
+                end = time.time()
+                intervals = IntervalSet( [Interval(start, end)] )
+                reader = HbaseReader(metric, intervals, info, self)
+                yield LeafNode(metric, reader)
+            else:
+                yield BranchNode(metric)
 
     def _find_paths(self, currNodeRowKey, patterns):
         """Recursively generates absolute paths whose components underneath current_node
         match the corresponding pattern in patterns"""
-
-        from graphite.node import BranchNode, LeafNode
-        from graphite.intervals import Interval, IntervalSet
-
-        pattern = patterns[0]
-        patterns = patterns[1:]
-
         nodeRow = self.client.getRow(self.metaTable, currNodeRowKey, None)
+
         if len(nodeRow) == 0:
             return
+
+        try:
+            metric_name = nodeRow[0].columns['cf:INFO']
+        except KeyError:
+            pass
+        else:
+            yield currNodeRowKey, {currNodeRowKey: nodeRow[0].row}
+
+        if patterns:
+            pattern = patterns[0]
+            patterns = patterns[1:]
+        else:
+            pattern = "*"
 
         subnodes = {}
         for k, v in nodeRow[0].columns.items():
@@ -484,36 +462,77 @@ class HbaseTSDB(TSDB):
                 key = k.split("_", 1)[1] # pop off cf:c_ prefix
                 subnodes[key] = v.value
 
-        matching_subnodes = match_entries(subnodes.keys(), pattern)
-
+        matching_subnodes = _match_entries(subnodes.keys(), pattern)
         if patterns: # we've still got more directories to traverse
             for subnode in matching_subnodes:
                 rowKey = subnodes[subnode]
                 subNodeContents = self.client.getRow(self.metaTable, rowKey, None)
-
                 # leafs have a cf:INFO column describing their data
                 # we can't possibly match on a leaf here because we have more components in the pattern,
                 # so only recurse on branches
                 if "cf:INFO" not in subNodeContents[0].columns:
-                    for m in self._find_paths(rowKey, patterns):
-                        yield m
+                    for metric, node_list in self._find_paths(rowKey, patterns):
+                        yield metric, node_list
+        else:
+            for node in matching_subnodes:
+                yield node, subnodes
 
-        else: # at the end of the pattern
-            for subnode in matching_subnodes:
-                rowKey = subnodes[subnode]
-                nodeRow = self.client.getRow(self.metaTable, rowKey, None)
-                if len(nodeRow) == 0:
-                    continue
-                metric = rowKey.split("_", 1)[1] # pop off "m_" in key
-                if "cf:INFO" in nodeRow[0].columns:
-                    info = json.loads(nodeRow[0].columns["cf:INFO"].value)
-                    start = time.time() - info['maxRetention']
-                    end = time.time()
-                    intervals = IntervalSet( [Interval(start, end)] )
-                    reader = HbaseReader(metric,intervals,info,self)
-                    yield LeafNode(metric, reader)
-                else:
-                    yield BranchNode(metric)
+"""
+This will break up a list like:
+['Platform', 'MySQL', '*', '*', '*qps*']
+into
+['Platform.MySQL', '*', '*', '*qps*']
+Which means fewer scans for each metric.
+Thus...cheaper!
+['Infrastructure.servers.CH', 'ag*', 'loadavg', '[01][15]']
+In this case, two fewer scans!
+Extrapolate across some of our bigger requests, and this does 
+save time.
+"""
+def _cheaper_patterns(pattern):
+    if len(pattern) < 2:
+        return pattern
+    excluded = ['*', '[', ']', '{', '}']
+    current_string = pattern[0]
+    chunk = pattern[1]
+    del pattern[:1]
+    while not any(x in chunk for x in excluded):
+        current_string += ".%s" % chunk
+        del pattern[0]
+        try:
+            chunk = pattern[0]
+        except IndexError:
+            break
+    final_chunks = [current_string]
+    final_chunks.extend(pattern)
+    return final_chunks
+
+def _match_entries(entries, pattern): 
+    """A drop-in replacement for fnmatch.filter that supports pattern 
+    variants (ie. {foo,bar}baz = foobaz or barbaz).""" 
+    v1, v2 = pattern.find('{'), pattern.find('}') 
+ 
+    if v1 > -1 and v2 > v1: 
+        variations = pattern[v1 + 1:v2].split(',') 
+        variants = [pattern[:v1] + v + pattern[v2 + 1:] for v in variations] 
+        matching = [] 
+ 
+        for variant in variants: 
+            matching.extend(fnmatch.filter(entries, variant)) 
+ 
+        return list(_deduplicate(matching)) #remove dupes without changing order 
+ 
+    else: 
+        matching = fnmatch.filter(entries, pattern) 
+        matching.sort() 
+        return matching 
+
+def _deduplicate(entries):
+    yielded = set()
+    for entry in entries:
+        if entry not in yielded:
+            yielded.add(entry)
+            yield entry
 
 class HbaseReader(object):
     __slots__ = ('db','metric','intervals','info')
@@ -532,31 +551,3 @@ class HbaseReader(object):
     def __repr__(self):
         return '<HbaseReader[%x]: %s >' % (id(self), self.metric)
 
-
-def match_entries(entries, pattern):
-    """A drop-in replacement for fnmatch.filter that supports pattern
-    variants (ie. {foo,bar}baz = foobaz or barbaz)."""
-    v1, v2 = pattern.find('{'), pattern.find('}')
-
-    if v1 > -1 and v2 > v1:
-        variations = pattern[v1 + 1:v2].split(',')
-        variants = [pattern[:v1] + v + pattern[v2 + 1:] for v in variations]
-        matching = []
-
-        for variant in variants:
-            matching.extend(fnmatch.filter(entries, variant))
-
-        return list(_deduplicate(matching)) #remove dupes without changing order
-
-    else:
-        matching = fnmatch.filter(entries, pattern)
-        matching.sort()
-        return matching
-
-
-def _deduplicate(entries):
-    yielded = set()
-    for entry in entries:
-        if entry not in yielded:
-            yielded.add(entry)
-            yield entry

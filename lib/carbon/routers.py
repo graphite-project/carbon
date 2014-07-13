@@ -36,7 +36,7 @@ class RelayRulesRouter(DatapointRouter):
           if destination in self.destinations:
             yield destination
           else:
-            log.msg("relay-rule destination \"" + str(destination) + "\" "
+            log.relay("relay-rule destination \"" + str(destination) + "\" "
                     "not configured in relay.conf DESTINATIONS")
         if not rule.continue_matching:
           return

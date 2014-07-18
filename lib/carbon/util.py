@@ -10,7 +10,7 @@ except ImportError:
 try:
   import cPickle as pickle
   USING_CPICKLE = True
-except:
+except Exception:
   import pickle
   USING_CPICKLE = False
 
@@ -57,7 +57,7 @@ def run_twistd_plugin(filename):
     try:
         from twisted.internet import epollreactor
         twistd_options.append("--reactor=epoll")
-    except:
+    except Exception:
         pass
 
     if options.debug or options.nodaemon:

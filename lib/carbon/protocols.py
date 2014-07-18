@@ -23,8 +23,9 @@ class MetricReceiver:
       self.pauseReceiving()
 
     state.connectedMetricReceiverProtocols.add(self)
-    events.pauseReceivingMetrics.addHandler(self.pauseReceiving)
-    events.resumeReceivingMetrics.addHandler(self.resumeReceiving)
+    if settings.USE_FLOW_CONTROL:
+      events.pauseReceivingMetrics.addHandler(self.pauseReceiving)
+      events.resumeReceivingMetrics.addHandler(self.resumeReceiving)
 
   def getPeerName(self):
     if hasattr(self.transport, 'getPeer'):
@@ -48,8 +49,9 @@ class MetricReceiver:
       log.listener("%s connection with %s lost: %s" % (self.__class__.__name__, self.peerName, reason.value))
 
     state.connectedMetricReceiverProtocols.remove(self)
-    events.pauseReceivingMetrics.removeHandler(self.pauseReceiving)
-    events.resumeReceivingMetrics.removeHandler(self.resumeReceiving)
+    if settings.USE_FLOW_CONTROL:
+      events.pauseReceivingMetrics.removeHandler(self.pauseReceiving)
+      events.resumeReceivingMetrics.removeHandler(self.resumeReceiving)
 
   def metricReceived(self, metric, datapoint):
     if BlackList and metric in BlackList:

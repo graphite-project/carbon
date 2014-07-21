@@ -42,7 +42,7 @@ def get_loadavg():
 sock = socket()
 try:
   sock.connect( (CARBON_SERVER,CARBON_PORT) )
-except:
+except Exception:
   print "Couldn't connect to %(server)s on port %(port)d, is carbon-agent.py running?" % { 'server':CARBON_SERVER, 'port':CARBON_PORT }
   sys.exit(1)
 

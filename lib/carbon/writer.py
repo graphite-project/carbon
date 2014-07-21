@@ -127,7 +127,7 @@ def writeCachedDataPoints():
         t1 = time.time()
         whisper.update_many(dbFilePath, datapoints)
         updateTime = time.time() - t1
-      except:
+      except Exception:
         log.msg("Error writing to %s" % (dbFilePath))
         log.err()
         instrumentation.increment('errors')
@@ -147,7 +147,7 @@ def writeForever():
   while reactor.running:
     try:
       writeCachedDataPoints()
-    except:
+    except Exception:
       log.err()
     time.sleep(1)  # The writer thread only sleeps when the cache is empty or an error occurs
 
@@ -156,7 +156,7 @@ def reloadStorageSchemas():
   global SCHEMAS
   try:
     SCHEMAS = loadStorageSchemas()
-  except:
+  except Exception:
     log.msg("Failed to reload storage SCHEMAS")
     log.err()
 
@@ -165,7 +165,7 @@ def reloadAggregationSchemas():
   global AGGREGATION_SCHEMAS
   try:
     AGGREGATION_SCHEMAS = loadAggregationSchemas()
-  except:
+  except Exception:
     log.msg("Failed to reload aggregation SCHEMAS")
     log.err()
 

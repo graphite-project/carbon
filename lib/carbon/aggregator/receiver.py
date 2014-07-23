@@ -32,5 +32,7 @@ def process(metric, datapoint):
     metric = rule.apply(metric)
 
   if metric not in aggregate_metrics:
-    log.msg("Couldn't match metric %s with any aggregation rule. Passing on un-aggregated." % metric)
     events.metricGenerated(metric, datapoint)
+
+  if len(aggregate_metrics) == 0:
+    log.msg("Couldn't match metric %s with any aggregation rule. Passing on un-aggregated." % metric)

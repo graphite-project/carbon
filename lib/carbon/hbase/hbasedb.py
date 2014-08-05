@@ -83,12 +83,13 @@ class HbaseTSDB(TSDB):
         if self.metaTable not in tables:
             self.client.createTable(self.metaTable, 
                 [ColumnDescriptor("cf:", compression="Snappy", 
-                blockcache=True)])
+                blockCacheEnabled=True)])
             # add counter record
             self.client.atomicIncrement(self.metaTable, "CTR", "cf:CTR", 1)
         if self.dataTable not in tables:
             self.client.createTable(self.dataTable, 
-            [ColumnDescriptor("cf:", compression="Snappy", bloomfilter='ROW', blockcache=True)])
+            [ColumnDescriptor("cf:", compression="Snappy", bloomFilterType='ROW', 
+            blockCacheEnabled=True)])
 
     def get_rows(self, scanId, how_many):
         try:
@@ -373,11 +374,51 @@ class HbaseTSDB(TSDB):
             fromTime = oldestTime
             # iterate archives to find the smallest
         diff = now - fromTime
+        full_ret = []
         for archive in info['archives']:
+            (timeInfo, ret) = self.__archive_fetch(archive, fromTime, untilTime)
+            full_ret.append((timeInfo, ret))
             if archive['retention'] >= diff:
                 break
-        (timeInfo, ret) = self.__archive_fetch(archive, fromTime, untilTime)
-        return timeInfo, ret
+        full_ret = reduce(self.__merge, full_ret)
+        return full_ret
+
+    def __merge(self, results1, results2):
+        # Ensure results1 is finer than results2
+        if results1[0][2] > results2[0][2]:
+            results1, results2 = results2, results1
+
+        time_info1, values1 = results1
+        time_info2, values2 = results2
+        start1, end1, step1 = time_info1
+        start2, end2, step2 = time_info2
+
+        step   = step1                # finest step
+        start  = min(start1, start2)  # earliest start
+        end    = max(end1, end2)      # latest end
+        time_info = (start, end, step)
+        values = []
+
+        t = start
+        while t < end:
+            # Look for the finer precision value first if available
+            i1 = (t - start1) / step1
+
+            if len(values1) > i1:
+                val = values1[i1]
+            else:
+                i2 = (t - start2) / step2
+
+                if len(values2) > i2:
+                    val = values2[i2]
+                else:
+                    val = None
+
+            values.append(val)
+
+            t += step
+
+        return (time_info, values)
 
     def build_index(self, tmp_index):
         scannerId = hbase.client.scannerOpenWithScan(hbase.metaTable,
@@ -495,7 +536,7 @@ def _cheaper_patterns(pattern):
     excluded = ['*', '[', ']', '{', '}']
     current_string = pattern[0]
     chunk = pattern[1]
-    del pattern[:1]
+    del pattern[0]
     while not any(x in chunk for x in excluded):
         current_string += ".%s" % chunk
         del pattern[0]

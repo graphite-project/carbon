@@ -5,7 +5,7 @@ from os.path import join
 from carbon.hbase.hbasedb import HbaseTSDB
 
 import sys
-sys.path.append('/opt/graphite/webapp')
+sys.path.append('/usr/local/rnt/webapp')
 
 from graphite import local_settings
 

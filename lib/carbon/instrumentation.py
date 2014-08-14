@@ -29,6 +29,12 @@ def increment(stat, increase=1):
   except KeyError:
     stats[stat] = increase
 
+def max(stat, newval):
+  try:
+    if stats[stat] < newval:
+      stats[stat] = newval
+  except KeyError:
+    stats[stat] = newval
 
 def append(stat, value):
   try:

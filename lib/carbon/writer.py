@@ -72,7 +72,7 @@ def optimalWriteOrder():
           MetricCache.pop(metric)
         except KeyError:
           pass
-
+        instrumentation.increment('droppedCreates')
         continue
 
     try:  # metrics can momentarily disappear from the MetricCache due to the implementation of MetricCache.store()

@@ -135,12 +135,16 @@ def avg(values):
   if values:
     return float( sum(values) ) / len(values)
 
+def count(values):
+  if values:
+    return len(values)
 
 AGGREGATION_METHODS = {
-  'sum' : sum,
-  'avg' : avg,
-  'min' : min,
-  'max' : max,
+  'sum'   : sum,
+  'avg'   : avg,
+  'min'   : min,
+  'max'   : max,
+  'count' : count
 }
 
 # Importable singleton

@@ -40,7 +40,7 @@ class CarbonRootService(MultiService):
 def createBaseService(config):
     from carbon.conf import settings
     from carbon.protocols import (MetricLineReceiver, MetricPickleReceiver,
-                                  MetricDatagramReceiver)
+                                  MetricDatagramReceiver, CmdLineReceiver)
 
     root_service = CarbonRootService()
     root_service.setName(settings.program)
@@ -64,7 +64,10 @@ def createBaseService(config):
                                        MetricLineReceiver),
                                       (settings.PICKLE_RECEIVER_INTERFACE,
                                        settings.PICKLE_RECEIVER_PORT,
-                                       MetricPickleReceiver)):
+                                       MetricPickleReceiver),
+                                      (settings.CMD_LINE_RECEIVER_INTERFACE,
+                                       settings.CMD_LINE_RECEIVER_PORT,
+                                       CmdLineReceiver)):
         if port:
             factory = ServerFactory()
             factory.protocol = protocol

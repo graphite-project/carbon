@@ -1,4 +1,5 @@
 import time
+import json
 
 from twisted.internet import reactor
 from twisted.internet.protocol import DatagramProtocol
@@ -168,6 +169,51 @@ class CacheManagementHandler(Int32StringReceiver):
     response = pickle.dumps(result, protocol=-1)
     self.sendString(response)
 
+class CmdLineReceiver(LineOnlyReceiver):
+  delimiter = '\n'
+
+  def lineReceived(self, line):
+    ret = ""
+    try:
+      fs = line.strip().split()
+      cmd = fs[0]
+      if cmd not in ["create", "delete", "info", "fetch",]:
+          log.err("not supported cmd: %s" % cmd)
+      else:
+        if cmd == "create":
+          metric = fs[1]
+          # secondsPerPoint:numberOfPoints,secondsPerPoint:numberOfPoints
+          # --> [(secondsPerPoint,numberOfPoints),()]
+          archiveList = [x.split(":") for x in fs[2].split(",")]
+
+          if len(fs) >= 4:
+            xFilesFactor = cmd[3] or None
+          else:
+            xFilesFactor = None
+          if len(fs) >= 5:
+            aggregationMethod = cmd[4] or None
+          else:
+            aggregationMethod = None
+          management.WhisperCmd.create(metric, archiveList, xFilesFactor, aggregationMethod)
+          ret = "ok"
+        elif cmd == "delete":
+          metric = fs[1]
+          management.WhisperCmd.delete(metric)
+          ret = "ok"
+        elif cmd == "info":
+          metric = fs[1]
+          ret = management.WhisperCmd.info(metric)
+        elif cmd == "fetch":
+          metric = fs[1]
+          start = fs[2]
+          end = fs[3]
+          ret = management.WhisperCmd.fetch(metric, start, end)
+    except IOError:
+        pass
+    except Exception, e:
+        log.err("fetch fail: %s" %e)
+
+    self.sendLine(json.dumps(ret))
 
 # Avoid import circularities
 from carbon.cache import MetricCache

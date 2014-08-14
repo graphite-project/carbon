@@ -1,3 +1,4 @@
+import os
 import traceback
 import whisper
 from carbon import log
@@ -29,3 +30,26 @@ def setMetadata(metric, key, value):
   except:
     log.err()
     return dict(error=traceback.format_exc())
+
+class WhisperCmd(object):
+
+  @classmethod
+  def fetch(cls, path, start, end):
+    wsp_path = getFilesystemPath(path)
+    return whisper.fetch(wsp_path, start, end)
+
+  @classmethod
+  def create(cls, path, archiveList, xFilesFactor=None, aggregationMethod=None):
+    wsp_path = getFilesystemPath(path)
+    return whisper.create(wsp_path, archiveList, xFilesFactor, aggregationMethod)
+
+  @classmethod
+  def delete(cls, path):
+    wsp_path = getFilesystemPath(path)
+    return os.removedirs(wsp_path)
+
+  @classmethod
+  def info(cls, path):
+    wsp_path = getFilesystemPath(path)
+    return whisper.info(wsp_path)
+

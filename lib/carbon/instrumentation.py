@@ -143,7 +143,7 @@ def recordMetrics():
 
   try: # This only works on Linux
     record('memUsage', getMemUsage())
-  except:
+  except Exception:
     pass
 
 

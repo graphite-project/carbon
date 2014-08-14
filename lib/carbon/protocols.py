@@ -72,27 +72,58 @@ class MetricLineReceiver(MetricReceiver, LineOnlyReceiver):
   delimiter = '\n'
 
   def lineReceived(self, line):
+   if settings.get("LINE_RECEIVER_KEY", None):
+    try:
+      key, metric, value, timestamp = line.strip().split()
+      comparekey = settings.LINE_RECEIVER_KEY
+      if settings.get("LINE_RECEIVER_KEY_TYPE", None):
+       if (settings.LINE_RECEIVER_KEY_TYPE == "sha1"):
+        comparekey = hashlib.sha1(comparekey+timestamp).hexdigest()
+      if (key == comparekey):
+       datapoint = ( float(timestamp), float(value) )
+       self.metricReceived(metric, datapoint)
+      else:
+       log.listener('invalid key in line received from client %s, ignoring' % self.peerName)
+       return
+    except:
+      log.listener('invalid line received (expecting key) from client %s, ignoring' % self.peerName)
+      return
+   else:
     try:
       metric, value, timestamp = line.strip().split()
       datapoint = ( float(timestamp), float(value) )
+      self.metricReceived(metric, datapoint)
     except:
       log.listener('invalid line received from client %s, ignoring' % self.peerName)
       return
 
-    self.metricReceived(metric, datapoint)
-
-
 class MetricDatagramReceiver(MetricReceiver, DatagramProtocol):
   def datagramReceived(self, data, (host, port)):
     for line in data.splitlines():
+     if settings.get("UDP_RECEIVER_KEY", None):
+      try:
+        key, metric, value, timestamp = line.strip().split()
+        comparekey = settings.UDP_RECEIVER_KEY
+        if settings.get("UDP_RECEIVER_KEY_TYPE", None):
+         if settings.UDP_RECEIVER_KEY_TYPE == "sha1":
+          comparekey = hashlib.sha1(comparekey+timestamp).hexdigest()
+        if key == comparekey:
+         datapoint = ( float(timestamp), float(value) )
+         self.metricReceived(metric, datapoint)
+        else:
+         log.listener('invalid key in line received from client %s, ignoring' % host)
+         return
+      except:
+       log.listener('invalid line received (expecting key) from client %s, ignoring' % host)
+       return
+     else:
       try:
         metric, value, timestamp = line.strip().split()
         datapoint = ( float(timestamp), float(value) )
-
         self.metricReceived(metric, datapoint)
       except:
         log.listener('invalid line received from %s, ignoring' % host)
-
+        return
 
 class MetricPickleReceiver(MetricReceiver, Int32StringReceiver):
   MAX_LENGTH = 2 ** 20

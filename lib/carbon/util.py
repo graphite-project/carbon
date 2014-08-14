@@ -1,6 +1,7 @@
 import sys
 import os
 import pwd
+import hashlib
 
 from os.path import abspath, basename, dirname, join
 try:

@@ -74,7 +74,7 @@ that sends `loadavg` data for your local machine to carbon on a minutely basis.
 
 The default storage schema stores data in one-minute intervals for 2 hours.
 This is probably not what you want so you should create a custom storage schema
-according to the docs on the [Graphite wiki][].
+according to the [Graphite docs][].
 
-[Graphite wiki]: http://graphite.wikidot.com
+[Graphite docs]: http://graphite.readthedocs.org/
 [examples/example-client.py]: https://github.com/graphite-project/carbon/blob/master/examples/example-client.py

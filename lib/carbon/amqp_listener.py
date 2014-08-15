@@ -44,7 +44,7 @@ import txamqp.spec
 
 try:
     import carbon
-except:
+except ImportError:
     # this is being run directly, carbon is not installed
     LIB_DIR = os.path.dirname(os.path.dirname(__file__))
     sys.path.insert(0, LIB_DIR)

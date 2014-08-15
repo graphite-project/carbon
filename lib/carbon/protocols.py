@@ -1,4 +1,5 @@
 import time
+import hashlib
 
 from twisted.internet import reactor
 from twisted.internet.protocol import DatagramProtocol
@@ -65,57 +66,50 @@ class MetricReceiver:
     
     events.metricReceived(metric, datapoint)
 
-
-class MetricLineReceiver(MetricReceiver, LineOnlyReceiver):
-  delimiter = '\n'
-
-  def lineReceived(self, line):
-   if settings.get("LINE_RECEIVER_KEY", None):
+  def checkLineKey(self, keyname, peername, line):
+   key = settings.get(keyname, None)
+   keytype = settings.get((keyname + '_TYPE'), None)
+   if key is not None:
     try:
-      key, metric, value, timestamp = line.strip().split()
-      comparekey = settings.LINE_RECEIVER_KEY
-      if settings.get("LINE_RECEIVER_KEY_TYPE", None):
-       if settings.LINE_RECEIVER_KEY_TYPE == "sha1":
-        comparekey = hashlib.sha1(comparekey+timestamp).hexdigest()
-      if key == comparekey:
-       datapoint = ( float(timestamp), float(value) )
-       self.metricReceived(metric, datapoint)
-      else:
-       log.listener('invalid key in line received from client %s, ignoring' % self.peerName)
+     linekey, linemetric, linevalue, linetimestamp = line.strip().split()
     except ValueError:
-      log.listener('invalid line received (expecting key) from client %s, ignoring' % self.peerName)
+      log.listener('invalid key in line received from client %s, ignoring' % peername)
+      raise
+    hashed = keytype(key, linetimestamp)
+    if linemetric and linevalue and linetimestamp and hashed == linekey:
+     return linemetric, linevalue, linetimestamp
+    else:
+     log.listener('incorrect key or data in line received from client %s, ignoring' % peername)
+     raise ValueError
    else:
     try:
-      metric, value, timestamp = line.strip().split()
-      datapoint = ( float(timestamp), float(value) )
-      self.metricReceived(metric, datapoint)
+     linemetric, linevalue, linetimestamp = line.strip().split()
+     if linemetric and linevalue and linetimestamp:
+      return linemetric, linevalue, linetimestamp
+     else:
+      log.listener('invalid line received from client %s, ignoring' % peername)
+      raise ValueError
     except ValueError:
-      log.listener('invalid line received from client %s, ignoring' % self.peerName)
+     log.listener('invalid line received from client %s, ignoring' % peername)
+
+class MetricLineReceiver(MetricReceiver, LineOnlyReceiver):
+  def lineReceived(self, line):
+   try:
+    metric, value, timestamp = self.checkLineKey('LINE_RECEIVER_KEY', self.peerName, line)
+    datapoint = ( float(timestamp), float(value) )
+    self.metricReceived(metric, datapoint)
+   except ValueError:
+    pass
 
 class MetricDatagramReceiver(MetricReceiver, DatagramProtocol):
   def datagramReceived(self, data, (host, port)):
     for line in data.splitlines():
-     if settings.get("UDP_RECEIVER_KEY", None):
-      try:
-        key, metric, value, timestamp = line.strip().split()
-        comparekey = settings.UDP_RECEIVER_KEY
-        if settings.get("UDP_RECEIVER_KEY_TYPE", None):
-         if settings.UDP_RECEIVER_KEY_TYPE == "sha1":
-          comparekey = hashlib.sha1(comparekey+timestamp).hexdigest()
-        if key == comparekey:
-         datapoint = ( float(timestamp), float(value) )
-         self.metricReceived(metric, datapoint)
-        else:
-         log.listener('invalid key in line received from client %s, ignoring' % host)
-      except ValueError:
-       log.listener('invalid line received (expecting key) from client %s, ignoring' % host)
-     else:
-      try:
-        metric, value, timestamp = line.strip().split()
-        datapoint = ( float(timestamp), float(value) )
-        self.metricReceived(metric, datapoint)
-      except ValueError:
-        log.listener('invalid line received from %s, ignoring' % host)
+     try:
+      metric, value, timestamp = self.checkLineKey('UDP_RECEIVER_KEY', 'udp', line)
+      datapoint = ( float(timestamp), float(value) )
+      self.metricReceived(metric, datapoint)
+     except ValueError:
+      pass
 
 class MetricPickleReceiver(MetricReceiver, Int32StringReceiver):
   MAX_LENGTH = 2 ** 20

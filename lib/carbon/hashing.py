@@ -1,9 +1,7 @@
-try:
-  from hashlib import md5
-except ImportError:
-  from md5 import md5
+import hashlib
 import bisect
 
+from carbon.exceptions import CarbonConfigException
 
 class ConsistentHashRing:
   def __init__(self, nodes, replica_count=100):
@@ -14,7 +12,7 @@ class ConsistentHashRing:
       self.add_node(node)
 
   def compute_ring_position(self, key):
-    big_hash = md5( str(key) ).hexdigest()
+    big_hash = hashlib.md5( str(key) ).hexdigest()
     small_hash = int(big_hash[:4], 16)
     return small_hash
 
@@ -53,3 +51,27 @@ class ConsistentHashRing:
         yield next_node
 
       index = (index + 1) % len(self.ring)
+
+class KeyHashing:
+  def __init__(self, hashtype):
+   if hashtype is not None:
+    try:
+     hashfunc = getattr(hashlib, hashtype, None)  
+     if hashfunc is not None:
+      try:
+       if hasattr(hashfunc('test'), 'hexdigest'):
+        self.do_hash = lambda input1, input2: hashfunc(input1+input2).hexdigest()
+       else:
+        raise CarbonConfigException("Requested hashing type of %s is invalid or can not be used" % hashtype)
+      except (AttributeError, NameError, ValueError):
+       raise CarbonConfigException("Requested hashing type of %s is invalid or can not be used" % hashtype)
+     else:
+      raise CarbonConfigException("Requested hashing type of %s is invalid or can not be used" % hashtype)
+    except (AttributeError, NameError, ValueError):
+     raise CarbonConfigException("Requested hashing type of %s is invalid or can not be used" % hashtype)
+  def __call__(self, input1, input2):
+    if hasattr(self, 'do_hash'):
+     return self.do_hash(input1, input2)
+    else:
+     return input1
+

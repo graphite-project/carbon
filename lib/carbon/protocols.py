@@ -75,25 +75,22 @@ class MetricLineReceiver(MetricReceiver, LineOnlyReceiver):
       key, metric, value, timestamp = line.strip().split()
       comparekey = settings.LINE_RECEIVER_KEY
       if settings.get("LINE_RECEIVER_KEY_TYPE", None):
-       if (settings.LINE_RECEIVER_KEY_TYPE == "sha1"):
+       if settings.LINE_RECEIVER_KEY_TYPE == "sha1":
         comparekey = hashlib.sha1(comparekey+timestamp).hexdigest()
-      if (key == comparekey):
+      if key == comparekey:
        datapoint = ( float(timestamp), float(value) )
        self.metricReceived(metric, datapoint)
       else:
        log.listener('invalid key in line received from client %s, ignoring' % self.peerName)
-       return
-    except:
+    except ValueError:
       log.listener('invalid line received (expecting key) from client %s, ignoring' % self.peerName)
-      return
    else:
     try:
       metric, value, timestamp = line.strip().split()
       datapoint = ( float(timestamp), float(value) )
       self.metricReceived(metric, datapoint)
-    except:
+    except ValueError:
       log.listener('invalid line received from client %s, ignoring' % self.peerName)
-      return
 
 class MetricDatagramReceiver(MetricReceiver, DatagramProtocol):
   def datagramReceived(self, data, (host, port)):
@@ -110,18 +107,15 @@ class MetricDatagramReceiver(MetricReceiver, DatagramProtocol):
          self.metricReceived(metric, datapoint)
         else:
          log.listener('invalid key in line received from client %s, ignoring' % host)
-         return
-      except:
+      except ValueError:
        log.listener('invalid line received (expecting key) from client %s, ignoring' % host)
-       return
      else:
       try:
         metric, value, timestamp = line.strip().split()
         datapoint = ( float(timestamp), float(value) )
         self.metricReceived(metric, datapoint)
-      except:
+      except ValueError:
         log.listener('invalid line received from %s, ignoring' % host)
-        return
 
 class MetricPickleReceiver(MetricReceiver, Int32StringReceiver):
   MAX_LENGTH = 2 ** 20

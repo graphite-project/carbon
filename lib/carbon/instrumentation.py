@@ -83,7 +83,7 @@ def recordMetrics():
     updateTimes = myStats.get('updateTimes', [])
     committedPoints = myStats.get('committedPoints', 0)
     creates = myStats.get('creates', 0)
-    droppedCreates = myStats.get('droppedCreates', 0
+    droppedCreates = myStats.get('droppedCreates', 0)
     errors = myStats.get('errors', 0)
     cacheQueries = myStats.get('cacheQueries', 0)
     cacheBulkQueries = myStats.get('cacheBulkQueries', 0)

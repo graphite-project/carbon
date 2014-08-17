@@ -131,6 +131,8 @@ def recordMetrics():
 
   # common metrics
   record('metricsReceived', myStats.get('metricsReceived', 0))
+  record('blacklistMatches', myStats.get('blacklistMatches', 0))
+  record('whitelistRejects', myStats.get('whitelistRejects', 0))
   record('cpuUsage', getCpuUsage())
   try: # This only works on Linux
     record('memUsage', getMemUsage())

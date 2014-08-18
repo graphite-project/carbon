@@ -49,7 +49,7 @@ class ConsistentHashRing:
     while len(nodes) < len(self.nodes) and index != last_index:
       next_entry = self.ring[index]
       (position, next_node) = next_entry
-      if next_node not in uniq_nodes:
+      if next_node[0] not in uniq_nodes:
         nodes.add(next_node)
         uniq_nodes.append(next_node[0])
         yield next_node

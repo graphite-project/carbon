@@ -15,11 +15,11 @@
 # configuration variables are available with these default values:
 #
 #   STORAGE_DIR    = $GRAPHITE_STORAGE_DIR
-#   LOCAL_DATA_DIR = STORAGE_DIR/whisper/
-#   WHITELISTS_DIR = STORAGE_DIR/lists/
-#   CONF_DIR       = STORAGE_DIR/conf/
-#   LOG_DIR        = STORAGE_DIR/log/
-#   PID_DIR        = STORAGE_DIR/
+#   LOCAL_DATA_DIR = %(STORAGE_DIR)s/whisper/
+#   WHITELISTS_DIR = %(STORAGE_DIR)s/lists/
+#   CONF_DIR       = %(STORAGE_DIR)s/conf/
+#   LOG_DIR        = %(STORAGE_DIR)s/log/
+#   PID_DIR        = %(STORAGE_DIR)s/
 #
 # For FHS style directory structures, use:
 #

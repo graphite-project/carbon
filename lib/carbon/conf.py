@@ -206,6 +206,14 @@ class CarbonCacheOptions(usage.Options):
         settings.update(program_settings)
         settings["program"] = program
 
+        # Normalize and expand paths
+        settings["STORAGE_DIR"] = os.path.normpath(os.path.expanduser(settings["STORAGE_DIR"]))
+        settings["LOCAL_DATA_DIR"] = os.path.normpath(os.path.expanduser(settings["LOCAL_DATA_DIR"]))
+        settings["WHITELISTS_DIR"] = os.path.normpath(os.path.expanduser(settings["WHITELISTS_DIR"]))
+        settings["PID_DIR"] = os.path.normpath(os.path.expanduser(settings["PID_DIR"]))
+        settings["LOG_DIR"] = os.path.normpath(os.path.expanduser(settings["LOG_DIR"]))
+        settings["pidfile"] = os.path.normpath(os.path.expanduser(settings["pidfile"]))
+
         # Set process uid/gid by changing the parent config, if a user was
         # provided in the configuration file.
         if settings.USER:
@@ -347,6 +355,18 @@ class CarbonCacheOptions(usage.Options):
                         os.unlink(pidfile)
                     except:
                         print "Could not remove pidfile %s" % pidfile
+            # Try to create the PID directory
+            else:
+                if not os.path.exists(settings["PID_DIR"]): 
+                    try:
+                        os.makedirs(settings["PID_DIR"])
+                    except OSError as exc: # Python >2.5
+                        if exc.errno == errno.EEXIST and os.path.isdir(settings["PID_DIR"]):
+                           pass
+                        else: 
+                           raise
+
+
 
             print "Starting %s (instance %s)" % (program, instance)
 

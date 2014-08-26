@@ -4,11 +4,11 @@ from twisted.internet.defer import Deferred, DeferredList
 from twisted.internet.protocol import ReconnectingClientFactory
 from twisted.protocols.basic import Int32StringReceiver
 from carbon.conf import settings
-from carbon.util import pickle
+from carbon.util import data_to_proto, USING_PROTOBUF, pickle
 from carbon import log, state, instrumentation
 from collections import deque
 from time import time
-
+import zlib
 
 SEND_QUEUE_LOW_WATERMARK = settings.MAX_QUEUE_SIZE * settings.QUEUE_LOW_WATERMARK_PCT
 
@@ -58,8 +58,15 @@ class CarbonClientProtocol(Int32StringReceiver):
     reactor.callLater(settings.TIME_TO_DEFER_SENDING, self.sendQueued)
 
   def _sendDatapoints(self, datapoints):
-      self.sendString(pickle.dumps(datapoints, protocol=-1))
-      instrumentation.increment(self.sent, len(datapoints))
+      data_len = len(datapoints)
+      if USING_PROTOBUF:
+        datapoints = data_to_proto(datapoints, settings.PROTOBUF_DELIMITER)
+        if settings.PROTOBUF_COMPRESS:
+          datapoints = zlib.compress(datapoints)
+      else:
+        datapoints = pickle.dumps(datapoints, protocol=-1)
+      self.sendString(datapoints)
+      instrumentation.increment(self.sent, data_len)
       instrumentation.increment(self.batchesSent)
       self.factory.checkQueue()
 
@@ -219,13 +226,13 @@ class CarbonClientFactory(ReconnectingClientFactory):
     settings.MAX_DATAPOINTS_PER_MESSAGE items from the left of the
     queue.
     """
-    def yield_max_datapoints():
-      for count in range(settings.MAX_DATAPOINTS_PER_MESSAGE):
-        try:
-          yield self.queue.popleft()
-        except IndexError:
-          raise StopIteration
-    return list(yield_max_datapoints())
+    datapoints = []
+    for count in xrange(settings.MAX_DATAPOINTS_PER_MESSAGE):
+      try:
+        datapoints.append(self.queue.popleft())
+      except IndexError:
+        break
+    return datapoints
 
   def checkQueue(self):
     """Check if the queue is empty. If the queue isn't empty or

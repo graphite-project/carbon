@@ -7,6 +7,7 @@ try:
   from cStringIO import StringIO
 except ImportError:
   from StringIO import StringIO
+
 try:
   import cPickle as pickle
   USING_CPICKLE = True
@@ -17,6 +18,12 @@ except:
 from twisted.python.util import initgroups
 from twisted.scripts.twistd import runApp
 
+try:
+  import carbon.proto_handler_pb2
+  USING_PROTOBUF = True
+except:
+  USING_PROTOBUF = False
+  pass
 
 def dropprivs(user):
   uid, gid = pwd.getpwnam(user)[2:4]
@@ -107,8 +114,6 @@ def parseDestinations(destination_strings):
 
   return destinations
 
-
-
 # This whole song & dance is due to pickle being insecure
 # yet performance critical for carbon. We leave the insecure
 # mode (which is faster) as an option (USE_INSECURE_UNPICKLER).
@@ -173,6 +178,16 @@ def get_unpickler(insecure=False):
     return pickle
   else:
     return SafeUnpickler
+
+def data_to_proto(datapoints, delimiter):
+  protobuf_points = ""
+  for metric in datapoints:
+    m = carbon.proto_handler_pb2.Metric()
+    m.path = str(metric[0])
+    m.timestamp = long(metric[1][0])
+    m.value = float(metric[1][1])
+    protobuf_points += m.SerializeToString() + delimiter
+  return protobuf_points
 
 def aggregate(aggregationMethod, knownValues):
     if aggregationMethod == 'average':

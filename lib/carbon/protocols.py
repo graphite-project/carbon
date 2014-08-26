@@ -1,14 +1,15 @@
 import time
 
 from twisted.internet import reactor
-from twisted.internet.protocol import DatagramProtocol
+from twisted.internet.protocol import DatagramProtocol, Protocol
 from twisted.internet.error import ConnectionDone
 from twisted.protocols.basic import LineOnlyReceiver, Int32StringReceiver
 from carbon import log, events, state, management
 from carbon.conf import settings
 from carbon.regexlist import WhiteList, BlackList
 from carbon.util import pickle, get_unpickler
-
+import carbon.proto_handler_pb2
+import zlib
 
 class MetricReceiver:
   """ Base class for all metric receiving protocols, handles flow
@@ -114,6 +115,31 @@ class MetricPickleReceiver(MetricReceiver, Int32StringReceiver):
 
       self.metricReceived(metric, datapoint)
 
+class MetricProtocolBufferReceiver(MetricReceiver, Protocol):
+
+  def connectionMade(self):
+    MetricReceiver.connectionMade(self)
+  
+  def dataReceived(self, data):
+    if len(data) <= 0:
+      log.listener('protobuf short read from %s' % self.peerName)
+      return
+    try:
+      if settings.PROTOBUF_COMPRESSED:
+        data = zlib.decompress(data)
+      for metric in data.split(settings.PROTOBUF_DELIMITER):
+        try:
+          protobuf = proto_handler_pb2.Metric()
+          protobuf.MergeFromString(metric)
+        except google.protobuf.message.DecodeError:
+          log.listener('invalid metric name/type %r/%r received from %s' % ( metric, type(metric), self.peerName))
+          continue
+        else:
+          datapoint = ( float(protobuf.timestamp), float(protobuf.value) )
+        self.metricReceived(protobuf.path, datapoint)
+    except:
+      log.listener('invalid protobuf received from %s, ignoring' % self.peerName)
+      return
 
 class CacheManagementHandler(Int32StringReceiver):
   MAX_LENGTH = 1024 ** 3 # 1mb

@@ -40,7 +40,8 @@ class CarbonRootService(MultiService):
 def createBaseService(config):
     from carbon.conf import settings
     from carbon.protocols import (MetricLineReceiver, MetricPickleReceiver,
-                                  MetricDatagramReceiver)
+                                  MetricDatagramReceiver, 
+                                  MetricProtocolBufferReceiver)
 
     root_service = CarbonRootService()
     root_service.setName(settings.program)
@@ -58,13 +59,20 @@ def createBaseService(config):
         amqp_spec     = settings.get("AMQP_SPEC", None)
         amqp_exchange_name = settings.get("AMQP_EXCHANGE", "graphite")
 
-
-    for interface, port, protocol in ((settings.LINE_RECEIVER_INTERFACE,
-                                       settings.LINE_RECEIVER_PORT,
-                                       MetricLineReceiver),
-                                      (settings.PICKLE_RECEIVER_INTERFACE,
-                                       settings.PICKLE_RECEIVER_PORT,
-                                       MetricPickleReceiver)):
+    receivers = []
+    if settings.ENABLE_LINE_RECEIVER:
+      receivers.append((settings.LINE_RECEIVER_INTERFACE,
+                        settings.LINE_RECEIVER_PORT,
+                        MetricLineReceiver))
+    if settings.ENABLE_PICKLE_RECEIVER:
+      receivers.append((settings.PICKLE_RECEIVER_INTERFACE,
+                        settings.PICKLE_RECEIVER_PORT,
+                        MetricPickleReceiver))
+    if settings.ENABLE_PROTOBUF_RECEIVER:
+      receivers.append((settings.PROTOBUF_RECEIVER_INTERFACE,
+                        settings.PROTOBUF_RECEIVER_PORT,
+                        MetricProtocolBufferReceiver))
+    for (interface, port, protocol) in receivers:
         if port:
             factory = ServerFactory()
             factory.protocol = protocol

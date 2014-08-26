@@ -66,6 +66,7 @@ MAX_UPDATES_PER_SECOND = 500
 # the files quickly but at the risk of slowing I/O down considerably for a while.
 MAX_CREATES_PER_MINUTE = 50
 
+ENABLE_LINE_RECEIVER = False
 LINE_RECEIVER_INTERFACE = 0.0.0.0
 LINE_RECEIVER_PORT = 2003
 
@@ -76,6 +77,7 @@ ENABLE_UDP_LISTENER = False
 UDP_RECEIVER_INTERFACE = 0.0.0.0
 UDP_RECEIVER_PORT = 2003
 
+ENABLE_PICKLE_RECEIVER = False
 PICKLE_RECEIVER_INTERFACE = 0.0.0.0
 PICKLE_RECEIVER_PORT = 2004
 
@@ -83,6 +85,10 @@ PICKLE_RECEIVER_PORT = 2004
 # will use a more secure and slightly less efficient unpickler.
 # Set this to True to revert to the old-fashioned insecure unpickler.
 USE_INSECURE_UNPICKLER = False
+
+ENABLE_PROTOBUF_RECEIVER = False
+PROTOBUF_RECEIVER_INTERFACE = 0.0.0.0
+PROTOBUF_RECEIVER_PORT = 2005
 
 CACHE_QUERY_INTERFACE = 0.0.0.0
 CACHE_QUERY_PORT = 7002

@@ -179,7 +179,7 @@ def shutdown_modify_update_speed():
   global write_ratelimit
   if settings.MAX_WRITES_PER_SECOND_SHUTDOWN != settings.MAX_WRITES_PER_SECOND:
     write_ratelimit = RateLimit(settings.MAX_WRITES_PER_SECOND_SHUTDOWN, 1)
-    log.msg("Carbon shutting down.  Changed the update rate to: " + str(settings.MAX_UPDATES_PER_SECOND_ON_SHUTDOWN))
+    log.msg("Carbon shutting down.  Changed the update rate to: " + str(settings.MAX_WRITES_PER_SECOND_SHUTDOWN))
 
 
 class WriterService(Service):

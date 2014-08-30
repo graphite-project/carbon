@@ -112,14 +112,18 @@ def writeCachedDataPoints():
             log.err("%s" % e)
         log.creates("creating database file %s (archive=%s xff=%s agg=%s)" %
                     (dbFilePath, archiveConfig, xFilesFactor, aggregationMethod))
-        whisper.create(
-            dbFilePath,
-            archiveConfig,
-            xFilesFactor,
-            aggregationMethod,
-            settings.WHISPER_SPARSE_CREATE,
-            settings.WHISPER_FALLOCATE_CREATE)
-        instrumentation.increment('creates')
+        try:
+            whisper.create(
+                dbFilePath,
+                archiveConfig,
+                xFilesFactor,
+                aggregationMethod,
+                settings.WHISPER_SPARSE_CREATE,
+                settings.WHISPER_FALLOCATE_CREATE)
+            instrumentation.increment('creates')
+        except:
+            log.err("Error creating %s" % (dbFilePath))
+            continue
       # If we've got a rate limit configured lets makes sure we enforce it
       if UPDATE_BUCKET:
         UPDATE_BUCKET.drain(1, blocking=True)

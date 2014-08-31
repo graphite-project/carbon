@@ -195,6 +195,12 @@ class TokenBucket(object):
         return True
       return False
 
+  def setCapacityAndFillRate(self, new_capacity, new_fill_rate):
+    delta = float(new_capacity) - self.capacity
+    self.capacity = float(new_capacity)
+    self.fill_rate = float(new_fill_rate)
+    self._tokens = delta + self._tokens
+
   @property
   def tokens(self):
     '''The tokens property will return the current number of tokens in the

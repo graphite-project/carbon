@@ -4,11 +4,10 @@ from twisted.internet.defer import Deferred, DeferredList
 from twisted.internet.protocol import ReconnectingClientFactory
 from twisted.protocols.basic import Int32StringReceiver
 from carbon.conf import settings
-from carbon.util import data_to_proto, USING_PROTOBUF, pickle
+from carbon.util import pack_data
 from carbon import log, state, instrumentation
 from collections import deque
 from time import time
-import zlib
 
 SEND_QUEUE_LOW_WATERMARK = settings.MAX_QUEUE_SIZE * settings.QUEUE_LOW_WATERMARK_PCT
 
@@ -45,7 +44,7 @@ class CarbonClientProtocol(Int32StringReceiver):
     self.sendQueued()
 
   def stopProducing(self):
-    self.disconnect()
+    self.disconnect
 
   def disconnect(self):
     if self.connected:
@@ -59,12 +58,10 @@ class CarbonClientProtocol(Int32StringReceiver):
 
   def _sendDatapoints(self, datapoints):
       data_len = len(datapoints)
-      if USING_PROTOBUF:
-        datapoints = data_to_proto(datapoints, settings.PROTOBUF_DELIMITER)
-        if settings.PROTOBUF_COMPRESS:
-          datapoints = zlib.compress(datapoints)
-      else:
-        datapoints = pickle.dumps(datapoints, protocol=-1)
+      datapoints = pack_data(datapoints, settings.INTERNAL_DATA_TYPE,
+                             settings.USE_INSECURE_UNPICKLER,
+                             settings.PROTOBUF_DELIMITER,
+                             settings.COMPRESS_DATA)
       self.sendString(datapoints)
       instrumentation.increment(self.sent, data_len)
       instrumentation.increment(self.batchesSent)

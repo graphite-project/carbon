@@ -12,7 +12,8 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License."""
 
-import os, re
+from os import stat as os_stat
+import re
 import whisper
 
 from os.path import join, exists, sep
@@ -65,7 +66,7 @@ class ListSchema(Schema):
     self.path = join(settings.WHITELISTS_DIR, listName)
 
     if exists(self.path):
-      self.mtime = os.stat(self.path).st_mtime
+      self.mtime = os_stat(self.path).st_mtime
       with open(self.path, 'rb') as file_handle:
         self.members = pickle.load(file_handle)
 
@@ -75,7 +76,7 @@ class ListSchema(Schema):
 
   def test(self, metric):
     if exists(self.path):
-      current_mtime = os.stat(self.path).st_mtime
+      current_mtime = os_stat(self.path).st_mtime
 
       if current_mtime > self.mtime:
         self.mtime = current_mtime

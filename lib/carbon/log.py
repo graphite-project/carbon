@@ -1,4 +1,4 @@
-import time
+from time import strftime
 from sys import stdout, stderr
 from zope.interface import implements
 from twisted.python.log import startLoggingWithObserver, textFromEventDict, msg, err, ILogObserver
@@ -55,7 +55,7 @@ def formatEvent(event, includeType=False):
   else:
     typeTag = ''
 
-  timestamp = time.strftime("%d/%m/%Y %H:%M:%S")
+  timestamp = strftime("%d/%m/%Y %H:%M:%S")
   return "%s :: %s%s" % (timestamp, typeTag, message)
 
 

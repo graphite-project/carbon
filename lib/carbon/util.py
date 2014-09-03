@@ -1,6 +1,6 @@
 import sys
-import os
-import pwd
+from os import setregid, setreuid, environ
+from pwd import getpwnam
 
 from os.path import abspath, basename, dirname, join
 try:
@@ -18,18 +18,24 @@ except:
 from twisted.python.util import initgroups
 from twisted.scripts.twistd import runApp
 
+from zlib import compress as zlib_compress
+
 try:
-  import carbon.proto_handler_pb2
-  USING_PROTOBUF = True
+  from carbon.proto_handler_pb2 import Metric
 except:
-  USING_PROTOBUF = False
   pass
 
+try:
+  from msgpack import packb
+except:
+  pass
+
+
 def dropprivs(user):
-  uid, gid = pwd.getpwnam(user)[2:4]
+  uid, gid = getpwnam(user)[2:4]
   initgroups(uid, gid)
-  os.setregid(gid, gid)
-  os.setreuid(uid, uid)
+  setregid(gid, gid)
+  setreuid(uid, uid)
   return (uid, gid)
 
 
@@ -39,7 +45,7 @@ def run_twistd_plugin(filename):
 
     bin_dir = dirname(abspath(filename))
     root_dir = dirname(bin_dir)
-    os.environ.setdefault('GRAPHITE_ROOT', root_dir)
+    environ.setdefault('GRAPHITE_ROOT', root_dir)
 
     program = basename(filename).split('.')[0]
 
@@ -146,7 +152,6 @@ if USING_CPICKLE:
       try:
         ret = pickle_obj.load()
       except Exception as e:
-        log.msg('Bad Pickle!')
         ret = None
         pass
       return ret
@@ -179,15 +184,42 @@ def get_unpickler(insecure=False):
   else:
     return SafeUnpickler
 
-def data_to_proto(datapoints, delimiter):
+def data_to_proto(datapoints, delimiter, compress=False):
   protobuf_points = ""
   for metric in datapoints:
-    m = carbon.proto_handler_pb2.Metric()
+    m = Metric()
     m.path = str(metric[0])
     m.timestamp = long(metric[1][0])
     m.value = float(metric[1][1])
     protobuf_points += m.SerializeToString() + delimiter
-  return protobuf_points
+  return protobuf_points[:-len(delimiter)]
+
+def pack_data(datapoints, pack_type=None, safe_pickle=False, delimiter=None, compress=False):
+    pickle = get_unpickler(safe_pickle)
+
+    #msgpack serialization
+    if pack_type == "msgpack":
+      try:
+        data = packb(datapoints)
+      except Exception:
+        raise ValueError('msgpack package not imported')
+
+    #Google's protocol buffer serialization
+    elif pack_type == "protobuf":
+      try:
+        data = data_to_proto(datapoints, delimiter, compress)
+      except Exception:
+        raise ValueError('protobuf package not imported')
+      if compress:
+        data = zlib_compress(data)
+
+    #Default to pickle
+    else:
+      data = pickle.dumps(datapoints, protocol=-1)
+      if compress:
+        data = zlib_compress(data)
+
+    return data
 
 def aggregate(aggregationMethod, knownValues):
     if aggregationMethod == 'average':

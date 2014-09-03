@@ -39,9 +39,6 @@ class CarbonRootService(MultiService):
 
 def createBaseService(config):
     from carbon.conf import settings
-    from carbon.protocols import (MetricLineReceiver, MetricPickleReceiver,
-                                  MetricDatagramReceiver, 
-                                  MetricProtocolBufferReceiver)
 
     root_service = CarbonRootService()
     root_service.setName(settings.program)
@@ -61,17 +58,25 @@ def createBaseService(config):
 
     receivers = []
     if settings.ENABLE_LINE_RECEIVER:
+      from carbon.protocols import MetricLineReceiver
       receivers.append((settings.LINE_RECEIVER_INTERFACE,
                         settings.LINE_RECEIVER_PORT,
                         MetricLineReceiver))
     if settings.ENABLE_PICKLE_RECEIVER:
+      from carbon.protocols import MetricPickleReceiver
       receivers.append((settings.PICKLE_RECEIVER_INTERFACE,
                         settings.PICKLE_RECEIVER_PORT,
                         MetricPickleReceiver))
     if settings.ENABLE_PROTOBUF_RECEIVER:
+      from carbon.protocols import MetricProtocolBufferReceiver
       receivers.append((settings.PROTOBUF_RECEIVER_INTERFACE,
                         settings.PROTOBUF_RECEIVER_PORT,
                         MetricProtocolBufferReceiver))
+    if settings.ENABLE_MSGPACK_RECEIVER:
+      from carbon.protocols import MetricMsgPackReceiver
+      receivers.append((settings.MSGPACK_RECEIVER_INTERFACE,
+                        settings.MSGPACK_RECEIVER_PORT,
+                        MetricMsgPackReceiver))
     for (interface, port, protocol) in receivers:
         if port:
             factory = ServerFactory()

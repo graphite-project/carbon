@@ -1,15 +1,22 @@
-import time
+from time import time
 
 from twisted.internet import reactor
-from twisted.internet.protocol import DatagramProtocol, Protocol
+from twisted.internet.protocol import DatagramProtocol
 from twisted.internet.error import ConnectionDone
 from twisted.protocols.basic import LineOnlyReceiver, Int32StringReceiver
 from carbon import log, events, state, management
 from carbon.conf import settings
 from carbon.regexlist import WhiteList, BlackList
 from carbon.util import pickle, get_unpickler
-import carbon.proto_handler_pb2
-import zlib
+from carbon.proto_handler_pb2 import Metric
+from zlib import decompress
+from zlib import error as zlib_error
+from google.protobuf import message as proto_message
+
+try:
+    from msgpack import unpackb
+except Exception:
+    pass
 
 class MetricReceiver:
   """ Base class for all metric receiving protocols, handles flow
@@ -62,7 +69,7 @@ class MetricReceiver:
     if datapoint[1] != datapoint[1]: # filter out NaN values
       return
     if int(datapoint[0]) == -1: # use current time if none given: https://github.com/graphite-project/carbon/issues/54
-      datapoint = (time.time(), datapoint[1])
+      datapoint = (time(), datapoint[1])
     
     events.metricReceived(metric, datapoint)
 
@@ -102,44 +109,69 @@ class MetricPickleReceiver(MetricReceiver, Int32StringReceiver):
 
   def stringReceived(self, data):
     try:
+      data = decompress(data)
+    except zlib_error:
+      pass
+    try:
       datapoints = self.unpickler.loads(data)
-    except:
+    except Exception:
       log.listener('invalid pickle received from %s, ignoring' % self.peerName)
       return
 
     for (metric, datapoint) in datapoints:
       try:
         datapoint = ( float(datapoint[0]), float(datapoint[1]) ) #force proper types
-      except:
+      except Exception:
         continue
 
       self.metricReceived(metric, datapoint)
 
-class MetricProtocolBufferReceiver(MetricReceiver, Protocol):
+class MetricMsgPackReceiver(MetricReceiver, Int32StringReceiver):
+  MAX_LENGTH = 2 ** 20
 
   def connectionMade(self):
     MetricReceiver.connectionMade(self)
   
   def dataReceived(self, data):
-    if len(data) <= 0:
-      log.listener('protobuf short read from %s' % self.peerName)
-      return
     try:
-      if settings.PROTOBUF_COMPRESSED:
-        data = zlib.decompress(data)
-      for metric in data.split(settings.PROTOBUF_DELIMITER):
-        try:
-          protobuf = proto_handler_pb2.Metric()
-          protobuf.MergeFromString(metric)
-        except google.protobuf.message.DecodeError:
-          log.listener('invalid metric name/type %r/%r received from %s' % ( metric, type(metric), self.peerName))
-          continue
-        else:
-          datapoint = ( float(protobuf.timestamp), float(protobuf.value) )
-        self.metricReceived(protobuf.path, datapoint)
-    except:
-      log.listener('invalid protobuf received from %s, ignoring' % self.peerName)
+      datapoints = unpackb(data)
+    except Exception:
+      log.listener('invalid msgpack data %r received from %s' % ( metric, self.peerName))
       return
+    for (metric, datapoint) in datapoints:
+      try:
+        datapoint = ( float(datapoint[0]), float(datapoint[1]) )
+      except Exception:
+        continue
+
+    self.metricReceived(metric, datapoint)
+
+class MetricProtocolBufferReceiver(MetricReceiver, Int32StringReceiver):
+
+  def connectionMade(self):
+    MetricReceiver.connectionMade(self)
+  
+  def dataReceived(self, data):
+    #remove 4 characters that get packed on by twisted
+    data = data[4:]
+    
+    #Rather than having a setting for incoming compressed metrics, let's just try decompressing
+    try:
+      data = decompress(data)
+    except zlib_error:
+      pass
+
+    for metric in data.split(settings.PROTOBUF_DELIMITER):
+      try:
+        protobuf = Metric()
+        protobuf.ParseFromString(metric)
+      except proto_message.DecodeError:
+        log.listener('invalid metric name/type %r/%r received from %s' % ( metric, type(metric), self.peerName))
+        continue
+      else:
+        datapoint = ( float(protobuf.timestamp), float(protobuf.value) )
+      self.metricReceived(protobuf.path, datapoint)
+      del protobuf
 
 class CacheManagementHandler(Int32StringReceiver):
   MAX_LENGTH = 1024 ** 3 # 1mb

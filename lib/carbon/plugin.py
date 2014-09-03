@@ -1,11 +1,9 @@
 from carbon.conf import settings
 from carbon.whispertsdb import WhisperTSDB
-import os
-from os.path import join
 from carbon.hbase.hbasedb import HbaseTSDB
 
-import sys
-sys.path.append('/usr/local/rnt/webapp')
+from sys import path as sys_path
+sys_path.append('/opt/graphite/webapp')
 
 from graphite import local_settings
 

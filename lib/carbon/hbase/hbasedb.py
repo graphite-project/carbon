@@ -1,7 +1,9 @@
-import json
-import fnmatch
-import time
-import struct
+from json import loads as json_loads
+from json import dumps as json_dumps
+from fnmatch import filter as fnmatch_filter
+from time import time, sleep
+from struct import pack as struct_pack
+from struct import unpack as struct_unpack
 
 from thrift.transport import TSocket
 from carbon.tsdb import TSDB
@@ -68,7 +70,7 @@ class HbaseTSDB(TSDB):
             pool_size=20,
             retries=3)
         self._mutations = []
-        self._send_time = time.time()
+        self._send_time = time()
         # ensure both our tables exist
         try:
             tables = self.client.getTableNames()
@@ -106,15 +108,15 @@ class HbaseTSDB(TSDB):
                 break
 
     def __send(self):
-        if ((time.time() - self._send_time) > self.send_interval) or (len(self._mutations) > self.batch_size):
+        if ((time() - self._send_time) > self.send_interval) or (len(self._mutations) > self.batch_size):
             self.client.mutateRows(self.dataTable, self._mutations, None)
-            self._send_time = time.time()
+            self._send_time = time()
             self._mutations = []
 
     def __refresh_thrift_client(self):
          log.msg("Attempting to refresh thrift client") 
          self.transport.close()
-         time.sleep(0.25)
+         sleep(0.25)
          self.transport.open()
 
     # returns info for the underlying db (including 'aggregationMethod')
@@ -219,7 +221,7 @@ class HbaseTSDB(TSDB):
         """
 
         info = self.info(metric)
-        now = int(time.time())
+        now = int(time())
         archives = iter(info['archives'])
         currentArchive = archives.next()
         currentPoints = []
@@ -257,13 +259,13 @@ class HbaseTSDB(TSDB):
                          for (timestamp, value) in points]
 
         len_aligned = len(alignedPoints)
-        for i in xrange(0, len_aligned):
+        for i in xrange(len_aligned):
             if i+1 < len_aligned and alignedPoints[i][0] == alignedPoints[i+1][0]:
                 continue
             (timestamp, value) = alignedPoints[i]
             slot = int((timestamp / step) % numPoints)
-            rowkey = struct.pack(KEY_FMT, archiveId, slot)
-            rowval = struct.pack(VAL_FMT, timestamp, value)
+            rowkey = struct_pack(KEY_FMT, archiveId, slot)
+            rowval = struct_pack(VAL_FMT, timestamp, value)
             self._mutations.append(BatchMutation(rowkey, 
                 [Mutation(column="cf:d", value=rowval)]))
             self.__send()
@@ -296,8 +298,8 @@ class HbaseTSDB(TSDB):
         if (len(known_datapts) / len(higherResData)) > xff: # we have enough data, so propagate downwards
             aggregateValue = util.aggregate(aggregationMethod, known_datapts)
             lowerSlot = timestamp / lower['secondsPerPoint'] % lower['points']
-            rowkey = struct.pack(KEY_FMT, lower['archiveId'], lowerSlot)
-            rowval = struct.pack(VAL_FMT, timestamp, aggregateValue)
+            rowkey = struct_pack(KEY_FMT, lower['archiveId'], lowerSlot)
+            rowval = struct_pack(VAL_FMT, timestamp, aggregateValue)
             self._mutations.append(BatchMutation(rowkey, 
                 [Mutation(column="cf:d", value=rowval)]))
             self.__send()
@@ -314,33 +316,29 @@ class HbaseTSDB(TSDB):
         endSlot = int((endTime / step) % numPoints)
         numSlots = (endTime - startTime) / archive['secondsPerPoint']
         ret = [None] * numSlots
-        if startSlot > endSlot: # we wrapped so make 2 queries
-            ranges = [(0, endSlot + 1), (startSlot, numPoints)]
-        else:
-            ranges = [(startSlot, endSlot + 1)]
-        for t in ranges:
-            startkey = struct.pack(KEY_FMT, archive['archiveId'], t[0])
-            endkey = struct.pack(KEY_FMT, archive['archiveId'], t[1])
+
+        startkey = struct_pack(KEY_FMT, archive['archiveId'], 0)
+        endkey = struct_pack(KEY_FMT, archive['archiveId'], numPoints)
             
-            scan = TScan(startRow = startkey, stopRow = endkey, 
-                         timestamp = None, caching = 2000, 
-                         filterString = None, batchSize = self.batch_size, 
-                         sortColumns = False)
+        scan = TScan(startRow = startkey, stopRow = endkey, 
+                     timestamp = None, caching = 2000, 
+                     filterString = None, batchSize = self.batch_size, 
+                     sortColumns = False)
 
-            scannerId = self.client.scannerOpenWithScan(self.dataTable, scan, {})
+        scannerId = self.client.scannerOpenWithScan(self.dataTable, scan, {})
 
-            for rows in self.get_rows(scannerId, self.batch_size):
-                for row in rows:
-                    # this is dumb.
-                    (timestamp, value) = struct.unpack(VAL_FMT, row.columns["cf:d"].value) 
-                    if timestamp >= startTime and timestamp <= endTime:
-                        returnslot = int((timestamp - startTime) / archive['secondsPerPoint']) % numSlots
-                        ret[returnslot] = value
-            try:
-                self.client.scannerClose(scannerId)
-            except IllegalArgument:
-                log.msg("Invalid scan ID: %s" % scannerId)
-                continue
+        for rows in self.get_rows(scannerId, self.batch_size):
+            for row in rows:
+                # this is dumb.
+                (timestamp, value) = struct_unpack(VAL_FMT, row.columns["cf:d"].value) 
+                if timestamp >= startTime and timestamp <= endTime:
+                    returnslot = int((timestamp - startTime) / archive['secondsPerPoint']) % numSlots
+                    ret[returnslot] = value
+        try:
+            self.client.scannerClose(scannerId)
+        except IllegalArgument:
+            #log.msg("Invalid scan ID: %s" % scannerId)
+            continue
         timeInfo = (startTime, endTime, step)
         return timeInfo, ret
 
@@ -356,7 +354,7 @@ class HbaseTSDB(TSDB):
     # where timeInfo is itself a tuple of (fromTime, untilTime, step)
     # Returns None if no data can be returned
     def fetch(self, info, fromTime, untilTime):
-        now = int(time.time())
+        now = int(time())
         if untilTime is None:
             untilTime = now
         fromTime = int(fromTime)
@@ -376,10 +374,13 @@ class HbaseTSDB(TSDB):
         diff = now - fromTime
         full_ret = []
         for archive in info['archives']:
+            if untilTime < (now - (archive['secondsPerPoint'] * archive['points'])):
+                continue
             (timeInfo, ret) = self.__archive_fetch(archive, fromTime, untilTime)
             full_ret.append((timeInfo, ret))
             if archive['retention'] >= diff:
                 break
+
         full_ret = reduce(self.__merge, full_ret)
         return full_ret
 
@@ -393,30 +394,42 @@ class HbaseTSDB(TSDB):
         start1, end1, step1 = time_info1
         start2, end2, step2 = time_info2
 
-        step   = step1                # finest step
         start  = min(start1, start2)  # earliest start
         end    = max(end1, end2)      # latest end
-        time_info = (start, end, step)
-        values = []
 
+        #We need to determine the difference in the
+        #number of datapoints between lists 1 & 2
+        #and basically explode the values in the older
+        #list to match the newer one
+        try:
+            padding = int(step2 / step1)
+        except ValueError:
+            padding = 1
+        if padding < 1:
+            padding = 1
+
+        time_info = (start, end, step1)
+        values = []
+        values1_len = len(values1)
+        values2_len = len(values2)
         t = start
+
         while t < end:
             # Look for the finer precision value first if available
-            i1 = (t - start1) / step1
-
-            if len(values1) > i1:
-                val = values1[i1]
+            index = (t - start1) / step1
+            if values1_len > index and values1[index] is not None:
+                val = [values1[index]]
+                t += step1
             else:
-                i2 = (t - start2) / step2
+                index = (t - start2) / step2
+                t += step2
 
-                if len(values2) > i2:
-                    val = values2[i2]
+                if values2_len > index:
+                    val = [values2[index] for pad in xrange(padding)]
                 else:
-                    val = None
+                    val = [None] * padding
 
-            values.append(val)
-
-            t += step
+            values.extend(val)
 
         return (time_info, values)
 
@@ -424,7 +437,7 @@ class HbaseTSDB(TSDB):
         scannerId = hbase.client.scannerOpenWithScan(hbase.metaTable,
                         TScan(caching=2000, columns=['cf:INFO']), {})
 
-        t = time.time()
+        t = time()
         total_entries = 0
         for rows in self.get_rows(scannerId, self.batch_size):
             total_entries += len(rows)
@@ -437,12 +450,12 @@ class HbaseTSDB(TSDB):
             log.msg("Invalid scan ID: %s" % scannerId)
             pass
         log.msg("[IndexSearcher] index rebuild took %.6f seconds (%d entries)" %
-             (time.time() - t, total_entries))
+             (time() - t, total_entries))
 
     # returns [ start, end ] where start,end are unixtime ints
     def get_intervals(self, metric):
-        start = time.time() - self.info(metric)['maxRetention']
-        end = time.time()
+        start = time() - self.info(metric)['maxRetention']
+        end = time()
         return [start, end]
 
     def find_nodes(self, query):
@@ -468,8 +481,8 @@ class HbaseTSDB(TSDB):
             metric = rowKey.split("_", 1)[1] # pop off "m_" in key
             if "cf:INFO" in nodeRow[0].columns:
                 info = json.loads(nodeRow[0].columns["cf:INFO"].value)
-                start = time.time() - info['maxRetention']
-                end = time.time()
+                start = time() - info['maxRetention']
+                end = time()
                 intervals = IntervalSet( [Interval(start, end)] )
                 reader = HbaseReader(metric, intervals, info, self)
                 yield LeafNode(metric, reader)
@@ -559,12 +572,12 @@ def _match_entries(entries, pattern):
         matching = [] 
  
         for variant in variants: 
-            matching.extend(fnmatch.filter(entries, variant)) 
+            matching.extend(fnmatch_filter(entries, variant)) 
  
         return list(_deduplicate(matching)) #remove dupes without changing order 
  
     else: 
-        matching = fnmatch.filter(entries, pattern) 
+        matching = fnmatch_filter(entries, pattern) 
         matching.sort() 
         return matching 
 
@@ -576,7 +589,7 @@ def _deduplicate(entries):
             yield entry
 
 class HbaseReader(object):
-    __slots__ = ('db','metric','intervals','info')
+    __slots__ = ('db', 'metric', 'intervals', 'info')
     def __init__(self,metric,intervals,info,db):
         self.metric=metric
         self.db=db

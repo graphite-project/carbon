@@ -316,24 +316,28 @@ class HbaseTSDB(TSDB):
         endSlot = int((endTime / step) % numPoints)
         numSlots = (endTime - startTime) / archive['secondsPerPoint']
         ret = [None] * numSlots
+        if startSlot > endSlot: # we wrapped so make 2 queries
+            ranges = [(0, endSlot + 1), (startSlot, numPoints)]
+        else:
+            ranges = [(startSlot, endSlot + 1)]
+        for t in ranges:
+            startkey = struct_pack(KEY_FMT, archive['archiveId'], t[0])
+            endkey = struct_pack(KEY_FMT, archive['archiveId'], t[1])
+                
+            scan = TScan(startRow = startkey, stopRow = endkey, 
+                         timestamp = None, caching = 2000, 
+                         filterString = None, batchSize = self.batch_size, 
+                         sortColumns = False)
 
-        startkey = struct_pack(KEY_FMT, archive['archiveId'], 0)
-        endkey = struct_pack(KEY_FMT, archive['archiveId'], numPoints)
-            
-        scan = TScan(startRow = startkey, stopRow = endkey, 
-                     timestamp = None, caching = 2000, 
-                     filterString = None, batchSize = self.batch_size, 
-                     sortColumns = False)
+            scannerId = self.client.scannerOpenWithScan(self.dataTable, scan, {})
 
-        scannerId = self.client.scannerOpenWithScan(self.dataTable, scan, {})
-
-        for rows in self.get_rows(scannerId, self.batch_size):
-            for row in rows:
-                # this is dumb.
-                (timestamp, value) = struct_unpack(VAL_FMT, row.columns["cf:d"].value) 
-                if timestamp >= startTime and timestamp <= endTime:
-                    returnslot = int((timestamp - startTime) / archive['secondsPerPoint']) % numSlots
-                    ret[returnslot] = value
+            for rows in self.get_rows(scannerId, self.batch_size):
+                for row in rows:
+                    # this is dumb.
+                    (timestamp, value) = struct_unpack(VAL_FMT, row.columns["cf:d"].value) 
+                    if timestamp >= startTime and timestamp <= endTime:
+                        returnslot = int((timestamp - startTime) / archive['secondsPerPoint']) % numSlots
+                        ret[returnslot] = value
         try:
             self.client.scannerClose(scannerId)
         except IllegalArgument:

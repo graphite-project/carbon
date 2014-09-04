@@ -76,7 +76,7 @@ class MetricLineReceiver(MetricReceiver, LineOnlyReceiver):
       metric, value, timestamp = line.strip().split()
       datapoint = ( float(timestamp), float(value) )
     except:
-      log.listener('invalid line (%s) received from client %s, ignoring' % (line, self.peerName))
+      log.listener('invalid line (%s) received from client %s, ignoring' % (line.strip(), self.peerName))
       return
 
     self.metricReceived(metric, datapoint)

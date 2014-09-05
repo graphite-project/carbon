@@ -357,13 +357,13 @@ class CarbonCacheOptions(usage.Options):
                         print "Could not remove pidfile %s" % pidfile
             # Try to create the PID directory
             else:
-                if not os.path.exists(settings["PID_DIR"]): 
+                if not os.path.exists(settings["PID_DIR"]):
                     try:
                         os.makedirs(settings["PID_DIR"])
                     except OSError as exc: # Python >2.5
                         if exc.errno == errno.EEXIST and os.path.isdir(settings["PID_DIR"]):
                            pass
-                        else: 
+                        else:
                            raise
 
 
@@ -410,7 +410,7 @@ class CarbonRelayOptions(CarbonCacheOptions):
 
         if self["aggregation-rules"] is None:
             self["rules"] = join(settings["CONF_DIR"], settings['AGGREGATION_RULES'])
-        settings["aggregation-rules"] = self["aggregation-rules"]
+        settings["aggregation-rules"] = self["rules"]
 
         if settings["RELAY_METHOD"] not in ("rules", "consistent-hashing", "aggregated-consistent-hashing"):
             print ("In carbon.conf, RELAY_METHOD must be either 'rules' or "

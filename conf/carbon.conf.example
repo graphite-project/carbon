@@ -51,7 +51,7 @@ MAX_UPDATES_PER_SECOND = 500
 # If defined, this changes the MAX_UPDATES_PER_SECOND in Carbon when a
 # stop/shutdown is initiated.  This helps when MAX_UPDATES_PER_SECOND is
 # relatively low and carbon has cached a lot of updates; it enables the carbon
-# daemon to shutdown more quickly. 
+# daemon to shutdown more quickly.
 # MAX_UPDATES_PER_SECOND_ON_SHUTDOWN = 1000
 
 # Softly limits the number of whisper files that get created each minute.
@@ -123,8 +123,8 @@ WHISPER_AUTOFLUSH = False
 # WHISPER_LOCK_WRITES = False
 
 # Set this to True to enable whitelisting and blacklisting of metrics in
-# CONF_DIR/whitelist and CONF_DIR/blacklist. If the whitelist is missing or
-# empty, all metrics will pass through
+# CONF_DIR/whitelist.conf and CONF_DIR/blacklist.conf. If the whitelist is
+# missing or empty, all metrics will pass through
 # USE_WHITELIST = False
 
 # By default, carbon itself will log statistics (such as a count,
@@ -260,8 +260,8 @@ TIME_TO_DEFER_SENDING = 0.0001
 USE_FLOW_CONTROL = True
 
 # Set this to True to enable whitelisting and blacklisting of metrics in
-# CONF_DIR/whitelist and CONF_DIR/blacklist. If the whitelist is missing or
-# empty, all metrics will pass through
+# CONF_DIR/whitelist.conf and CONF_DIR/blacklist.conf. If the whitelist is
+# missing or empty, all metrics will pass through
 # USE_WHITELIST = False
 
 # By default, carbon itself will log statistics (such as a count,
@@ -313,7 +313,7 @@ PICKLE_RECEIVER_PORT = 2024
 
 # Filenames of the configuration files to use for this instance of aggregator.
 # Filenames are relative to CONF_DIR.
-# 
+#
 # AGGREGATION_RULES = aggregation-rules.conf
 # REWRITE_RULES = rewrite-rules.conf
 
@@ -323,7 +323,7 @@ PICKLE_RECEIVER_PORT = 2024
 # use multiple carbon-cache instances then it would look like this:
 #
 # DESTINATIONS = 127.0.0.1:2004:a, 127.0.0.1:2104:b
-# 
+#
 # The format is comma-delimited IP:PORT:INSTANCE where the :INSTANCE part is
 # optional and refers to the "None" instance if omitted.
 #
@@ -366,8 +366,8 @@ MAX_AGGREGATION_INTERVALS = 5
 # WRITE_BACK_FREQUENCY = 0
 
 # Set this to True to enable whitelisting and blacklisting of metrics in
-# CONF_DIR/whitelist and CONF_DIR/blacklist. If the whitelist is missing or
-# empty, all metrics will pass through
+# CONF_DIR/whitelist.conf and CONF_DIR/blacklist.conf. If the whitelist is
+# missing or empty, all metrics will pass through
 # USE_WHITELIST = False
 
 # By default, carbon itself will log statistics (such as a count,

@@ -35,7 +35,7 @@ setup(
   author_email='chrismd@gmail.com',
   license='Apache Software License 2.0',
   description='Backend data caching and persistence daemon for Graphite',
-  packages=['carbon', 'carbon.hbase', 'carbon.hbase.thriftpool', 'carbon.aggregator', 'twisted.plugins', 'importlib'],
+  packages=['carbon', 'carbon.aggregator', 'twisted.plugins', 'importlib'],
   package_dir={'' : 'lib'},
   scripts=glob('bin/*'),
   package_data={ 'carbon' : ['*.xml'] },

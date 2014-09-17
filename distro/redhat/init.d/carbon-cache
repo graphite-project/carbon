@@ -18,7 +18,10 @@ INSTANCES=$(grep "^\[${DAEMON}" ${CONF} | cut -d \[ -f 2 | cut -d \] -f 1 | cut 
 
 start(){
     if [ -n ${CARBON_INSTANCE} ]; then
-        echo "Starting carbon-${DAEMON}:${CARBON_INSTANCE}..."
+        if [ -f $LOG_DIR/${DAEMON}-${CARBON_INSTANCE}/carbon-${DAEMON}.pid ] && [ $(cat $LOG_DIR/${DAEMON}-${CARBON_INSTANCE}/carbon-${DAEMON}.pid | wc -w) -lt 1 ]; then
+            echo "Removing empty pid file: $LOG_DIR/${DAEMON}-${CARBON_INSTANCE}/carbon-${DAEMON}.pid"
+            rm -f $LOG_DIR/${DAEMON}-${CARBON_INSTANCE}/carbon-${DAEMON}.pid
+        fi
         $GRAPHITE_DIR/bin/carbon-${DAEMON}.py --instance=${CARBON_INSTANCE} --pidfile=$LOG_DIR/${DAEMON}-${CARBON_INSTANCE}/carbon-${DAEMON}.pid --logdir=$LOG_DIR/${DAEMON}-${CARBON_INSTANCE} --config=${CONF} start
 
         if [ $? -eq 0 ]; then
@@ -32,16 +35,21 @@ start(){
 
 stop(){
     if [ -n ${CARBON_INSTANCE} ]; then
-        echo "Stopping carbon-${DAEMON}:${CARBON_INSTANCE}..."
+        echo "Stopping instance ${CARBON_INSTANCE}"
+        pid=$(/usr/bin/pgrep -f "carbon-${DAEMON}.py --instance=${CARBON_INSTANCE}")
+        if [ ! -f $LOG_DIR/${DAEMON}-${CARBON_INSTANCE}/carbon-${DAEMON}.pid ]; then
+            echo "Fixing pid file $LOG_DIR/${DAEMON}-${CARBON_INSTANCE}/carbon-${DAEMON}.pid"
+            echo $pid > $LOG_DIR/${DAEMON}-${CARBON_INSTANCE}/carbon-${DAEMON}.pid
+        fi 
         $GRAPHITE_DIR/bin/carbon-${DAEMON}.py --instance=${CARBON_INSTANCE} --pidfile=$LOG_DIR/${DAEMON}-${CARBON_INSTANCE}/carbon-${DAEMON}.pid --logdir=$LOG_DIR/${DAEMON}-${CARBON_INSTANCE} --config=${CONF} stop
         sleep 20
-        pid=$(/usr/bin/pgrep -f "carbon-${DAEMON}.py --instance=${CARBON_INSTANCE}")
         if [[ ! -z $pid ]]; then
             ports=$(/bin/netstat -lnp | grep "${pid}" | grep ":2.*" | /usr/bin/wc -l)
             if [ $ports -gt 0 ]; then
                 echo "Instance ${CARBON_INSTANCE} did not release ports yet. Sleeping longer, then force killing it..."
                 sleep 5
                 /usr/bin/pkill -9 -f "carbon-${DAEMON}.py --instance=${CARBON_INSTANCE}"
+                sleep 2
             fi
         fi
         rm -f $LOG_DIR/${DAEMON}-${CARBON_INSTANCE}/carbon-${DAEMON}.pid

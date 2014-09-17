@@ -88,7 +88,8 @@ defaults = dict(
   DB_INIT_FUNC="carbon.db.NewWhisperDB",
   THRIFT_PORT=9090,
   THRIFT_HOST='localhost',
-  GRAPHITE_PREFIX='graphite_',
+  THRIFT_TRANSPORT_TYPE='buffered',
+  GRAPHITE_PREFIX='graphite',
   HBASE_BATCH_SIZE=10000,
   INTERNAL_DATA_TYPE='pickle',
 )

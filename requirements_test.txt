@@ -1,0 +1,8 @@
+nose
+mock
+coverage
+nosexcover
+mccabe
+tox
+pep8
+pyflakes

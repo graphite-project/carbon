@@ -1,10 +1,17 @@
 # http://travis-ci.org/#!/graphite-project/carbon
 language: python
-python:
-    - 2.6
-    - 2.7
+
+env:
+  - TOXENV=py26
+  - TOXENV=py27
+  - TOXENV=lint
+
+before_install:
+  # TODO: [jssjr 2014-09-23] Remove this when /opt/graphite isn't hardcoded
+  - rm -f setup.cfg
+
 install:
-    - pip install -r requirements.txt --use-mirrors
-    - python setup.py install --prefix=$VIRTUAL_ENV --install-lib=$VIRTUAL_ENV/lib/python$TRAVIS_PYTHON_VERSION/site-packages
+  - pip install tox
+
 script:
-    - PYTHONPATH=lib trial carbon
+  - tox -e $TOXENV

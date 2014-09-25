@@ -49,24 +49,6 @@ class MetricCacheIntegrity(MockerTestCase):
                                ROOT_DIR="foo")
         cache = _MetricCache(method=settings.CACHE_WRITE_STRATEGY)
         self.assertEqual("naive", cache.method)
-        now = time.time()
-        datapoint1 = (now - 10, float(1))
-        datapoint2 = (now, float(2))
-
-        cache.store("a.b.c", datapoint1)
-        cache.store("a.b.c", datapoint2)
-        cache.store("d.e.f", datapoint1)
-        (m, d) = cache.pop()
-        self.assertEqual(("a.b.c", deque([datapoint1, datapoint2])), (m, d))
-
-        (m, d) = cache.pop()
-        self.assertEqual(("d.e.f", deque([datapoint1])), (m, d))
-
-        cache.store("d.e.f", datapoint1)
-        (m, d) = cache.pop()
-        self.assertEqual(("d.e.f", deque([datapoint1])), (m, d))
-
-        self.assertEqual(0, cache.size)
 
     def test_write_strategy_max(self):
         """Create a metric cache, insert metrics, ensure naive writes"""

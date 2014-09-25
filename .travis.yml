@@ -6,10 +6,6 @@ env:
   - TOXENV=py27
   - TOXENV=lint
 
-before_install:
-  # TODO: [jssjr 2014-09-23] Remove this when /opt/graphite isn't hardcoded
-  - rm -f setup.cfg
-
 install:
   - pip install tox
 

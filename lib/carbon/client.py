@@ -9,6 +9,11 @@ from carbon import log, state, instrumentation
 from collections import deque
 from time import time
 
+try:
+    import signal
+except ImportError:
+    log.debug("Couldn't import signal module")
+
 
 SEND_QUEUE_LOW_WATERMARK = settings.MAX_QUEUE_SIZE * settings.QUEUE_LOW_WATERMARK_PCT
 
@@ -319,6 +324,9 @@ class CarbonClientManager(Service):
     self.client_factories = {} # { destination : CarbonClientFactory() }
 
   def startService(self):
+    if 'signal' in globals().keys():
+      log.debug("Installing SIG_IGN for SIGHUP")
+      signal.signal(signal.SIGHUP, signal.SIG_IGN)
     Service.startService(self)
     for factory in self.client_factories.values():
       if not factory.started:

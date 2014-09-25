@@ -30,6 +30,11 @@ from twisted.internet import reactor
 from twisted.internet.task import LoopingCall
 from twisted.application.service import Service
 
+try:
+    import signal
+except ImportError:
+    log.debug("Couldn't import signal module")
+
 
 lastCreateInterval = 0
 createCount = 0
@@ -205,6 +210,9 @@ class WriterService(Service):
         self.aggregation_reload_task = LoopingCall(reloadAggregationSchemas)
 
     def startService(self):
+        if 'signal' in globals().keys():
+          log.debug("Installing SIG_IGN for SIGHUP")
+          signal.signal(signal.SIGHUP, signal.SIG_IGN)
         self.storage_reload_task.start(60, False)
         self.aggregation_reload_task.start(60, False)
         reactor.addSystemEventTrigger('before', 'shutdown', shutdownModifyUpdateSpeed)

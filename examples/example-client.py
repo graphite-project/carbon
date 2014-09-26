@@ -18,7 +18,7 @@ import time
 import os
 import platform 
 import subprocess
-from socket import socket
+import socket
 
 CARBON_SERVER = '127.0.0.1'
 CARBON_PORT = 2003
@@ -39,11 +39,11 @@ def get_loadavg():
     length = len(output)
     return output[length - 3:length]
 
-sock = socket()
+sock = socket.socket()
 try:
   sock.connect( (CARBON_SERVER,CARBON_PORT) )
-except:
-  print "Couldn't connect to %(server)s on port %(port)d, is carbon-agent.py running?" % { 'server':CARBON_SERVER, 'port':CARBON_PORT }
+except socket.error as e:
+  print "Couldn't connect (%(errno)d: %(errmsg)s) to %(server)s on port %(port)d, is carbon-agent.py running?" % { 'errno':e.errno, 'errmsg':os.strerror(e.errno), 'server':CARBON_SERVER, 'port':CARBON_PORT }
   sys.exit(1)
 
 while True:

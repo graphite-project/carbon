@@ -136,7 +136,7 @@ def recordMetrics():
   record('cpuUsage', getCpuUsage())
   try: # This only works on Linux
     record('memUsage', getMemUsage())
-  except:
+  except Exception:
     pass
 
 

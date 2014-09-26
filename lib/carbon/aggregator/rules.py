@@ -29,7 +29,7 @@ class RuleManager:
     # Only read if the rules file has been modified
     try:
       mtime = getmtime(self.rules_file)
-    except Exception:
+    except OSError:
       log.err("Failed to get mtime of %s" % self.rules_file)
       return
     if mtime <= self.rules_last_read:
@@ -59,7 +59,7 @@ class RuleManager:
       frequency = int( frequency.lstrip('(').rstrip(')') )
       return AggregationRule(input_pattern, output_pattern, method, frequency)
 
-    except Exception:
+    except ValueError:
       log.err("Failed to parse line: %s" % line)
       raise
 
@@ -90,7 +90,7 @@ class AggregationRule:
       extracted_fields = match.groupdict()
       try:
         result = self.output_template % extracted_fields
-      except Exception:
+      except TypeError:
         log.err("Failed to interpolate template %s with fields %s" % (self.output_template, extracted_fields))
 
     self.cache[metric_path] = result

@@ -116,7 +116,7 @@ def main():
       else:
         timestamp = time.time()
 
-    except Exception:
+    except ValueError:
       parser.print_usage()
       raise SystemExit(1)
 

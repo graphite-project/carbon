@@ -27,7 +27,7 @@ class RegexList:
 
     try:
       mtime = os.path.getmtime(self.list_file)
-    except Exception:
+    except OSError:
       log.err("Failed to get mtime of %s" % self.list_file)
       return
 
@@ -42,7 +42,7 @@ class RegexList:
         continue
       try:
         new_regex_list.append(re.compile(pattern))
-      except Exception:
+      except re.error:
         log.err("Failed to parse '%s' in '%s'. Ignoring line" % (pattern, self.list_file))
 
     self.regex_list = new_regex_list

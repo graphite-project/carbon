@@ -109,7 +109,7 @@ class StdinMetricsReader(LineReceiver):
       datapoint = (float(timestamp), float(value))
       assert datapoint[1] == datapoint[1] # filter out NaNs
       client_manager.sendDatapoint(metric, datapoint)
-    except Exception:
+    except ValueError:
       log.err(None, 'Dropping invalid line: %s' % line)
 
   def connectionLost(self, reason):

@@ -170,6 +170,13 @@ class CacheManagementHandler(Int32StringReceiver):
     response = pickle.dumps(result, protocol=-1)
     self.sendString(response)
 
+  def lengthLimitExceeded(self, length):
+    """
+    because we send bulk of metrics in one request, better
+    not terminate connection if length exceed MAX_LENGTH
+    """
+    pass
+
 # Avoid import circularities
 from carbon.cache import MetricCache
 from carbon import instrumentation

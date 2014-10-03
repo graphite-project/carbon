@@ -135,12 +135,6 @@ def recordMetrics():
     relay_stats =  [(k,v) for (k,v) in myStats.items() if k.startswith(prefix)]
     for stat_name, stat_value in relay_stats:
       record(stat_name, stat_value)
-      # Preserve the count of sent metrics so that the ratio of
-      # received : sent can be checked per-relay to determine the
-      # health of the destination.
-      if stat_name.endswith('.sent'):
-        myPriorStats[stat_name] = stat_value
-    record('relayMaxQueueLength', myStats.get('relayMaxQueueLength', 0))
 
   # common metrics
   record('metricsReceived', myStats.get('metricsReceived', 0))

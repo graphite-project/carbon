@@ -102,9 +102,9 @@ class MetricPickleReceiver(MetricReceiver, Int32StringReceiver):
       log.listener('invalid pickle received from %s, ignoring' % self.peerName)
       return
 
-    for (metric, datapoint) in datapoints:
+    for dp in datapoints:
       try:
-        datapoint = (float(datapoint[0]), float(datapoint[1]))  # force proper types
+        datapoint = (float(dp[1][0]), float(dp[1][1]))  # force proper types
       except:
         continue
 

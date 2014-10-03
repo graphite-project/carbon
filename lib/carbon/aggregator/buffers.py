@@ -55,7 +55,7 @@ class MetricBuffer:
     self.configured = True
 
   def compute_value(self):
-    now = int( time.time() )
+    now = int(time.time())
     current_interval = now - (now % self.aggregation_frequency)
     age_threshold = current_interval - (settings['MAX_AGGREGATION_INTERVALS'] * self.aggregation_frequency)
 
@@ -92,7 +92,7 @@ class IntervalBuffer:
     self.active = True
 
   def input(self, datapoint):
-    self.values.append( datapoint[1] )
+    self.values.append(datapoint[1])
     self.active = True
 
   def mark_inactive(self):

@@ -163,10 +163,10 @@ class Settings(dict):
         # Attempt to figure out numeric types automatically
         try:
           value = int(value)
-        except Exception:
+        except ValueError:
           try:
             value = float(value)
-          except Exception:
+          except ValueError:
             pass
 
       self[key] = value
@@ -314,7 +314,7 @@ class CarbonCacheOptions(usage.Options):
             try:
                 pid = int(pf.read().strip())
                 pf.close()
-            except Exception:
+            except IOError:
                 print "Could not read pidfile %s" % pidfile
                 raise SystemExit(1)
             print "Sending kill signal to pid %d" % pid
@@ -336,7 +336,7 @@ class CarbonCacheOptions(usage.Options):
             try:
                 pid = int(pf.read().strip())
                 pf.close()
-            except Exception:
+            except IOError:
                 print "Failed to read pid from %s" % pidfile
                 raise SystemExit(1)
 
@@ -354,7 +354,7 @@ class CarbonCacheOptions(usage.Options):
                 try:
                     pid = int(pf.read().strip())
                     pf.close()
-                except Exception:
+                except IOError:
                     print "Could not read pidfile %s" % pidfile
                     raise SystemExit(1)
                 if _process_alive(pid):
@@ -365,7 +365,7 @@ class CarbonCacheOptions(usage.Options):
                     print "Removing stale pidfile %s" % pidfile
                     try:
                         os.unlink(pidfile)
-                    except Exception:
+                    except IOError:
                         print "Could not remove pidfile %s" % pidfile
             # Try to create the PID directory
             else:

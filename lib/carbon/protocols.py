@@ -73,7 +73,7 @@ class MetricLineReceiver(MetricReceiver, LineOnlyReceiver):
     try:
       metric, value, timestamp = line.strip().split()
       datapoint = (float(timestamp), float(value))
-    except Exception:
+    except ValueError:
       log.listener('invalid line (%s) received from client %s, ignoring' % (line.strip(), self.peerName))
       return
 
@@ -88,7 +88,7 @@ class MetricDatagramReceiver(MetricReceiver, DatagramProtocol):
         datapoint = (float(timestamp), float(value))
 
         self.metricReceived(metric, datapoint)
-      except Exception:
+      except ValueError:
         log.listener('invalid line (%s) received from %s, ignoring' % (line, host))
 
 
@@ -102,7 +102,7 @@ class MetricPickleReceiver(MetricReceiver, Int32StringReceiver):
   def stringReceived(self, data):
     try:
       datapoints = self.unpickler.loads(data)
-    except Exception:
+    except pickle.UnpicklingError:
       log.listener('invalid pickle received from %s, ignoring' % self.peerName)
       return
 
@@ -113,7 +113,7 @@ class MetricPickleReceiver(MetricReceiver, Int32StringReceiver):
         log.listener('Error decoding pickle: %s' % e)
       try:
         datapoint = (float(value), float(timestamp))  # force proper types
-      except Exception:
+      except ValueError:
         continue
 
       self.metricReceived(metric, datapoint)

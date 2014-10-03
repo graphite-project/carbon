@@ -29,7 +29,7 @@ class RewriteRuleManager:
     # Only read if the rules file has been modified
     try:
       mtime = getmtime(self.rules_file)
-    except Exception:
+    except OSError:
       log.err("Failed to get mtime of %s" % self.rules_file)
       return
     if mtime <= self.rules_last_read:

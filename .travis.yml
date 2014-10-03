@@ -7,7 +7,7 @@ env:
   - TOXENV=lint
 
 install:
-  - pip install tox --use-mirrors
+  - pip install tox
 
 before_script:
   # TODO: [jssjr 2014-09-23] Remove this when /opt/graphite isn't hardcoded

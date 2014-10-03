@@ -31,6 +31,7 @@ class CarbonClientProtocol(Int32StringReceiver):
     self.batchesSent = 'destinations.%s.batchesSent' % self.destinationName
 
     self.slowConnectionReset = 'destinations.%s.slowConnectionReset' % self.destinationName
+    self.relayMaxQueueLength = 'destinations.%s.relayMaxQueueLength' % self.destinationName
 
     self.factory.connectionMade.callback(self)
     self.factory.connectionMade = Deferred()
@@ -57,8 +58,17 @@ class CarbonClientProtocol(Int32StringReceiver):
       self.connected = False
 
   def sendDatapoint(self, metric, datapoint):
-    self.factory.enqueue(metric, datapoint)
-    reactor.callLater(settings.TIME_TO_DEFER_SENDING, self.sendQueued)
+    instrumentation.max(self.relayMaxQueueLength, len(self.factory.queue))
+    if self.paused:
+      self.factory.enqueue(metric, datapoint)
+      instrumentation.increment(self.queuedUntilReady)
+
+    elif self.factory.hasQueuedDatapoints():
+      self.factory.enqueue(metric, datapoint)
+      self.sendQueued()
+
+    else:
+      self._sendDatapoints([(metric, datapoint)])
 
   def _sendDatapoints(self, datapoints):
       self.sendString(pickle.dumps(datapoints, protocol=-1))

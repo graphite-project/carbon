@@ -140,6 +140,7 @@ def recordMetrics():
       # health of the destination.
       if stat_name.endswith('.sent'):
         myPriorStats[stat_name] = stat_value
+    record('relayMaxQueueLength', myStats.get('relayMaxQueueLength', 0))
 
   # common metrics
   record('metricsReceived', myStats.get('metricsReceived', 0))

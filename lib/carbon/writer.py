@@ -128,7 +128,7 @@ def writeCachedDataPoints():
                 settings.WHISPER_FALLOCATE_CREATE)
             instrumentation.increment('creates')
         except:
-            log.msg("Error creating %s" % (dbFilePath))
+            log.err("Error creating %s" % (dbFilePath))
             continue
       # If we've got a rate limit configured lets makes sure we enforce it
       if UPDATE_BUCKET:

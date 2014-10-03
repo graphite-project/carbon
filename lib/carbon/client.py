@@ -14,7 +14,6 @@ try:
 except ImportError:
     log.debug("Couldn't import signal module")
 
-
 SEND_QUEUE_LOW_WATERMARK = settings.MAX_QUEUE_SIZE * settings.QUEUE_LOW_WATERMARK_PCT
 
 

@@ -178,7 +178,6 @@ class TokenBucket(object):
     '''Capacity is the total number of tokens the bucket can hold, fill rate is
     the rate in tokens (or fractional tokens) to be added to the bucket per
     second.'''
-    print "bingo"
     self.capacity = float(capacity)
     self._tokens = float(capacity)
     self.fill_rate = float(fill_rate)

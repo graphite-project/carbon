@@ -17,7 +17,7 @@ from collections import deque
 from carbon.conf import settings
 try:
     from collections import defaultdict
-except:
+except ImportError:
     from util import defaultdict
 
 

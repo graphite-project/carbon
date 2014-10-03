@@ -33,58 +33,48 @@ import txamqp.spec
 def writeMetric(metric_path, value, timestamp, host, port, username, password,
                 vhost, exchange, spec=None, channel_number=1, ssl=False):
 
-    result = None
-    try:
-        if not spec:
-            spec = txamqp.spec.load(os.path.normpath(
-                os.path.join(os.path.dirname(__file__), 'amqp0-8.xml')))
+    if not spec:
+        spec = txamqp.spec.load(os.path.normpath(
+            os.path.join(os.path.dirname(__file__), 'amqp0-8.xml')))
 
-        delegate = TwistedDelegate()
+    delegate = TwistedDelegate()
 
-        connector = ClientCreator(reactor, AMQClient, delegate=delegate,
-                                  vhost=vhost, spec=spec)
-        if ssl:
-            from twisted.internet.ssl import ClientContextFactory
-            wfd = waitForDeferred(connector.connectSSL(host, port, 
-                                                       ClientContextFactory()))
-            yield wfd
-            conn = wfd.getResult()
-        else:
-            wfd = waitForDeferred(connector.connectTCP(host, port))
-            yield wfd
-            conn = wfd.getResult()
-
-        wfd = waitForDeferred(conn.authenticate(username, password))
+    connector = ClientCreator(reactor, AMQClient, delegate=delegate,
+                              vhost=vhost, spec=spec)
+    if ssl:
+        from twisted.internet.ssl import ClientContextFactory
+        wfd = waitForDeferred(connector.connectSSL(host, port, 
+                                                   ClientContextFactory()))
         yield wfd
-        wfd.getResult()
-
-        wfd = waitForDeferred(conn.channel(channel_number))
+        conn = wfd.getResult()
+    else:
+        wfd = waitForDeferred(connector.connectTCP(host, port))
         yield wfd
-        wfd.getResult()
-        channel = wfd.getResult()
+        conn = wfd.getResult()
 
-        wfd = waitForDeferred(channel.channel_open())
-        yield wfd
-        wfd.getResult()
+    wfd = waitForDeferred(conn.authenticate(username, password))
+    yield wfd
 
-        wfd = waitForDeferred(channel.exchange_declare(exchange=exchange,
-                                                       type="topic",
-                                                       durable=True, 
-                                                       auto_delete=False))
-        yield wfd
-        wfd.getResult()
+    wfd = waitForDeferred(conn.channel(channel_number))
+    yield wfd
+    channel = wfd.getResult()
 
-        message = Content( "%f %d" % (value, timestamp) )
-        message["delivery mode"] = 2
+    wfd = waitForDeferred(channel.channel_open())
+    yield wfd
 
-        channel.basic_publish(exchange=exchange, content=message,
-                              routing_key=metric_path)
-        wfd = waitForDeferred(channel.channel_close())
-        yield wfd
-        wfd.getResult()
-    except:
-        result = Failure()
-    yield result
+    wfd = waitForDeferred(channel.exchange_declare(exchange=exchange,
+                                                   type="topic",
+                                                   durable=True, 
+                                                   auto_delete=False))
+    yield wfd
+
+    message = Content( "%f %d" % (value, timestamp) )
+    message["delivery mode"] = 2
+
+    channel.basic_publish(exchange=exchange, content=message,
+                          routing_key=metric_path)
+    wfd = waitForDeferred(channel.channel_close())
+    yield wfd
 
 def main():
     parser = OptionParser(usage="%prog [options] <metric> <value> [timestamp]")

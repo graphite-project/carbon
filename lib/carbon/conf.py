@@ -84,6 +84,7 @@ defaults = dict(
 def _umask(value):
     return int(value, 8)
 
+
 def _process_alive(pid):
     if exists("/proc"):
         return exists("/proc/%d" % pid)
@@ -138,17 +139,17 @@ class Settings(dict):
     if not parser.has_section(section):
       return
 
-    for key,value in parser.items(section):
+    for key, value in parser.items(section):
       key = key.upper()
 
       # Detect type from defaults dict
       if key in defaults:
-        valueType = type( defaults[key] )
+        valueType = type(defaults[key])
       else:
         valueType = str
 
       if valueType is list:
-        value = [ v.strip() for v in value.split(',') ]
+        value = [v.strip() for v in value.split(',')]
 
       elif valueType is bool:
         value = parser.getboolean(section, key)

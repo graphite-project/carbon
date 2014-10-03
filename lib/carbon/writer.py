@@ -47,7 +47,7 @@ CREATE_BUCKET = None
 UPDATE_BUCKET = None
 if settings.MAX_CREATES_PER_MINUTE != float('inf'):
   capacity = settings.MAX_CREATES_PER_MINUTE
-  fill_rate = settings.MAX_CREATES_PER_MINUTE / 60
+  fill_rate = float(settings.MAX_CREATES_PER_MINUTE) / 60
   CREATE_BUCKET = TokenBucket(capacity, fill_rate)
 
 if settings.MAX_UPDATES_PER_SECOND != float('inf'):

@@ -58,8 +58,12 @@ class MetricReceiver:
     if WhiteList and metric not in WhiteList:
       instrumentation.increment('whitelistRejects')
       return
-    if datapoint[1] == datapoint[1]:  # filter out NaN values
-      events.metricReceived(metric, datapoint)
+    if datapoint[1] != datapoint[1]: # filter out NaN values
+      return
+    if int(datapoint[0]) == 0: # use current time if none given: https://github.com/graphite-project/carbon/issues/54
+      datapoint = (time.time(), datapoint[1])
+    
+    events.metricReceived(metric, datapoint)
 
 
 class MetricLineReceiver(MetricReceiver, LineOnlyReceiver):

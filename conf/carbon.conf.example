@@ -79,6 +79,9 @@ UDP_RECEIVER_PORT = 2003
 PICKLE_RECEIVER_INTERFACE = 0.0.0.0
 PICKLE_RECEIVER_PORT = 2004
 
+# Set to false to disable logging of successful connections
+LOG_LISTENER_CONNECTIONS = True
+
 # Per security concerns outlined in Bug #817247 the pickle receiver
 # will use a more secure and slightly less efficient unpickler.
 # Set this to True to revert to the old-fashioned insecure unpickler.
@@ -217,6 +220,9 @@ LINE_RECEIVER_PORT = 2013
 PICKLE_RECEIVER_INTERFACE = 0.0.0.0
 PICKLE_RECEIVER_PORT = 2014
 
+# Set to false to disable logging of successful connections
+LOG_LISTENER_CONNECTIONS = True
+
 # Carbon-relay has several options for metric routing controlled by RELAY_METHOD
 #
 # Use relay-rules.conf to route metrics to destinations based on pattern rules
@@ -344,6 +350,9 @@ PICKLE_RECEIVER_PORT = 2024
 #
 # AGGREGATION_RULES = aggregation-rules.conf
 # REWRITE_RULES = rewrite-rules.conf
+
+# Set to false to disable logging of successful connections
+LOG_LISTENER_CONNECTIONS = True
 
 # If set true, metric received will be forwarded to DESTINATIONS in addition to
 # the output of the aggregation rules. If set false the carbon-aggregator will

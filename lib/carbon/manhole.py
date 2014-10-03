@@ -21,7 +21,6 @@ class PublicKeyChecker(SSHPublicKeyDatabase):
       keyBlob = self.userKeys[credentials.username]
       return keyBlob == credentials.blob
 
-
 def createManholeListener():
   sshRealm = TerminalRealm()
   sshRealm.chainedProtocolFactory.protocolFactory = lambda _: Manhole(namespace)
@@ -30,7 +29,7 @@ def createManholeListener():
   # of setting up keys.
   #credChecker = checkers.InMemoryUsernamePasswordDatabaseDontUse(carbon='')
   userKeys = {
-    settings.MANHOLE_USER: settings.MANHOLE_PUBLIC_KEY,
+    settings.MANHOLE_USER : settings.MANHOLE_PUBLIC_KEY,
   }
   credChecker = PublicKeyChecker(userKeys)
 
@@ -38,7 +37,6 @@ def createManholeListener():
   sshPortal.registerChecker(credChecker)
   sessionFactory = ConchFactory(sshPortal)
   return sessionFactory
-
 
 def start():
     sessionFactory = createManholeListener()

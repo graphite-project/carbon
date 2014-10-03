@@ -16,7 +16,7 @@ except:
   import pickle
   USING_CPICKLE = False
 
-from time import time
+from time import sleep, time
 from twisted.python.util import initgroups
 from twisted.scripts.twistd import runApp
 from twisted.scripts._twistd_unix import daemonize
@@ -183,7 +183,7 @@ class TokenBucket(object):
     self.fill_rate = float(fill_rate)
     self.timestamp = time()
 
-  def drain(self, cost):
+  def drain(self, cost, blocking=False):
     '''Given a number of tokens (or fractions) drain will return True and
     drain the number of tokens from the bucket if the capacity allows,
     otherwise we return false and leave the contents of the bucket.'''
@@ -191,6 +191,13 @@ class TokenBucket(object):
       self._tokens -= cost
       return True
     else:
+      if blocking:
+        tokens_needed = cost - self._tokens
+        seconds_per_token = 1 / self.fill_rate
+        seconds_left = seconds_per_token * self.fill_rate
+        sleep(self.timestamp + seconds_left - time())
+        self._tokens -= cost
+        return True
       return False
 
   @property

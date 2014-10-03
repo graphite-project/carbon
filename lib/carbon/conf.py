@@ -84,6 +84,9 @@ defaults = dict(
   WRITE_BACK_FREQUENCY=None,
   ENABLE_LOGROTATION=True,
   LOG_LISTENER_CONNECTIONS=True,
+  AGGREGATION_RULES='aggregation-rules.conf',
+  REWRITE_RULES='rewrite-rules.conf',
+  RELAY_RULES='relay-rules.conf',
 )
 
 
@@ -418,7 +421,7 @@ class CarbonRelayOptions(CarbonCacheOptions):
         settings["relay-rules"] = self["rules"]
 
         if self["aggregation-rules"] is None:
-          self["aggregation-rules"] = join(settings["CONF_DIR"], "aggregation-rules.conf")
+            self["rules"] = join(settings["CONF_DIR"], settings['AGGREGATION-RULES'])
         settings["aggregation-rules"] = self["aggregation-rules"]
 
         if settings["RELAY_METHOD"] not in ("rules", "consistent-hashing", "aggregated-consistent-hashing"):

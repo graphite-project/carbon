@@ -94,6 +94,32 @@ USE_FLOW_CONTROL = True
 # degrade performance if logging on the same volume as the whisper data is stored.
 LOG_UPDATES = False
 LOG_CACHE_HITS = False
+LOG_CACHE_QUEUE_SORTS = True
+
+# The thread that writes metrics to disk can use on of the following strategies
+# determining the order in which metrics are removed from cache and flushed to
+# disk. The default option preserves the same behavior as has been historically
+# available in version 0.9.10.
+#
+# "sorted" - All metrics in the cache will be counted and an ordered list of
+# them will be sorted according to the number of datapoints in the cache at the
+# moment of the list's creation. Metrics will then be flushed from the cache to
+# disk in that order.
+#
+# "max" - The writer thread will always pop and flush the metric from cache
+# that has the most datapoints. This will give a strong flush preference to
+# frequently updated metrics and will also reduce random file-io. Infrequently
+# updated metrics may only ever be persisted to disk at daemon shutdown if
+# there are a large number of metrics which receive very frequent updates OR if
+# disk i/o is very slow.
+#
+# "naive" - Metrics will be flushed from the cache to disk in an unordered
+# fashion. This strategy may be desirable in situations where the storage for
+# whisper files is solid state, CPU resources are very limited or deference to
+# the OS's i/o scheduler is expected to compensate for the random write
+# pattern.
+#
+CACHE_WRITE_STRATEGY = 'sorted'
 
 # On some systems it is desirable for whisper to write synchronously.
 # Set this option to True if you'd like to try this. Basically it will
@@ -108,15 +134,14 @@ WHISPER_AUTOFLUSH = False
 # depending on the underlying storage configuration.
 # WHISPER_SPARSE_CREATE = False
 
-# By default new Whisper files are created pre-allocated with the data region
-# filled with zeros to prevent fragmentation and speed up contiguous reads and
-# writes (which are common). Enabling this option will cause Whisper to create
-# fallocate the file instead.  Only beneficial on a filesystem that
-# supports fallocate.  It maintains the benefits of contiguous reads/writes.
-# but with a much faster creation speed. Enabling this option may
-# allow a large increase of MAX_CREATES_PER_MINUTE.
-# WHISPER_FALLOCATE_CREATE = False
-#
+# Only beneficial on linux filesystems that support the fallocate system call.
+# It maintains the benefits of contiguous reads/writes, but with a potentially
+# much faster creation speed, by allowing the kernel to handle the block
+# allocation and zero-ing. Enabling this option may allow a large increase of
+# MAX_CREATES_PER_MINUTE. If enabled on an OS or filesystem that is unsupported
+# this option will gracefully fallback to standard POSIX file access methods.
+WHISPER_FALLOCATE_CREATE = True
+
 # Enabling this option will cause Whisper to lock each Whisper file it writes
 # to with an exclusive lock (LOCK_EX, see: man 2 flock). This is useful when
 # multiple carbon-cache daemons are writing to the same files

@@ -160,16 +160,15 @@ class CacheManagementHandler(Int32StringReceiver):
 
     elif request['type'] == 'get-metadata':
       result = management.getMetadata(request['metric'], request['key'])
-
+ 
     elif request['type'] == 'set-metadata':
       result = management.setMetadata(request['metric'], request['key'], request['value'])
-
+ 
     else:
       result = dict(error="Invalid request type \"%s\"" % request['type'])
-
+ 
     response = pickle.dumps(result, protocol=-1)
     self.sendString(response)
-
 
 # Avoid import circularities
 from carbon.cache import MetricCache

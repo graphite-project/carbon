@@ -1,6 +1,4 @@
 import time
-
-from twisted.internet import reactor
 from twisted.internet.protocol import DatagramProtocol
 from twisted.internet.error import ConnectionDone
 from twisted.protocols.basic import LineOnlyReceiver, Int32StringReceiver
@@ -60,12 +58,8 @@ class MetricReceiver:
     if WhiteList and metric not in WhiteList:
       instrumentation.increment('whitelistRejects')
       return
-    if datapoint[1] != datapoint[1]: # filter out NaN values
-      return
-    if int(datapoint[0]) == -1: # use current time if none given: https://github.com/graphite-project/carbon/issues/54
-      datapoint = (time.time(), datapoint[1])
-    
-    events.metricReceived(metric, datapoint)
+    if datapoint[1] == datapoint[1]:  # filter out NaN values
+      events.metricReceived(metric, datapoint)
 
 
 class MetricLineReceiver(MetricReceiver, LineOnlyReceiver):
@@ -74,7 +68,7 @@ class MetricLineReceiver(MetricReceiver, LineOnlyReceiver):
   def lineReceived(self, line):
     try:
       metric, value, timestamp = line.strip().split()
-      datapoint = ( float(timestamp), float(value) )
+      datapoint = (float(timestamp), float(value))
     except:
       log.listener('invalid line (%s) received from client %s, ignoring' % (line.strip(), self.peerName))
       return
@@ -87,7 +81,7 @@ class MetricDatagramReceiver(MetricReceiver, DatagramProtocol):
     for line in data.splitlines():
       try:
         metric, value, timestamp = line.strip().split()
-        datapoint = ( float(timestamp), float(value) )
+        datapoint = (float(timestamp), float(value))
 
         self.metricReceived(metric, datapoint)
       except:
@@ -110,7 +104,7 @@ class MetricPickleReceiver(MetricReceiver, Int32StringReceiver):
 
     for (metric, datapoint) in datapoints:
       try:
-        datapoint = ( float(datapoint[0]), float(datapoint[1]) ) #force proper types
+        datapoint = (float(datapoint[0]), float(datapoint[1]))  # force proper types
       except:
         continue
 

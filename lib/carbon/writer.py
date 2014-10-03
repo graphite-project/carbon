@@ -25,6 +25,7 @@ from carbon.storage import getFilesystemPath, loadStorageSchemas,\
     loadAggregationSchemas
 from carbon.conf import settings
 from carbon import log, events, instrumentation
+from carbon.util import TokenBucket
 
 from twisted.internet import reactor
 from twisted.internet.task import LoopingCall
@@ -43,55 +44,55 @@ agg_schemas = loadAggregationSchemas()
 CACHE_SIZE_LOW_WATERMARK = settings.MAX_CACHE_SIZE * 0.95
 
 
+# Inititalize a few buckets so that we can enforce rate limits on creates and
+# updates if the config wants them.
+if settings.MAX_CREATES_PER_MINUTE != float('inf'):
+  if settings.MAX_CREATES_PER_MINUTE < 1:
+    capacity = (1 / settings.MAX_CREATES_PER_MINUTE) * 60.0
+  else:
+    capacity = 60
+  create_bucket = TokenBucket(capacity, 1)
+  create_cost = 60.0 / settings.MAX_CREATES_PER_MINUTE
+else:
+  create_bucket = None
+
+
+if settings.MAX_UPDATES_PER_SECOND != float('inf'):
+  update_bucket = TokenBucket(60, 1)
+  update_cost = 1.0 / settings.MAX_UPDATES_PER_SECOND
+else:
+  update_bucket = None
+
 def optimalWriteOrder():
   """Generates metrics with the most cached values first and applies a soft
   rate limit on new metrics"""
-  global lastCreateInterval
-  global createCount
-  metrics = MetricCache.counts()
 
-  t = time.time()
-  metrics.sort(key=lambda item: item[1], reverse=True)  # by queue size, descending
-  log.msg("Sorted %d cache queues in %.6f seconds" % (len(metrics), time.time() - t))
-
-  for metric, queueSize in metrics:
+  while MetricCache:
+    (metric, datapoints) = MetricCache.pop()
     if state.cacheTooFull and MetricCache.size < CACHE_SIZE_LOW_WATERMARK:
       events.cacheSpaceAvailable()
 
     dbFilePath = getFilesystemPath(metric)
     dbFileExists = exists(dbFilePath)
 
-    if not dbFileExists:
-      createCount += 1
-      now = time.time()
-
-      if now - lastCreateInterval >= 60:
-        lastCreateInterval = now
-        createCount = 1
-
-      elif createCount >= settings.MAX_CREATES_PER_MINUTE:
-        # dropping queued up datapoints for new metrics prevents filling up the entire cache
-        # when a bunch of new metrics are received.
-        try:
-          MetricCache.pop(metric)
-        except KeyError:
-          pass
-        instrumentation.increment('droppedCreates')
-        continue
-
-    try:  # metrics can momentarily disappear from the MetricCache due to the implementation of MetricCache.store()
-      datapoints = MetricCache.pop(metric)
-    except KeyError:
-      log.msg("MetricCache contention, skipping %s update for now" % metric)
-      continue  # we simply move on to the next metric when this race condition occurs
+    if not dbFileExists and create_bucket:
+      # If our tokenbucket has enough tokens available to create a new metric
+      # file then yield the metric data to complete that operation. Otherwise
+      # we'll just drop the metric on the ground and move on to the next
+      # metric.
+      # XXX This behavior should probably be configurable to no tdrop metrics
+      # when rate limitng unless our cache is too big or some other legit
+      # reason.
+      if create_bucket.drain(create_cost):
+        print create_bucket._tokens
+        yield (metric, datapoints, dbFilePath, dbFileExists)
+      continue
 
     yield (metric, datapoints, dbFilePath, dbFileExists)
 
 
 def writeCachedDataPoints():
   "Write datapoints until the MetricCache is completely empty"
-  updates = 0
-  lastSecond = 0
 
   while MetricCache:
     dataWritten = False
@@ -126,18 +127,23 @@ def writeCachedDataPoints():
             log.err("%s" % e)
         log.creates("creating database file %s (archive=%s xff=%s agg=%s)" %
                     (dbFilePath, archiveConfig, xFilesFactor, aggregationMethod))
-        try:
-          whisper.create(dbFilePath, archiveConfig, xFilesFactor, aggregationMethod, settings.WHISPER_SPARSE_CREATE, settings.WHISPER_FALLOCATE_CREATE)
-          instrumentation.increment('creates')
-        except Exception, e:
-          log.err("Error creating %s: %s" % (dbFilePath,e))
-          continue
-
+        whisper.create(
+            dbFilePath,
+            archiveConfig,
+            xFilesFactor,
+            aggregationMethod,
+            settings.WHISPER_SPARSE_CREATE,
+            settings.WHISPER_FALLOCATE_CREATE)
+        instrumentation.increment('creates')
+      # If we've got a rate limit configured lets makes sure we enforce it with
+      # a little busy loop.
+      if update_bucket:
+        while not update_bucket.drain(update_cost):
+          time.sleep(0.1)
       try:
         t1 = time.time()
         whisper.update_many(dbFilePath, datapoints)
-        t2 = time.time()
-        updateTime = t2 - t1
+        updateTime = time.time() - t1
       except:
         log.msg("Error writing to %s" % (dbFilePath))
         log.err()
@@ -146,20 +152,8 @@ def writeCachedDataPoints():
         pointCount = len(datapoints)
         instrumentation.increment('committedPoints', pointCount)
         instrumentation.append('updateTimes', updateTime)
-
         if settings.LOG_UPDATES:
           log.updates("wrote %d datapoints for %s in %.5f seconds" % (pointCount, metric, updateTime))
-
-        # Rate limit update operations
-        thisSecond = int(t2)
-
-        if thisSecond != lastSecond:
-          lastSecond = thisSecond
-          updates = 0
-        else:
-          updates += 1
-          if updates >= settings.MAX_UPDATES_PER_SECOND:
-            time.sleep(int(t2 + 1) - t2)
 
     # Avoid churning CPU when only new metrics are in the cache
     if not dataWritten:

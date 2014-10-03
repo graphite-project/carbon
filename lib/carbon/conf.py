@@ -80,6 +80,7 @@ defaults = dict(
   REWRITE_RULES='rewrite-rules.conf',
   RELAY_RULES='relay-rules.conf',
   CACHE_WRITE_STRATEGY='sorted'
+  WRITE_BACK_FREQUENCY=None,
 )
 
 

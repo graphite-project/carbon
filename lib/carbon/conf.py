@@ -82,6 +82,7 @@ defaults = dict(
   RELAY_RULES='relay-rules.conf',
   CACHE_WRITE_STRATEGY='sorted'
   WRITE_BACK_FREQUENCY=None,
+  ENABLE_LOGROTATE=False,
 )
 
 

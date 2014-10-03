@@ -1,4 +1,5 @@
 import os
+import warnings
 from os import makedirs
 from os.path import dirname, join
 from unittest import TestCase

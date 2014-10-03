@@ -12,7 +12,6 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License."""
 
-
 import os
 import time
 from os.path import exists, dirname
@@ -63,10 +62,10 @@ if settings.MAX_UPDATES_PER_SECOND != float('inf'):
 else:
   update_bucket = None
 
+
 def optimalWriteOrder():
   """Generates metrics with the most cached values first and applies a soft
   rate limit on new metrics"""
-
   while MetricCache:
     (metric, datapoints) = MetricCache.pop()
     if state.cacheTooFull and MetricCache.size < CACHE_SIZE_LOW_WATERMARK:
@@ -84,7 +83,6 @@ def optimalWriteOrder():
       # when rate limitng unless our cache is too big or some other legit
       # reason.
       if create_bucket.drain(create_cost):
-        print create_bucket._tokens
         yield (metric, datapoints, dbFilePath, dbFileExists)
       continue
 
@@ -166,7 +164,6 @@ def writeForever():
       writeCachedDataPoints()
     except:
       log.err()
-
     time.sleep(1)  # The writer thread only sleeps when the cache is empty or an error occurs
 
 
@@ -215,4 +212,5 @@ class WriterService(Service):
     def stopService(self):
         self.storage_reload_task.stop()
         self.aggregation_reload_task.stop()
+        self.writer.stop()
         Service.stopService(self)

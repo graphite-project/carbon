@@ -44,6 +44,7 @@ defaults = dict(
   CACHE_QUERY_PORT=7002,
   LOG_UPDATES=True,
   LOG_CACHE_HITS=True,
+  LOG_CACHE_QUEUE_SORTS=True,
   WHISPER_AUTOFLUSH=False,
   WHISPER_SPARSE_CREATE=False,
   WHISPER_FALLOCATE_CREATE=False,
@@ -78,11 +79,8 @@ defaults = dict(
   AGGREGATION_RULES='aggregation-rules.conf',
   REWRITE_RULES='rewrite-rules.conf',
   RELAY_RULES='relay-rules.conf',
+  CACHE_WRITE_STRATEGY='sorted'
 )
-
-
-def _umask(value):
-    return int(value, 8)
 
 
 def _process_alive(pid):
@@ -247,6 +245,12 @@ class CarbonCacheOptions(usage.Options):
             else:
                 log.err("WHISPER_LOCK_WRITES is enabled but import of fcntl module failed.")
 
+        if settings.CACHE_WRITE_STRATEGY not in ('sorted', 'max', 'naive'):
+            log.err("%s is not a valid value for CACHE_WRITE_STRATEGY, defaulting to %s" %
+                    (settings.CACHE_WRITE_STRATEGY, defaults['CACHE_WRITE_STRATEGY']))
+        else:
+            log.msg("Using %s write strategy for cache" %
+                    settings.CACHE_WRITE_STRATEGY)
         if not "action" in self:
             self["action"] = "start"
         self.handleAction()

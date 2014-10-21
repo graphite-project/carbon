@@ -386,7 +386,7 @@ class CarbonClientManager(Service):
   def __str__(self):
     return "<%s[%x]>" % (self.__class__.__name__, id(self))
 
-class CarbonClientMultiplexerManager(CarbonClientManager):
+class CarbonMultiplexerClientManager(CarbonClientManager):
   """
     #Convention
     @Incoming:

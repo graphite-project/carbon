@@ -141,7 +141,7 @@ def createAggregatorService(config):
     from carbon.aggregator import receiver
     from carbon.aggregator.rules import RuleManager
     from carbon.routers import ConsistentHashingRouter
-    from carbon.client import CarbonClientManager
+    from carbon.client import CarbonClientMultiplexerManager
     from carbon.rewrite import RewriteRuleManager
     from carbon.conf import settings
     from carbon import events
@@ -150,7 +150,7 @@ def createAggregatorService(config):
 
     # Configure application components
     router = ConsistentHashingRouter(settings.REPLICATION_FACTOR)
-    client_manager = CarbonClientManager(router)
+    client_manager = CarbonClientMultiplexerManager(router)
     client_manager.setServiceParent(root_service)
 
     events.metricReceived.addHandler(receiver.process)

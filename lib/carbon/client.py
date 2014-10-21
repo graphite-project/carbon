@@ -7,6 +7,7 @@ from carbon.conf import settings
 from carbon.util import pickle
 from carbon import log, state, instrumentation
 from collections import deque
+from itertools import product
 from time import time
 
 try:
@@ -97,7 +98,7 @@ class CarbonClientProtocol(Int32StringReceiver):
       return
     if not self.factory.hasQueuedDatapoints():
       return
-    
+
     if settings.USE_RATIO_RESET is True:
       if not self.connectionQualityMonitor():
         self.resetConnectionForQualityReasons("Sent: {0}, Received: {1}".format(
@@ -384,3 +385,39 @@ class CarbonClientManager(Service):
 
   def __str__(self):
     return "<%s[%x]>" % (self.__class__.__name__, id(self))
+
+class CarbonMultiplexerClientManager(CarbonClientManager):
+  """
+    #Convention
+    @Incoming:
+      <PrimaryKey><SecondaryKey1>...<SecondaryKeyN><MetricType><MetricName> <Value> <Timestamp>
+
+    @Multiplexed Outgoing:
+      <PrimaryKey><SecondaryKey1><MetricType><MetricName> <Value> <Timestamp>
+      <PrimaryKey><SecondaryKey2><MetricType><MetricName> <Value> <Timestamp>
+      <PrimaryKey><SecondaryKey3><MetricType><MetricName> <Value> <Timestamp>
+      <PrimaryKey><SecondaryKey4><MetricType><MetricName> <Value> <Timestamp>
+      <PrimaryKey><SecondaryKeyN><MetricType><MetricName> <Value> <Timestamp>
+
+    Example:
+      @Incoming:
+        dsp-processor.eu.eu_AZ_C.eu_ASG_spot_A.10-6-6-6.count.bidRequest 780 1413901701
+      @Outgoing:
+        dsp-processor.eu.count.bidRequest 90 1413901701
+        dsp-processor.eu_ASG_spot_A.count.bidRequest 90 1413901701
+        dsp-processor.eu_AZ_C.count.bidRequest 90 1413901701
+        dsp-processor.10-6-6-6.count.bidRequest 90 1413901701
+
+  """
+
+  def multiplexDatapoint(self, metric):
+    metric = metric.split('.')
+    #Cartesian product of (Primarykey, SecondaryKeys, MetricType.MetricName)
+    return itertools.product([metric[0]], metric[1:-2], ['.'.join(metric[:2])])
+
+
+  def sendDatapoint(self, metric, datapoint):
+    metrics = self.multiplexDatapoint(metric)
+    for metric in metrics:
+      for destination in self.router.getDestinations(metric):
+        self.client_factories[destination].sendDatapoint(metric, datapoint)

@@ -54,7 +54,10 @@ class CarbonClientProtocol(Int32StringReceiver):
 
   def sendDatapoint(self, metric, datapoint):
     self.factory.enqueue(metric, datapoint)
-    reactor.callLater(settings.TIME_TO_DEFER_SENDING, self.sendQueued)
+    #reactor.callLater(settings.TIME_TO_DEFER_SENDING, self.sendQueued)
+    if not self.factory.deferSendPending:
+      self.factory.deferSendPending = True
+      reactor.callLater(settings.TIME_TO_DEFER_SENDING, self.sendQueued)
 
   def _sendDatapoints(self, datapoints):
       data_len = len(datapoints)
@@ -91,6 +94,7 @@ class CarbonClientProtocol(Int32StringReceiver):
     """
     chained_invocation_delay = 0.0001
     queueSize = self.factory.queueSize
+    self.factory.deferSendPending = False
 
     instrumentation.max(self.relayMaxQueueLength, queueSize)
     if self.paused:
@@ -110,6 +114,7 @@ class CarbonClientProtocol(Int32StringReceiver):
         queueSize < SEND_QUEUE_LOW_WATERMARK):
       self.factory.queueHasSpace.callback(queueSize)
     if self.factory.hasQueuedDatapoints():
+      self.factory.deferSendPending = True
       reactor.callLater(chained_invocation_delay, self.sendQueued)
 
 
@@ -179,6 +184,7 @@ class CarbonClientFactory(ReconnectingClientFactory):
     self.connectFailed = Deferred()
     self.connectionMade = Deferred()
     self.connectionLost = Deferred()
+    self.deferSendPending = False
     # Define internal metric names
     self.attemptedRelays = 'destinations.%s.attemptedRelays' % self.destinationName
     self.fullQueueDrops = 'destinations.%s.fullQueueDrops' % self.destinationName
@@ -258,7 +264,9 @@ class CarbonClientFactory(ReconnectingClientFactory):
       self.enqueue(metric, datapoint)
 
     if self.connectedProtocol:
-      reactor.callLater(settings.TIME_TO_DEFER_SENDING, self.connectedProtocol.sendQueued)
+      if not self.deferSendPending:
+        self.deferSendPending = True
+        reactor.callLater(settings.TIME_TO_DEFER_SENDING, self.connectedProtocol.sendQueued)
     else:
       instrumentation.increment(self.queuedUntilConnected)
 

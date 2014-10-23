@@ -195,7 +195,6 @@ def data_to_proto(datapoints, delimiter, compress=False):
   return protobuf_points[:-len(delimiter)]
 
 def pack_data(datapoints, pack_type=None, safe_pickle=False, delimiter=None, compress=False):
-    pickle = get_unpickler(safe_pickle)
 
     #msgpack serialization
     if pack_type == "msgpack":

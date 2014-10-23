@@ -4,11 +4,12 @@ from time import time, sleep
 from fnmatch import filter as fnmatch_filter
 from struct import pack as struct_pack
 from struct import unpack as struct_unpack
-
+from socket import gethostbyname
 from carbon.tsdb import TSDB
 from carbon import util, log
-
 import happybase
+from random import choice
+from random import randrange
 
 # we manage a namespace table (NS) and then a data table (data)
 
@@ -54,62 +55,120 @@ class HbaseTSDB(TSDB):
                  'reset_interval', 'meta_table', 'data_table',
                  'data_batch', 'send_time', 'reset_time')
 
-    def __init__(self, host, port, table_prefix, batch_size=1000,
-                 transport='framed', send_interval=60,
-                 reset_interval=900):
-        # set up client
-        self.client = happybase.Connection(
-            host=host,
-            port=port,
-            table_prefix=table_prefix,
-            transport=transport,
-            compat="0.94",
-            autoconnect=False
-        )
+    def __init__(self, host_list, port, table_prefix, batch_size=1000,
+                 transport='buffered', send_interval=60,
+                 reset_interval=1800, protocol='binary'):
+
+        self.host_list = (gethostbyname(host) for host in host_list)
+        self.thrift_port = port
+        self.transport_type = transport
+
         self.batch_size = batch_size
         self.table_prefix = table_prefix
         self.meta_name = "META"
         self.data_name = "DATA"
         self.send_interval = send_interval
-        self.reset_interval = reset_interval
+        self.reset_interval = reset_interval + randrange(120)
+        self.connection_retries = 3
+        self.protocol = protocol
+        log.msg('Using %s protocol and %s transport' % (protocol, transport))
+        #use the reset function only for consistent connection creation
+        self.__reset_conn(send_batch=False)
+
+    def __make_conn(self):
+        try:
+            del self.client
+        except Exception, e:
+            pass
+        self.thrift_host = choice(self.host_list)
+        log.msg("Reconnecting to %s::%s" % (self.thrift_host, self.thrift_port))
+        self.client = happybase.Connection(
+            host=self.thrift_host,
+            port=self.thrift_port,
+            table_prefix=self.table_prefix,
+            transport=self.transport_type,
+            protocol=self.protocol,
+            autoconnect=False
+        )
         self.client.open()
+        sleep(0.25)
+        e = None
+        try:
+            res = len(self.client.tables())
+        except Exception, e:
+            res = 0
+        return res > 0, e
+
+    def __reset_conn(self, send_batch=True):
+        if send_batch:
+            try:
+                self.data_batch.send()
+            except Exception, e:
+                log.msg('Failed to send batch %s because %s' % (self.data_batch, e))
+                pass
+
+        for conn in xrange(self.connection_retries):
+            res, e = self.__make_conn()
+            if res:
+                break
+        else:
+            log.msg('Cannot get connection to HBase because %s.' % e)
+            exit(2)
+
         self.meta_table = self.client.table(self.meta_name)
         self.data_table = self.client.table(self.data_name)
-        self.data_batch = self.data_table.batch(batch_size=self.batch_size)
+        self.data_batch = self.data_table.batch()
+        self.batch_count = 0
         self.send_time = time()
         self.reset_time = time()
 
+    def __refresh_conn(self, wait_time=60):
+        self.client.close()
+        #try and refresh for 1 minute
+        give_up_time = time() + wait_time
+        log.msg('Connection failed to %s' % self.thrift_host)
+        while time() < give_up_time:
+            try:
+                log.msg('Retrying connection to %s' % self.thrift_host)
+                sleep(1)
+                self.client.open()
+                log.msg('Connection resumed...')
+            except Exception, e:
+                pass
+            else:
+                break
+        else:
+            self.__reset_conn()
+
     def __send(self):
-        if time() - self.send_time > self.send_interval:
-            self.data_batch.send()
+        if time() - self.send_time > self.send_interval or \
+                self.batch_count > self.batch_size:
+            try:
+                self.data_batch.send()
+            except Exception:
+                self.__refresh_conn()
+                self.data_batch.send()
             self.send_time = time()
         if time() - self.reset_time > self.reset_interval:
-            self.data_batch.send()
-            self.client.close()
-            self.client.open()
-            sleep(0.25)
-            self.meta_table = self.client.table(self.meta_name)
-            self.data_table = self.client.table(self.data_name)
-            self.data_batch = self.data_table.batch(batch_size=self.batch_size)
-            self.reset_time = time()
+            self.__reset_conn()
 
-    def __get_row(self, row, columns=None):
+    def __get_row(self, row, columns=None, send_batch=True):
+        if time() - self.reset_time > self.reset_interval:
+            self.__reset_conn(send_batch=send_batch)
+        res = None
         try:
             if columns:
                 res = self.meta_table.row(row, columns)
             else:
                 res = self.meta_table.row(row)
-        except Exception, e:
-            self.client.close()
-            self.client.open()
-            sleep(0.25)
-            try:
-                if columns:
-                    res = self.meta_table.row(row, columns)
-                else:
-                    res = self.meta_table.row(row)
-            except Exception, e:
-                raise Exception("Failed to get row %s because %s" % (row, e))
+        except Exception:
+            self.__refresh_conn()
+
+            if columns:
+                res = self.meta_table.row(row, columns)
+            else:
+                res = self.meta_table.row(row)
+
         return res
 
     # returns info for the underlying db (including 'aggregationMethod')
@@ -248,6 +307,7 @@ class HbaseTSDB(TSDB):
 
         len_aligned = len(alignedPoints)
         for i in xrange(len_aligned):
+            #if the point is the same as the last one, skip it
             if i+1 < len_aligned and alignedPoints[i][0] == alignedPoints[i+1][0]:
                 continue
             (timestamp, value) = alignedPoints[i]
@@ -255,6 +315,7 @@ class HbaseTSDB(TSDB):
             rowkey = struct_pack(KEY_FMT, archiveId, slot)
             rowval = struct_pack(VAL_FMT, timestamp, value)
             self.data_batch.put(rowkey, {'cf:d': rowval})
+            self.batch_count += 1
         self.__send()
 
     def propagate(self, info, archives, points):
@@ -283,22 +344,23 @@ class HbaseTSDB(TSDB):
 
         known_datapts = [v for v in higherResData if v is not None] # strip out "nones"
         if (len(known_datapts) / len(higherResData)) > xff: # we have enough data, so propagate downwards
-            aggregateValue = util.aggregate(aggregationMethod, known_datapts)
-            lowerSlot = timestamp / lower['secondsPerPoint'] % lower['points']
+            aggregateValue = int(util.aggregate(aggregationMethod, known_datapts))
+            lowerSlot = int(timestamp / lower['secondsPerPoint'] % lower['points'])
             rowkey = struct_pack(KEY_FMT, lower['archiveId'], lowerSlot)
             rowval = struct_pack(VAL_FMT, timestamp, aggregateValue)
             self.data_batch.put(rowkey, {"cf:d": rowval})
+            self.batch_count += 1
         self.__send()
 
     # returns list of values between the two times.  
     # length is endTime - startTime / secondsPerPorint.
     # should be aligned with secondsPerPoint for proper results
     def __archive_fetch(self, archive, startTime, endTime):
-        step = archive['secondsPerPoint']
-        numPoints = archive['points']
+        step = int(archive['secondsPerPoint'])
+        numPoints = int(archive['points'])
         startTime = int(startTime - (startTime % step) + step)
         endTime = int(endTime - (endTime % step) + step)
-        numSlots = (endTime - startTime) / archive['secondsPerPoint']
+        numSlots = int((endTime - startTime) / archive['secondsPerPoint'])
         if numSlots > numPoints:
             startSlot = 0
         else:
@@ -326,7 +388,6 @@ class HbaseTSDB(TSDB):
         timeInfo = (startTime, endTime, step)
         return timeInfo, ret
 
-
     def exists(self, metric):
         try:
             res = self.__get_row("m_%s" % metric, columns=['cf:INFO'])
@@ -336,92 +397,29 @@ class HbaseTSDB(TSDB):
         else:
             return metric_len > 0
 
-
-    # fromTime is an epoch time
-    # untilTime is also an epoch time, but defaults to now.
-    #
-    # Returns a tuple of (timeInfo, valueList)
-    # where timeInfo is itself a tuple of (fromTime, untilTime, step)
-    # Returns None if no data can be returned
-    def fetch(self, info, fromTime, untilTime):
-        now = int(time())
-        if untilTime is None:
-            untilTime = now
-        fromTime = int(fromTime)
-        untilTime = int(untilTime)
-        if untilTime > now:
-            untilTime = now
-        if (fromTime > untilTime):
-            raise Exception("Invalid time interval: from time '%s' is after " +
-                "until time '%s'" % (fromTime, untilTime))
-
-        if fromTime > now:  # from time in the future
-            return None
-        oldestTime = now - info['maxRetention']
-        if fromTime < oldestTime:
-            fromTime = oldestTime
-            # iterate archives to find the smallest
-        diff = now - fromTime
-        full_ret = []
+    def delete(self, metric):
+        #make sure the metric exists
+        if not self.exists(metric):
+            return
+        #Get data on metric
+        info = self.info(metric)
         for archive in info['archives']:
-            if untilTime < (now - (archive['secondsPerPoint'] * archive['points'])):
-                continue
-            (timeInfo, ret) = self.__archive_fetch(archive, fromTime, untilTime)
-            full_ret.append((timeInfo, ret))
-            if archive['retention'] >= diff:
-                break
+            endSlot = int((time() / archive['secondsPerPoint']) % archive['points'])
+            start_key = struct_pack(KEY_FMT, archive['archiveId'], 0)
+            end_key = struct_pack(KEY_FMT, archive['archiveId'], endSlot)
+            #we'll first get a scan object of all the data table rows associated
+            scan = self.data_table.scan(row_start = start_key, row_stop = end_key,
+                                        batch_size = self.batch_size)
+            #then batch delete
+            for row in scan:
+                self.data_batch.delete(row[0])
+                self.batch_count += 1
+        #make sure there aren't any left over deletes
+        self.data_batch.send()
+        #now we remove the meta table row
+        self.meta_table.delete('m_%s' % metric)
+        self.meta_table.counter_dec('CTR', 'cf:CTR')
 
-        full_ret = reduce(self.__merge, full_ret)
-        return full_ret
-
-    def __merge(self, results1, results2):
-        # Ensure results1 is finer than results2
-        if results1[0][2] > results2[0][2]:
-            results1, results2 = results2, results1
-
-        time_info1, values1 = results1
-        time_info2, values2 = results2
-        start1, end1, step1 = time_info1
-        start2, end2, step2 = time_info2
-
-        start  = min(start1, start2)  # earliest start
-        end    = max(end1, end2)      # latest end
-
-        #We need to determine the difference in the
-        #number of datapoints between lists 1 & 2
-        #and basically explode the values in the older
-        #list to match the newer one
-        try:
-            padding = int(step2 / step1)
-        except ValueError:
-            padding = 1
-        if padding < 1:
-            padding = 1
-
-        time_info = (start, end, step1)
-        values = []
-        values1_len = len(values1)
-        values2_len = len(values2)
-        t = start
-
-        while t < end:
-            # Look for the finer precision value first if available
-            index = (t - start1) / step1
-            if values1_len > index and values1[index] is not None:
-                val = [values1[index]]
-                t += step1
-            else:
-                index = (t - start2) / step2
-                t += step2
-
-                if values2_len > index:
-                    val = [values2[index] for pad in xrange(padding)]
-                else:
-                    val = [None] * padding
-
-            values.extend(val)
-
-        return (time_info, values)
 
     def build_index(self, tmp_index):
         scan = self.meta_table.scan(columns=['cf:INFO'],
@@ -442,157 +440,30 @@ class HbaseTSDB(TSDB):
         end = time()
         return [start, end]
 
-    def find_nodes(self, query):
-        '''We import these here because then we'll have the graphite-web
-        paths set up. Means we don't need to import sys in this one.'''
-        from graphite.node import BranchNode, LeafNode
-        from graphite.intervals import Interval, IntervalSet
-        # break query into parts
-        clean_pattern = query.pattern.replace('\\', '')
-        pattern_parts = _cheaper_patterns(clean_pattern.split('.'))
 
-        if pattern_parts[0] == "*" or pattern_parts[0] == "ROOT":
-            start_string = "ROOT"
-        else:
-            start_string = "m_%s" % pattern_parts[0]
-        pattern_parts = pattern_parts[1:]
 
-        for subnode, subnodes in self._find_paths(start_string, pattern_parts):
-            rowKey = subnodes[subnode]
-                
-            nodeRow = self.__get_row(rowKey)
-            if len(nodeRow) == 0:
-                continue
-            metric = rowKey[2:] # pop off "m_" in key
-            if "cf:INFO" in nodeRow.keys():
-                info = json_loads(nodeRow["cf:INFO"])
-                start = time() - info['maxRetention']
-                end = time()
-                intervals = IntervalSet( [Interval(start, end)] )
-                reader = HbaseReader(metric, intervals, info, self)
-                yield LeafNode(metric, reader)
-            else:
-                yield BranchNode(metric)
-
-    def _find_paths(self, currNodeRowKey, patterns):
-        """Recursively generates absolute paths whose components underneath current_node
-        match the corresponding pattern in patterns"""
-        nodeRow = self.__get_row(currNodeRowKey)
-
-        if len(nodeRow) == 0:
-            return
-
-        try:
-            metric_name = nodeRow['cf:INFO']
-        except KeyError:
-            pass
-        else:
-            yield currNodeRowKey, {currNodeRowKey: currNodeRowKey}
-        if patterns:
-            pattern = patterns[0]
-            patterns = patterns[1:]
-        else:
-            pattern = "*"
-
-        subnodes = {}
-        for k, v in nodeRow.items():
-            if k.startswith("cf:c_"): # branches start with c_
-                key = k[5:] # pop off cf:c_ prefix
-                subnodes[key] = v
-
-        matching_subnodes = _match_entries(subnodes.keys(), pattern)
-        if patterns: # we still have more directories to traverse
-            for subnode in matching_subnodes:
-                rowKey = subnodes[subnode]
-                subNodeContents = self.__get_row(rowKey)
-                # leaves have a cf:INFO column describing their data
-                # we can't possibly match on a leaf here because we have more components in the pattern,
-                # so only recurse on branches
-                if "cf:INFO" not in subNodeContents.keys():
-                    for metric, node_list in self._find_paths(rowKey, patterns, conn):
-                        yield metric, node_list
-        else:
-            for node in matching_subnodes:
-                yield node, subnodes
-
-"""
-This will break up a list like:
-['Platform', 'MySQL', '*', '*', '*qps*']
-into
-['Platform.MySQL', '*', '*', '*qps*']
-Which means fewer scans for each metric.
-Thus...cheaper!
-['Infrastructure.servers.CH', 'ag*', 'loadavg', '[01][15]']
-In this case, two fewer scans!
-Extrapolate across some of our bigger requests, and this does 
-save time.
-"""
-def _cheaper_patterns(pattern):
-    if len(pattern) < 2:
-        return pattern
-    excluded = ['*', '[', ']', '{', '}']
-    current_string = pattern[0]
-    chunk = pattern[1]
-    del pattern[0]
-    while not any(x in chunk for x in excluded):
-        current_string += ".%s" % chunk
-        del pattern[0]
-        try:
-            chunk = pattern[0]
-        except IndexError:
-            break
-    final_chunks = [current_string]
-    final_chunks.extend(pattern)
-    return final_chunks
-
-def _match_entries(entries, pattern):
-    """A drop-in replacement for fnmatch.filter that supports pattern 
-    variants (ie. {foo,bar}baz = foobaz or barbaz)."""
-    v1, v2 = pattern.find('{'), pattern.find('}')
-
-    if v1 > -1 and v2 > v1:
-        variations = pattern[v1 + 1:v2].split(',')
-        variants = [pattern[:v1] + v + pattern[v2 + 1:] for v in variations]
-        matching = []
-
-        for variant in variants:
-            matching.extend(fnmatch_filter(entries, variant))
-
-        return list(_deduplicate(matching)) #remove dupes without changing order 
-
-    else:
-        matching = fnmatch_filter(entries, pattern)
-        matching.sort()
-        return matching
-
-def _deduplicate(entries):
-    yielded = set()
-    for entry in entries:
-        if entry not in yielded:
-            yielded.add(entry)
-            yield entry
-
-def create_tables(host, port, table_prefix, transport):
-    meta = "%s_%s" % (table_prefix, "META")
-    data = "%s_%s" % (table_prefix, "DATA")
+def create_tables(host, port, table_prefix, transport, protocol):
+    meta = "META"
+    data = "DATA"
+    meta_name = "%s_%s" % (table_prefix, meta)
+    data_name = "%s_%s" % (table_prefix, data)
 
     client = happybase.Connection(
         host=host,
         port=port,
         table_prefix=table_prefix,
         transport=transport,
-        compat="0.94",
-        autoconnect=True
+        protocol=protocol
     )
-
+    sleep(0.25)
     try:
         tables = client.tables()
     except Exception as e:
         print("HBase tables can't be retrieved. Cluster offline?")
         exit(1)
 
-    if meta not in tables:
-        print('Creating %s table' % meta)
+    if meta_name not in tables:
+        print('Creating %s table' % meta_name)
         families = {'cf:': dict(compression="Snappy",
                                 block_cache_enabled=True,
                                 bloom_filter_type="ROW")}
@@ -600,8 +471,8 @@ def create_tables(host, port, table_prefix, transport):
         meta_table = client.table("META")
         # add counter record
         meta_table.counter_set('CTR', 'cf:CTR', 1)
-    elif data not in tables:
-        print('Creating %s table' % data)
+    elif data_name not in tables:
+        print('Creating %s table' % data_name)
         families = {'cf:': dict(compression="Snappy",
                                 bloom_filter_type='ROW',
                                 block_cache_enabled=True)}
@@ -609,20 +480,4 @@ def create_tables(host, port, table_prefix, transport):
     else:
         print('Both Graphite tables available!')
 
-class HbaseReader(object):
-    __slots__ = ('db', 'metric', 'intervals', 'info')
-    def __init__(self,metric,intervals,info,db):
-        self.metric=metric
-        self.db=db
-        self.info = info
-        self.intervals = intervals
-
-    def get_intervals(self):
-        return self.intervals
-
-    def fetch(self, startTime, endTime):
-        return self.db.fetch(self.info, startTime, endTime)
-
-    def __repr__(self):
-        return '<HbaseReader[%x]: %s >' % (id(self), self.metric)
 

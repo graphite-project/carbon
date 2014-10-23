@@ -55,8 +55,12 @@ class TSDB:
     def exists(self, metric):
         pass
 
-    # yields a generator of graphite.node.Node, either BranchNode or LeafNode. You'll need to make a Reader implementation to return with BranchNodes.
-    # query is a is a graphite.storage.FindQuery
+    #Migrate data from a higher-precision to lower precision archive.
     @abstractmethod
-    def find_nodes(self, query):
+    def propagate(self, info, archives, points):
+        pass
+
+    #Delete a metric from all tables
+    @abstractmethod
+    def delete(self, metric):
         pass

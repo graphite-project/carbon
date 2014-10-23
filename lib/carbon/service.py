@@ -15,8 +15,9 @@ limitations under the License."""
 from os.path import exists
 
 from twisted.application.service import MultiService
-from twisted.application.internet import TCPServer, TCPClient, UDPServer
+from twisted.application.internet import TCPServer, TCPClient, UDPServer, SSLClient
 from twisted.internet.protocol import ServerFactory
+from twisted.internet import ssl
 from twisted.python.components import Componentized
 from twisted.python.log import ILogObserver
 # Attaching modules to the global state module simplifies import order hassles
@@ -55,6 +56,10 @@ def createBaseService(config):
         amqp_vhost    = settings.get("AMQP_VHOST", "/")
         amqp_spec     = settings.get("AMQP_SPEC", None)
         amqp_exchange_name = settings.get("AMQP_EXCHANGE", "graphite")
+        amqp_queue_name = settings.get("AMQP_QUEUE_NAME", "graphite")
+        amqp_exchange_type = settings.get("AMQP_EXCHANGE_TYPE", "topic")
+        amqp_ssl_enabled = settings.get("AMQP_SSL_ENABLED", "False")
+        amqp_compress_enabled = settings.get("AMQP_COMPRESSION_ENABLED", False)
 
     receivers = []
     if settings.ENABLE_LINE_RECEIVER:
@@ -95,8 +100,14 @@ def createBaseService(config):
             amqp_user, amqp_password,
             vhost=amqp_vhost, spec=amqp_spec,
             exchange_name=amqp_exchange_name,
-            verbose=amqp_verbose)
-        service = TCPClient(amqp_host, int(amqp_port), factory)
+            exchange_type=amqp_exchange_type, queue_name=amqp_queue_name,
+            verbose=amqp_verbose, compressed=amqp_compress_enabled)
+        if amqp_ssl_enabled:
+            context_factory = ssl.ClientContextFactory()
+            service = SSLClient(amqp_host, int(amqp_port), 
+                                factory, context_factory)
+        else:
+            service = TCPClient(amqp_host, int(amqp_port), factory)
         service.setServiceParent(root_service)
 
     if settings.ENABLE_MANHOLE:

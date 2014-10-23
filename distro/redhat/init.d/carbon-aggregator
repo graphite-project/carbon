@@ -35,11 +35,13 @@ start(){
 
 stop(){
     if [ -n ${CARBON_INSTANCE} ]; then
-        echo "Stopping instance ${CARBON_INSTANCE}"
+        echo "Stopping ${DAEMON} instance ${CARBON_INSTANCE}"
         pid=$(/usr/bin/pgrep -f "carbon-${DAEMON}.py --instance=${CARBON_INSTANCE}")
         if [ ! -f $LOG_DIR/${DAEMON}-${CARBON_INSTANCE}/carbon-${DAEMON}.pid ]; then
             echo "Fixing pid file $LOG_DIR/${DAEMON}-${CARBON_INSTANCE}/carbon-${DAEMON}.pid"
             echo $pid > $LOG_DIR/${DAEMON}-${CARBON_INSTANCE}/carbon-${DAEMON}.pid
+            chown hms:nonpriv $LOG_DIR/${DAEMON}-${CARBON_INSTANCE}/carbon-${DAEMON}.pid
+            chmod 755 $LOG_DIR/${DAEMON}-${CARBON_INSTANCE}/carbon-${DAEMON}.pid
         fi
         $GRAPHITE_DIR/bin/carbon-${DAEMON}.py --instance=${CARBON_INSTANCE} --pidfile=$LOG_DIR/${DAEMON}-${CARBON_INSTANCE}/carbon-${DAEMON}.pid --logdir=$LOG_DIR/${DAEMON}-${CARBON_INSTANCE} --config=${CONF} stop
         sleep 5

@@ -11,9 +11,9 @@ from carbon.util import pickle, get_unpickler
 from carbon.proto_handler_pb2 import Metric
 from zlib import decompress
 from zlib import error as zlib_error
-from google.protobuf import message as proto_message
 
 try:
+    from google.protobuf import message as proto_message
     from msgpack import unpackb
 except Exception:
     pass
@@ -127,7 +127,6 @@ class MetricPickleReceiver(MetricReceiver, Int32StringReceiver):
       self.metricReceived(metric, datapoint)
 
 class MetricMsgPackReceiver(MetricReceiver, Int32StringReceiver):
-  MAX_LENGTH = 2 ** 20
 
   def connectionMade(self):
     MetricReceiver.connectionMade(self)

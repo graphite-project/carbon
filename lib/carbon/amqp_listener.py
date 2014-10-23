@@ -34,6 +34,7 @@ import sys
 import os
 import socket
 from optparse import OptionParser
+from zlib import decompress
 
 from twisted.internet.defer import inlineCallbacks
 from twisted.internet import reactor
@@ -78,12 +79,14 @@ class AMQPGraphiteProtocol(AMQClient):
         yield chan.channel_open()
 
         # declare the exchange and queue
-        yield chan.exchange_declare(exchange=exchange, type="topic",
-                                    durable=True, auto_delete=False)
+        yield chan.exchange_declare(exchange=exchange, 
+                                    type=self.factory.exchange_type,
+                                    durable=True, 
+                                    auto_delete=False)
 
         # we use a private queue to avoid conflicting with existing bindings
-        reply = yield chan.queue_declare(exclusive=True)
-        my_queue = reply.queue
+        #reply = yield chan.queue_declare(exclusive=True)
+        my_queue = self.factory.queue_name
 
         # bind each configured metric pattern
         for bind_pattern in settings.BIND_PATTERNS:
@@ -107,10 +110,14 @@ class AMQPGraphiteProtocol(AMQClient):
 
         if self.factory.verbose:
             log.listener("Message received: %s" % (message,))
-
         metric = message.routing_key
 
-        for line in message.content.body.split("\n"):
+        if self.factory.compressed:
+            message_body = decompress(message.content.body)
+        else:
+            message_body = message.content.body
+
+        for line in message_body.split("\n"):
             line = line.strip()
             if not line:
                 continue
@@ -142,7 +149,8 @@ class AMQPReconnectingFactory(ReconnectingClientFactory):
     protocol = AMQPGraphiteProtocol
 
     def __init__(self, username, password, delegate, vhost, spec, channel,
-                 exchange_name, verbose):
+                 exchange_name, queue_name, verbose, exchange_type='topic',
+                 compressed=False):
         self.username = username
         self.password = password
         self.delegate = delegate
@@ -150,7 +158,10 @@ class AMQPReconnectingFactory(ReconnectingClientFactory):
         self.spec = spec
         self.channel = channel
         self.exchange_name = exchange_name
+        self.queue_name = queue_name
+        self.exchange_type = exchange_type
         self.verbose = verbose
+        self.compressed = compressed
 
     def buildProtocol(self, addr):
         self.resetDelay()
@@ -159,31 +170,36 @@ class AMQPReconnectingFactory(ReconnectingClientFactory):
         return p
 
 
-def createAMQPListener(username, password, vhost, exchange_name,
-                       spec=None, channel=1, verbose=False):
+def createAMQPListener(username, password, vhost, exchange_name, exchange_type,
+                       queue_name, spec=None, channel=1, verbose=False, 
+                       compressed=False):
     """
     Create an C{AMQPReconnectingFactory} configured with the specified options.
     """
     # use provided spec if not specified
     if not spec:
         spec = txamqp.spec.load(os.path.normpath(
-            os.path.join(os.path.dirname(__file__), 'amqp0-8.xml')))
+            os.path.join(os.path.dirname(__file__), 'amqp0-9.xml')))
 
     delegate = TwistedDelegate()
     factory = AMQPReconnectingFactory(username, password, delegate, vhost,
-                                      spec, channel, exchange_name,
-                                      verbose=verbose)
+                                      spec, channel, exchange_name, 
+                                      queue_name, verbose, exchange_type,
+                                      compressed=compressed)
     return factory
 
 
-def startReceiver(host, port, username, password, vhost, exchange_name,
-                  spec=None, channel=1, verbose=False):
+def startReceiver(host, port, username, password, vhost, exchange_name, 
+                  queue_name, spec=None, channel=1, verbose=False, 
+                  compressed=False):
     """
     Starts a twisted process that will read messages on the amqp broker and
     post them as metrics.
     """
     factory = createAMQPListener(username, password, vhost, exchange_name,
-                                 spec=spec, channel=channel, verbose=verbose)
+                                 exchange_type, queue_name,
+                                 spec=spec, channel=channel, verbose=verbose,
+                                 compressed=compressed)
     reactor.connectTCP(host, port, factory)
 
 
@@ -212,8 +228,20 @@ def main():
                       help="exchange", metavar="EXCHANGE",
                       default="graphite")
 
+    parser.add_option("-E", "--exchange-type", dest="exchange_type",
+                      help="exchange type", metavar="EXCHANGETYPE",
+                      default="topic")
+
+    parser.add_option("-q", "--queue", dest="queue",
+                      help="queue", metavar="QUEUE",
+                      default="graphite")
+
     parser.add_option("-v", "--verbose", dest="verbose",
                       help="verbose",
+                      default=False, action="store_true")
+
+    parser.add_option("-c", "--compress", dest="compress",
+                      help="compress",
                       default=False, action="store_true")
 
     (options, args) = parser.parse_args()
@@ -221,7 +249,9 @@ def main():
 
     startReceiver(options.host, options.port, options.username,
                   options.password, vhost=options.vhost,
-                  exchange_name=options.exchange, verbose=options.verbose)
+                  exchange_name=options.exchange, verbose=options.verbose,
+                  exchange_type=options.exchange_type,
+                  queue_name=options.queue, compressed=options.compress)
     reactor.run()
 
 if __name__ == "__main__":

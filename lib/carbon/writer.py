@@ -17,6 +17,7 @@ import os
 import time
 from os.path import exists, dirname
 import errno
+from threading import Lock
 
 import whisper
 from carbon import state
@@ -28,6 +29,7 @@ from carbon import log, events, instrumentation
 
 from twisted.internet import reactor
 from twisted.internet.task import LoopingCall
+from twisted.internet.threads import deferToThread
 from twisted.application.service import Service
 
 try:
@@ -41,6 +43,7 @@ createCount = 0
 schemas = loadStorageSchemas()
 agg_schemas = loadAggregationSchemas()
 CACHE_SIZE_LOW_WATERMARK = settings.MAX_CACHE_SIZE * 0.95
+write_lock = Lock()
 
 
 def optimalWriteOrder():
@@ -88,69 +91,79 @@ def optimalWriteOrder():
 
     yield (metric, datapoints, dbFilePath, dbFileExists)
 
+def createWhisperFile(metric, dbFilePath, dbFileExists):
+  result = True
+  if not dbFileExists:
+    archiveConfig = None
+    xFilesFactor, aggregationMethod = None, None
+
+    for schema in schemas:
+      if schema.matches(metric):
+        log.creates('new metric %s matched schema %s' % (metric, schema.name))
+        archiveConfig = [archive.getTuple() for archive in schema.archives]
+        break
+
+    for schema in agg_schemas:
+      if schema.matches(metric):
+        log.creates('new metric %s matched aggregation schema %s' % (metric, schema.name))
+        xFilesFactor, aggregationMethod = schema.archives
+        break
+
+    if not archiveConfig:
+          raise Exception("No storage schema matched the metric '%s', check your storage-schemas.conf file." % metric)
+
+    dbDir = dirname(dbFilePath)
+    try:
+      os.makedirs(dbDir)
+    except OSError as e:
+      if e.errno != errno.EEXIST:
+        log.err("%s" % e)
+    log.creates("creating database file %s (archive=%s xff=%s agg=%s)" %
+                (dbFilePath, archiveConfig, xFilesFactor, aggregationMethod))
+    try:
+      whisper.create(dbFilePath, archiveConfig, xFilesFactor, aggregationMethod, settings.WHISPER_SPARSE_CREATE, settings.WHISPER_FALLOCATE_CREATE)
+      instrumentation.increment('creates')
+    except Exception, e:
+      log.err("Error creating %s: %s" % (dbFilePath,e))
+      result = False
+  return result
+
+def writeWhisperFile(metric, datapoints, dbFilePath):
+  result = True
+  try:
+    whisper.update_many(dbFilePath, datapoints)
+  except:
+    log.msg("Error writing to %s" % (dbFilePath))
+    log.err()
+    instrumentation.increment('errors')
+    result = False
+  return result
 
 def writeCachedDataPoints():
   "Write datapoints until the MetricCache is completely empty"
   updates = 0
   lastSecond = 0
-
   while MetricCache:
     dataWritten = False
 
     for (metric, datapoints, dbFilePath, dbFileExists) in optimalWriteOrder():
       dataWritten = True
-
-      if not dbFileExists:
-        archiveConfig = None
-        xFilesFactor, aggregationMethod = None, None
-
-        for schema in schemas:
-          if schema.matches(metric):
-            log.creates('new metric %s matched schema %s' % (metric, schema.name))
-            archiveConfig = [archive.getTuple() for archive in schema.archives]
-            break
-
-        for schema in agg_schemas:
-          if schema.matches(metric):
-            log.creates('new metric %s matched aggregation schema %s' % (metric, schema.name))
-            xFilesFactor, aggregationMethod = schema.archives
-            break
-
-        if not archiveConfig:
-          raise Exception("No storage schema matched the metric '%s', check your storage-schemas.conf file." % metric)
-
-        dbDir = dirname(dbFilePath)
-        try:
-          os.makedirs(dbDir)
-        except OSError as e:
-          if e.errno != errno.EEXIST:
-            log.err("%s" % e)
-        log.creates("creating database file %s (archive=%s xff=%s agg=%s)" %
-                    (dbFilePath, archiveConfig, xFilesFactor, aggregationMethod))
-        try:
-          whisper.create(dbFilePath, archiveConfig, xFilesFactor, aggregationMethod, settings.WHISPER_SPARSE_CREATE, settings.WHISPER_FALLOCATE_CREATE)
-          instrumentation.increment('creates')
-        except Exception, e:
-          log.err("Error creating %s: %s" % (dbFilePath,e))
+      write_lock.acquire()
+      if not createWhisperFile(metric, dbFilePath, dbFileExists):
+          write_lock.release()
           continue
-
-      try:
-        t1 = time.time()
-        whisper.update_many(dbFilePath, datapoints)
+      t1 = time.time()
+      written = writeWhisperFile(metric, datapoints, dbFilePath)
+      write_lock.release()
+      if written:
         t2 = time.time()
         updateTime = t2 - t1
-      except:
-        log.msg("Error writing to %s" % (dbFilePath))
-        log.err()
-        instrumentation.increment('errors')
-      else:
         pointCount = len(datapoints)
         instrumentation.increment('committedPoints', pointCount)
         instrumentation.append('updateTimes', updateTime)
 
         if settings.LOG_UPDATES:
           log.updates("wrote %d datapoints for %s in %.5f seconds" % (pointCount, metric, updateTime))
-
         # Rate limit update operations
         thisSecond = int(t2)
 
@@ -165,7 +178,6 @@ def writeCachedDataPoints():
     # Avoid churning CPU when only new metrics are in the cache
     if not dataWritten:
       time.sleep(0.1)
-
 
 def writeForever():
   while reactor.running:
@@ -202,6 +214,42 @@ def shutdownModifyUpdateSpeed():
     except KeyError:
         log.msg("Carbon shutting down.  Update rate not changed")
 
+
+def _flush(prefix):
+    """ Write/create whisped files at maximal speed """
+    log.msg("flush started (prefix: %s)" % prefix)
+    started = time.time()
+    metrics = MetricCache.counts()
+    updates = 0
+    write_lock.acquire()
+    try:
+        for metric, queueSize in metrics:
+	    try:
+	        if prefix and not metric.startswith(prefix):
+	            continue
+	    except:
+	        log.err()
+            dbFilePath = getFilesystemPath(metric)
+            dbFileExists = exists(dbFilePath)
+            try:
+                datapoints = MetricCache.pop(metric)
+            except KeyError:
+                log.msg("MetricCache contention, skipping %s update for now" % metric)
+                continue
+            if not createWhisperFile(metric, dbFilePath, dbFileExists):
+	        continue
+            t1 = time.time()
+            if not writeWhisperFile(metric, datapoints, dbFilePath):
+	        continue
+	    updates += 1
+    except:
+        log.err()
+    write_lock.release()
+    log.msg('flush finished (updates: %d, time: %.5f sec)' % (updates, time.time()-started))
+
+def flush(prefix):
+    """ Flush cache in separate thread, return defer """
+    reactor.callInThread(_flush, prefix)
 
 class WriterService(Service):
 

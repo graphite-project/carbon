@@ -151,7 +151,6 @@ def writeCachedDataPoints():
       write_lock.acquire()
       try:
           if not createWhisperFile(metric, dbFilePath, dbFileExists):
-              write_lock.release()
               continue
           t1 = time.time()
           written = writeWhisperFile(metric, datapoints, dbFilePath)

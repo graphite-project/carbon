@@ -149,12 +149,14 @@ def writeCachedDataPoints():
     for (metric, datapoints, dbFilePath, dbFileExists) in optimalWriteOrder():
       dataWritten = True
       write_lock.acquire()
-      if not createWhisperFile(metric, dbFilePath, dbFileExists):
-          write_lock.release()
-          continue
-      t1 = time.time()
-      written = writeWhisperFile(metric, datapoints, dbFilePath)
-      write_lock.release()
+      try:
+          if not createWhisperFile(metric, dbFilePath, dbFileExists):
+              write_lock.release()
+              continue
+          t1 = time.time()
+          written = writeWhisperFile(metric, datapoints, dbFilePath)
+      finally:
+        write_lock.release()
       if written:
         t2 = time.time()
         updateTime = t2 - t1
@@ -242,13 +244,12 @@ def _flush(prefix):
             if not writeWhisperFile(metric, datapoints, dbFilePath):
 	        continue
 	    updates += 1
-    except:
-        log.err()
-    write_lock.release()
+    finally:
+        write_lock.release()
     log.msg('flush finished (updates: %d, time: %.5f sec)' % (updates, time.time()-started))
 
 def flush(prefix):
-    """ Flush cache in separate thread, return defer """
+    """ Flush cache in separate thread """
     reactor.callInThread(_flush, prefix)
 
 class WriterService(Service):

@@ -64,7 +64,7 @@ class MetricReceiver:
       return
     if int(datapoint[0]) == -1: # use current time if none given: https://github.com/graphite-project/carbon/issues/54
       datapoint = (time.time(), datapoint[1])
-    
+
     events.metricReceived(metric, datapoint)
 
 
@@ -162,7 +162,7 @@ class CacheManagementHandler(Int32StringReceiver):
     elif request['type'] == 'set-metadata':
       result = management.setMetadata(request['metric'], request['key'], request['value'])
     elif request['type'] == 'flush-cache':
-      d = writer.flush(request.get('prefix', None))
+      writer.flush(request.get('prefix', None))
       result = dict(status="started")
     else:
       result = dict(error="Invalid request type \"%s\"" % request['type'])

@@ -40,8 +40,8 @@ except ImportError:
 
 lastCreateInterval = 0
 createCount = 0
-schemas = loadStorageSchemas()
-agg_schemas = loadAggregationSchemas()
+schemas = None
+agg_schemas = None
 CACHE_SIZE_LOW_WATERMARK = settings.MAX_CACHE_SIZE * 0.95
 write_lock = Lock()
 
@@ -92,7 +92,6 @@ def optimalWriteOrder():
     yield (metric, datapoints, dbFilePath, dbFileExists)
 
 def createWhisperFile(metric, dbFilePath, dbFileExists):
-  result = True
   if not dbFileExists:
     archiveConfig = None
     xFilesFactor, aggregationMethod = None, None
@@ -124,20 +123,19 @@ def createWhisperFile(metric, dbFilePath, dbFileExists):
       whisper.create(dbFilePath, archiveConfig, xFilesFactor, aggregationMethod, settings.WHISPER_SPARSE_CREATE, settings.WHISPER_FALLOCATE_CREATE)
       instrumentation.increment('creates')
     except Exception, e:
-      log.err("Error creating %s: %s" % (dbFilePath,e))
-      result = False
-  return result
+      log.err("Error creating %s: %s" % (dbFilePath, e))
+      return False
+  return True
 
-def writeWhisperFile(metric, datapoints, dbFilePath):
-  result = True
+def writeWhisperFile(dbFilePath, datapoints):
   try:
     whisper.update_many(dbFilePath, datapoints)
   except:
     log.msg("Error writing to %s" % (dbFilePath))
     log.err()
     instrumentation.increment('errors')
-    result = False
-  return result
+    return False
+  return True
 
 def writeCachedDataPoints():
   "Write datapoints until the MetricCache is completely empty"
@@ -153,7 +151,7 @@ def writeCachedDataPoints():
           if not createWhisperFile(metric, dbFilePath, dbFileExists):
               continue
           t1 = time.time()
-          written = writeWhisperFile(metric, datapoints, dbFilePath)
+          written = writeWhisperFile(dbFilePath, datapoints)
       finally:
         write_lock.release()
       if written:
@@ -190,20 +188,24 @@ def writeForever():
     time.sleep(1)  # The writer thread only sleeps when the cache is empty or an error occurs
 
 
-def reloadStorageSchemas():
+def reloadStorageSchemas(first_run=False):
   global schemas
   try:
     schemas = loadStorageSchemas()
-  except:
+  except Exception, e:
+    if first_run:
+        raise e
     log.msg("Failed to reload storage schemas")
     log.err()
 
 
-def reloadAggregationSchemas():
+def reloadAggregationSchemas(first_run=False):
   global agg_schemas
   try:
     agg_schemas = loadAggregationSchemas()
-  except:
+  except Exception, e:
+    if first_run:
+      raise e
     log.msg("Failed to reload aggregation schemas")
     log.err()
 
@@ -216,8 +218,9 @@ def shutdownModifyUpdateSpeed():
         log.msg("Carbon shutting down.  Update rate not changed")
 
 
-def _flush(prefix):
+def _flush(prefix=None):
     """ Write/create whisped files at maximal speed """
+    assert(prefix==None or hasattr(prefix, 'startswith'))
     log.msg("flush started (prefix: %s)" % prefix)
     started = time.time()
     metrics = MetricCache.counts()
@@ -225,35 +228,34 @@ def _flush(prefix):
     write_lock.acquire()
     try:
         for metric, queueSize in metrics:
-	    try:
-	        if prefix and not metric.startswith(prefix):
-	            continue
-	    except:
-	        log.err()
+            if prefix and not metric.startswith(prefix):
+                continue
             dbFilePath = getFilesystemPath(metric)
             dbFileExists = exists(dbFilePath)
             try:
                 datapoints = MetricCache.pop(metric)
             except KeyError:
-                log.msg("MetricCache contention, skipping %s update for now" % metric)
                 continue
             if not createWhisperFile(metric, dbFilePath, dbFileExists):
-	        continue
-            t1 = time.time()
-            if not writeWhisperFile(metric, datapoints, dbFilePath):
-	        continue
-	    updates += 1
+                continue
+            if not writeWhisperFile(dbFilePath, datapoints):
+                continue
+    	    updates += 1
     finally:
         write_lock.release()
     log.msg('flush finished (updates: %d, time: %.5f sec)' % (updates, time.time()-started))
+    return updates
 
-def flush(prefix):
+def flush(prefix=None):
     """ Flush cache in separate thread """
     reactor.callInThread(_flush, prefix)
 
 class WriterService(Service):
 
     def __init__(self):
+        # first start on service initialization
+        reloadStorageSchemas(True)
+        reloadAggregationSchemas(True)
         self.storage_reload_task = LoopingCall(reloadStorageSchemas)
         self.aggregation_reload_task = LoopingCall(reloadAggregationSchemas)
 

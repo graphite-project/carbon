@@ -22,10 +22,6 @@ from carbon.util import pickle
 from carbon import log
 
 
-STORAGE_SCHEMAS_CONFIG = join(settings.CONF_DIR, 'storage-schemas.conf')
-STORAGE_AGGREGATION_CONFIG = join(settings.CONF_DIR, 'storage-aggregation.conf')
-STORAGE_LISTS_DIR = join(settings.CONF_DIR, 'lists')
-
 def getFilesystemPath(metric):
   metric_path = metric.replace('.',sep).lstrip(sep) + '.wsp'
   return join(settings.LOCAL_DATA_DIR, metric_path)
@@ -99,7 +95,7 @@ class Archive:
     self.points = int(points)
 
   def __str__(self):
-    return "Archive = (Seconds per point: %d, Datapoints to save: %d)" % (self.secondsPerPoint, self.points) 
+    return "Archive = (Seconds per point: %d, Datapoints to save: %d)" % (self.secondsPerPoint, self.points)
 
   def getTuple(self):
     return (self.secondsPerPoint,self.points)
@@ -113,7 +109,7 @@ class Archive:
 def loadStorageSchemas():
   schemaList = []
   config = OrderedConfigParser()
-  config.read(STORAGE_SCHEMAS_CONFIG)
+  config.read(join(settings.CONF_DIR, 'storage-schemas.conf'))
 
   for section in config.sections():
     options = dict( config.items(section) )
@@ -123,7 +119,7 @@ def loadStorageSchemas():
 
     retentions = options['retentions'].split(',')
     archives = [ Archive.fromString(s) for s in retentions ]
-    
+
     if matchAll:
       mySchema = DefaultSchema(section, archives)
 
@@ -132,7 +128,7 @@ def loadStorageSchemas():
 
     elif listName:
       mySchema = ListSchema(section, listName, archives)
-    
+
     archiveList = [a.getTuple() for a in archives]
 
     try:
@@ -140,7 +136,7 @@ def loadStorageSchemas():
       schemaList.append(mySchema)
     except whisper.InvalidConfiguration, e:
       log.msg("Invalid schemas found in %s: %s" % (section, e) )
-  
+
   schemaList.append(defaultSchema)
   return schemaList
 
@@ -149,11 +145,11 @@ def loadAggregationSchemas():
   # NOTE: This abuses the Schema classes above, and should probably be refactored.
   schemaList = []
   config = OrderedConfigParser()
-
+  storage_aggregation_config = join(settings.CONF_DIR, 'storage-aggregation.conf')
   try:
-    config.read(STORAGE_AGGREGATION_CONFIG)
+    config.read(storage_aggregation_config)
   except (IOError, CarbonConfigException):
-    log.msg("%s not found or wrong perms, ignoring." % STORAGE_AGGREGATION_CONFIG)
+    log.msg("%s not found or wrong perms, ignoring." % storage_aggregation_config)
 
   for section in config.sections():
     options = dict( config.items(section) )

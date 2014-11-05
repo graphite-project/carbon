@@ -58,7 +58,7 @@ install_files = storage_dirs + conf_files
 try:
     setup(
       name='carbon',
-      version='0.9.10',
+      version='0.10.0_alpha-1',
       url='https://launchpad.net/graphite',
       author='Chris Davis',
       author_email='chrismd@gmail.com',

@@ -434,14 +434,6 @@ class HbaseTSDB(TSDB):
         log.msg("[IndexSearcher] index rebuild took %.6f seconds (%d entries)" %
              (time() - t, total_entries))
 
-    # returns [ start, end ] where start,end are unixtime ints
-    def get_intervals(self, metric):
-        start = time() - self.db.info(metric)['maxRetention']
-        end = time()
-        return [start, end]
-
-
-
 def create_tables(host, port, table_prefix, transport, protocol):
     meta = "META"
     data = "DATA"

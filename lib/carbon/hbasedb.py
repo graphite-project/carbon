@@ -59,7 +59,7 @@ class HbaseTSDB(TSDB):
                  transport='buffered', send_interval=60,
                  reset_interval=1800, protocol='binary'):
 
-        self.host_list = (gethostbyname(host) for host in host_list)
+        self.host_list = [gethostbyname(host) for host in host_list]
         self.thrift_port = port
         self.transport_type = transport
 
@@ -434,19 +434,9 @@ class HbaseTSDB(TSDB):
         log.msg("[IndexSearcher] index rebuild took %.6f seconds (%d entries)" %
              (time() - t, total_entries))
 
-    # returns [ start, end ] where start,end are unixtime ints
-    def get_intervals(self, metric):
-        start = time() - self.db.info(metric)['maxRetention']
-        end = time()
-        return [start, end]
-
-
-
 def create_tables(host, port, table_prefix, transport, protocol):
     meta = "META"
     data = "DATA"
-    meta_name = "%s_%s" % (table_prefix, meta)
-    data_name = "%s_%s" % (table_prefix, data)
 
     client = happybase.Connection(
         host=host,
@@ -462,8 +452,7 @@ def create_tables(host, port, table_prefix, transport, protocol):
         print("HBase tables can't be retrieved. Cluster offline?")
         exit(1)
 
-    if meta_name not in tables:
-        print('Creating %s table' % meta_name)
+    if meta not in tables:
         families = {'cf:': dict(compression="Snappy",
                                 block_cache_enabled=True,
                                 bloom_filter_type="ROW")}
@@ -471,8 +460,7 @@ def create_tables(host, port, table_prefix, transport, protocol):
         meta_table = client.table("META")
         # add counter record
         meta_table.counter_set('CTR', 'cf:CTR', 1)
-    elif data_name not in tables:
-        print('Creating %s table' % data_name)
+    elif data not in tables:
         families = {'cf:': dict(compression="Snappy",
                                 bloom_filter_type='ROW',
                                 block_cache_enabled=True)}

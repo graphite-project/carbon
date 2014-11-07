@@ -30,12 +30,13 @@ import txamqp.spec
 
 
 @inlineCallbacks
-def writeMetric(metric_path, value, timestamp, host, port, username, password,
-                vhost, exchange, spec=None, channel_number=1, ssl=False):
+def writeMetric(data, host, port, username, password,
+                vhost, exchange, queue, compressed=True, batch_size=100, 
+                spec=None, channel_number=1, ssl=False):
 
     if not spec:
         spec = txamqp.spec.load(os.path.normpath(
-            os.path.join(os.path.dirname(__file__), 'amqp0-8.xml')))
+            os.path.join(os.path.dirname(__file__), 'amqp0-9.xml')))
 
     delegate = TwistedDelegate()
 
@@ -54,10 +55,10 @@ def writeMetric(metric_path, value, timestamp, host, port, username, password,
     yield channel.exchange_declare(exchange=exchange, type="topic",
                                    durable=True, auto_delete=False)
 
-    message = Content( "%f %d" % (value, timestamp) )
+    message = Content( data )
     message["delivery mode"] = 2
 
-    channel.basic_publish(exchange=exchange, content=message, routing_key=metric_path)
+    channel.basic_publish(exchange=exchange, content=message, routing_key='')
     yield channel.channel_close()
 
 

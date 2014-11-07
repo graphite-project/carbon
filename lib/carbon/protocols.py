@@ -117,6 +117,9 @@ class MetricPickleReceiver(MetricReceiver, Int32StringReceiver):
     except Exception:
       log.listener('invalid pickle received from %s, ignoring' % self.peerName)
       return
+    if not datapoints:
+      log.listener('invalid pickle received from %s, ignoring' % self.peerName)
+      return
 
     for (metric, datapoint) in datapoints:
       try:
@@ -135,7 +138,7 @@ class MetricMsgPackReceiver(MetricReceiver, Int32StringReceiver):
     try:
       datapoints = unpackb(data)
     except Exception:
-      log.listener('invalid msgpack data %r received from %s' % ( metric, self.peerName))
+      log.listener('invalid msgpack data %r received from %s' % ( data, self.peerName))
       return
     for (metric, datapoint) in datapoints:
       try:
@@ -188,6 +191,8 @@ class CacheManagementHandler(Int32StringReceiver):
       log.query("%s connection lost: %s" % (self.peerAddr, reason.value))
 
   def stringReceived(self, rawRequest):
+    if not rawRequest:
+      return
     request = self.unpickler.loads(rawRequest)
     if request['type'] == 'cache-query':
       metric = request['metric']

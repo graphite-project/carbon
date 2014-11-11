@@ -107,8 +107,9 @@ class AMQPGraphiteProtocol(AMQClient):
                 msg = yield queue.get()
                 self.processMessage(msg)
             else:
-                log.listener('Cache is too full. Waiting a bit...')
-                sleep(5)
+                if self.factory.verbose:
+                    log.listener('Cache is too full. Waiting a bit...')
+                continue
 
     def processMessage(self, message):
         """Parse a message and post it as a metric."""

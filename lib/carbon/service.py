@@ -59,7 +59,6 @@ def createBaseService(config):
         amqp_queue_name = settings.get("AMQP_QUEUE_NAME", "graphite")
         amqp_exchange_type = settings.get("AMQP_EXCHANGE_TYPE", "topic")
         amqp_ssl_enabled = settings.get("AMQP_SSL_ENABLED", "False")
-        amqp_compress_enabled = settings.get("AMQP_COMPRESSION_ENABLED", False)
 
     receivers = []
     if settings.ENABLE_LINE_RECEIVER:
@@ -101,7 +100,7 @@ def createBaseService(config):
             vhost=amqp_vhost, spec=amqp_spec,
             exchange_name=amqp_exchange_name,
             exchange_type=amqp_exchange_type, queue_name=amqp_queue_name,
-            verbose=amqp_verbose, compressed=amqp_compress_enabled)
+            verbose=amqp_verbose)
         if amqp_ssl_enabled:
             context_factory = ssl.ClientContextFactory()
             service = SSLClient(amqp_host, int(amqp_port), 

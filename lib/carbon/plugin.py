@@ -1,14 +1,9 @@
 from carbon.conf import settings
 from carbon.whispertsdb import WhisperTSDB
 from carbon.hbasedb import HbaseTSDB
-
 from os.path import join as os_join
-from sys import path as sys_path
-sys_path.append('/usr/local/rnt/webapp')
 
-from graphite import local_settings
-
-CONF_DIR = local_settings.CONF_DIR
+CONF_DIR = settings.CONF_DIR
 
 def HbaseDB():
     settings.readFrom(os_join(CONF_DIR, 'graphite-db.conf'), 'HbaseDB')

@@ -43,6 +43,7 @@ from txamqp.protocol import AMQClient
 from txamqp.client import TwistedDelegate
 import txamqp.spec
 
+from time import sleep
 try:
     import carbon
 except:
@@ -52,7 +53,7 @@ except:
 
 import carbon.protocols #satisfy import order requirements
 from carbon.conf import settings
-from carbon import log, events, instrumentation
+from carbon import log, events, instrumentation, state
 
 
 HOSTNAME = socket.gethostname().split('.')[0]
@@ -97,13 +98,17 @@ class AMQPGraphiteProtocol(AMQClient):
 
         yield chan.basic_consume(queue=my_queue, no_ack=True,
                                  consumer_tag=self.consumer_tag)
+
     @inlineCallbacks
     def receive_loop(self):
         queue = yield self.queue(self.consumer_tag)
-
         while True:
-            msg = yield queue.get()
-            self.processMessage(msg)
+            if not state.cacheTooFull:
+                msg = yield queue.get()
+                self.processMessage(msg)
+            else:
+                log.listener('Cache is too full. Waiting a bit...')
+                sleep(5)
 
     def processMessage(self, message):
         """Parse a message and post it as a metric."""
@@ -112,9 +117,9 @@ class AMQPGraphiteProtocol(AMQClient):
             log.listener("Message received: %s" % (message,))
         metric = message.routing_key
 
-        if self.factory.compressed:
+        try:
             message_body = decompress(message.content.body)
-        else:
+        except Exception, e:
             message_body = message.content.body
 
         for line in message_body.split("\n"):
@@ -149,8 +154,7 @@ class AMQPReconnectingFactory(ReconnectingClientFactory):
     protocol = AMQPGraphiteProtocol
 
     def __init__(self, username, password, delegate, vhost, spec, channel,
-                 exchange_name, queue_name, verbose, exchange_type='topic',
-                 compressed=False):
+                 exchange_name, queue_name, verbose, exchange_type='topic'):
         self.username = username
         self.password = password
         self.delegate = delegate
@@ -161,7 +165,6 @@ class AMQPReconnectingFactory(ReconnectingClientFactory):
         self.queue_name = queue_name
         self.exchange_type = exchange_type
         self.verbose = verbose
-        self.compressed = compressed
 
     def buildProtocol(self, addr):
         self.resetDelay()
@@ -171,8 +174,8 @@ class AMQPReconnectingFactory(ReconnectingClientFactory):
 
 
 def createAMQPListener(username, password, vhost, exchange_name, exchange_type,
-                       queue_name, spec=None, channel=1, verbose=False, 
-                       compressed=False):
+                       queue_name, spec=None, channel=1, verbose=False):
+                       
     """
     Create an C{AMQPReconnectingFactory} configured with the specified options.
     """
@@ -184,22 +187,19 @@ def createAMQPListener(username, password, vhost, exchange_name, exchange_type,
     delegate = TwistedDelegate()
     factory = AMQPReconnectingFactory(username, password, delegate, vhost,
                                       spec, channel, exchange_name, 
-                                      queue_name, verbose, exchange_type,
-                                      compressed=compressed)
+                                      queue_name, verbose, exchange_type)
     return factory
 
 
 def startReceiver(host, port, username, password, vhost, exchange_name, 
-                  queue_name, spec=None, channel=1, verbose=False, 
-                  compressed=False):
+                  queue_name, spec=None, channel=1, verbose=False):
     """
     Starts a twisted process that will read messages on the amqp broker and
     post them as metrics.
     """
     factory = createAMQPListener(username, password, vhost, exchange_name,
                                  exchange_type, queue_name,
-                                 spec=spec, channel=channel, verbose=verbose,
-                                 compressed=compressed)
+                                 spec=spec, channel=channel, verbose=verbose)
     reactor.connectTCP(host, port, factory)
 
 
@@ -240,10 +240,6 @@ def main():
                       help="verbose",
                       default=False, action="store_true")
 
-    parser.add_option("-c", "--compress", dest="compress",
-                      help="compress",
-                      default=False, action="store_true")
-
     (options, args) = parser.parse_args()
 
 
@@ -251,7 +247,7 @@ def main():
                   options.password, vhost=options.vhost,
                   exchange_name=options.exchange, verbose=options.verbose,
                   exchange_type=options.exchange_type,
-                  queue_name=options.queue, compressed=options.compress)
+                  queue_name=options.queue)
     reactor.run()
 
 if __name__ == "__main__":

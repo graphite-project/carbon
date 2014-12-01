@@ -15,7 +15,8 @@ def HbaseDB():
                      transport=settings.THRIFT_TRANSPORT_TYPE,
                      send_interval=settings.CARBON_METRIC_INTERVAL,
                      reset_interval=settings.HBASE_RESET_INTERVAL,
-                     protocol=settings.THRIFT_PROTOCOL)
+                     protocol=settings.THRIFT_PROTOCOL,
+                     compat=str(settings.THRIFT_COMPAT))
 
 def WhisperDB():
     if not settings.has_key('WHISPER_STORAGE_DIR'):

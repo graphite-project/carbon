@@ -18,13 +18,6 @@ except:
 from twisted.python.util import initgroups
 from twisted.scripts.twistd import runApp
 
-from zlib import compress as zlib_compress
-
-try:
-  from carbon.proto_handler_pb2 import Metric
-except:
-  pass
-
 try:
   from msgpack import packb
 except:
@@ -184,17 +177,7 @@ def get_unpickler(insecure=False):
   else:
     return SafeUnpickler
 
-def data_to_proto(datapoints, delimiter, compress=False):
-  protobuf_points = ""
-  for metric in datapoints:
-    m = Metric()
-    m.path = str(metric[0])
-    m.timestamp = long(metric[1][0])
-    m.value = float(metric[1][1])
-    protobuf_points += m.SerializeToString() + delimiter
-  return protobuf_points[:-len(delimiter)]
-
-def pack_data(datapoints, pack_type=None, safe_pickle=False, delimiter=None, compress=False):
+def pack_data(datapoints, pack_type=None, safe_pickle=False):
 
     #msgpack serialization
     if pack_type == "msgpack":
@@ -203,20 +186,9 @@ def pack_data(datapoints, pack_type=None, safe_pickle=False, delimiter=None, com
       except Exception:
         raise ValueError('msgpack package not imported')
 
-    #Google's protocol buffer serialization
-    elif pack_type == "protobuf":
-      try:
-        data = data_to_proto(datapoints, delimiter, compress)
-      except Exception:
-        raise ValueError('protobuf package not imported')
-      if compress:
-        data = zlib_compress(data)
-
     #Default to pickle
     else:
       data = pickle.dumps(datapoints, protocol=-1)
-      if compress:
-        data = zlib_compress(data)
 
     return data
 

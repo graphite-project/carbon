@@ -31,7 +31,7 @@ import txamqp.spec
 
 @inlineCallbacks
 def writeMetric(data, host, port, username, password,
-                vhost, exchange, queue, compressed=True, batch_size=100, 
+                vhost, exchange, queue, compressed=False, batch_size=100, 
                 spec=None, channel_number=1, ssl=False):
 
     if not spec:

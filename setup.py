@@ -35,11 +35,11 @@ setup(
   author_email='chrismd@gmail.com',
   license='Apache Software License 2.0',
   description='Backend data caching and persistence daemon for Graphite',
-  packages=['carbon', 'carbon.aggregator', 'twisted.plugins', 'importlib'],
+  packages=['carbon', 'carbon.aggregator', 'twisted.plugins'],
   package_dir={'' : 'lib'},
   scripts=glob('bin/*'),
   package_data={ 'carbon' : ['*.xml'] },
   data_files=install_files,
-  install_requires=['twisted', 'txamqp'],
+  install_requires=['twisted'],
   **setup_kwargs
 )

@@ -49,7 +49,7 @@ def createBaseService(config):
         from carbon import amqp_listener
 
         amqp_host = settings.get("AMQP_HOST", "localhost")
-        amqp_port = settings.get("AMQP_PORT", 5672)
+        amqp_port = int(settings.get("AMQP_PORT", 5672))
         amqp_user = settings.get("AMQP_USER", "guest")
         amqp_password = settings.get("AMQP_PASSWORD", "guest")
         amqp_verbose  = settings.get("AMQP_VERBOSE", False)
@@ -59,6 +59,8 @@ def createBaseService(config):
         amqp_queue_name = settings.get("AMQP_QUEUE_NAME", "graphite")
         amqp_exchange_type = settings.get("AMQP_EXCHANGE_TYPE", "topic")
         amqp_ssl_enabled = settings.get("AMQP_SSL_ENABLED", "False")
+        amqp_process_seconds = int(settings.get("AMQP_PROCESS_TIME", 10))
+        amqp_wait_seconds = int(settings.get("AMQP_WAIT_TIME", 5))
 
     receivers = []
     if settings.ENABLE_LINE_RECEIVER:
@@ -71,11 +73,6 @@ def createBaseService(config):
       receivers.append((settings.PICKLE_RECEIVER_INTERFACE,
                         settings.PICKLE_RECEIVER_PORT,
                         MetricPickleReceiver))
-    if settings.ENABLE_PROTOBUF_RECEIVER:
-      from carbon.protocols import MetricProtocolBufferReceiver
-      receivers.append((settings.PROTOBUF_RECEIVER_INTERFACE,
-                        settings.PROTOBUF_RECEIVER_PORT,
-                        MetricProtocolBufferReceiver))
     if settings.ENABLE_MSGPACK_RECEIVER:
       from carbon.protocols import MetricMsgPackReceiver
       receivers.append((settings.MSGPACK_RECEIVER_INTERFACE,
@@ -100,13 +97,14 @@ def createBaseService(config):
             vhost=amqp_vhost, spec=amqp_spec,
             exchange_name=amqp_exchange_name,
             exchange_type=amqp_exchange_type, queue_name=amqp_queue_name,
-            verbose=amqp_verbose)
+            verbose=amqp_verbose, process_seconds=amqp_process_seconds,
+            wait_seconds=amqp_wait_seconds)
         if amqp_ssl_enabled:
             context_factory = ssl.ClientContextFactory()
-            service = SSLClient(amqp_host, int(amqp_port), 
+            service = SSLClient(amqp_host, amqp_port, 
                                 factory, context_factory)
         else:
-            service = TCPClient(amqp_host, int(amqp_port), factory)
+            service = TCPClient(amqp_host, amqp_port, factory)
         service.setServiceParent(root_service)
 
     if settings.ENABLE_MANHOLE:

@@ -34,7 +34,6 @@ import sys
 import os
 import socket
 from optparse import OptionParser
-from zlib import decompress
 
 from twisted.internet.defer import inlineCallbacks
 from twisted.internet import reactor
@@ -43,7 +42,10 @@ from txamqp.protocol import AMQClient
 from txamqp.client import TwistedDelegate
 import txamqp.spec
 
-from time import sleep
+from time import time
+from random import randrange
+from zlib import decompress
+
 try:
     import carbon
 except:
@@ -101,15 +103,21 @@ class AMQPGraphiteProtocol(AMQClient):
 
     @inlineCallbacks
     def receive_loop(self):
+        proc_secs = self.factory.process_seconds
+        wait_secs = self.factory.wait_seconds
+
         queue = yield self.queue(self.consumer_tag)
+        #process seconds
+        end_time = time() + randrange(proc_secs)
         while True:
-            if not state.cacheTooFull:
-                msg = yield queue.get()
-                self.processMessage(msg)
-            else:
-                if self.factory.verbose:
-                    log.listener('Cache is too full. Waiting a bit...')
+            if time() > end_time or state.cacheTooFull:
+                end_time = time() + randrange(wait_secs)
+                while time() < end_time:
+                    continue
+                end_time = time() + randrange(proc_secs)
                 continue
+            msg = yield queue.get()
+            self.processMessage(msg)
 
     def processMessage(self, message):
         """Parse a message and post it as a metric."""
@@ -155,7 +163,8 @@ class AMQPReconnectingFactory(ReconnectingClientFactory):
     protocol = AMQPGraphiteProtocol
 
     def __init__(self, username, password, delegate, vhost, spec, channel,
-                 exchange_name, queue_name, verbose, exchange_type='topic'):
+                 exchange_name, queue_name, verbose, exchange_type='topic',
+                 process_seconds=10, wait_seconds=5):
         self.username = username
         self.password = password
         self.delegate = delegate
@@ -166,6 +175,8 @@ class AMQPReconnectingFactory(ReconnectingClientFactory):
         self.queue_name = queue_name
         self.exchange_type = exchange_type
         self.verbose = verbose
+        self.process_seconds = process_seconds
+        self.wait_seconds = wait_seconds
 
     def buildProtocol(self, addr):
         self.resetDelay()
@@ -175,7 +186,8 @@ class AMQPReconnectingFactory(ReconnectingClientFactory):
 
 
 def createAMQPListener(username, password, vhost, exchange_name, exchange_type,
-                       queue_name, spec=None, channel=1, verbose=False):
+                       queue_name, spec=None, channel=1, verbose=False,
+                       process_seconds=10, wait_seconds=5):
                        
     """
     Create an C{AMQPReconnectingFactory} configured with the specified options.
@@ -188,19 +200,24 @@ def createAMQPListener(username, password, vhost, exchange_name, exchange_type,
     delegate = TwistedDelegate()
     factory = AMQPReconnectingFactory(username, password, delegate, vhost,
                                       spec, channel, exchange_name, 
-                                      queue_name, verbose, exchange_type)
+                                      queue_name, verbose, exchange_type,
+                                      process_seconds=process_seconds,
+                                      wait_seconds=wait_seconds)
     return factory
 
 
 def startReceiver(host, port, username, password, vhost, exchange_name, 
-                  queue_name, spec=None, channel=1, verbose=False):
+                  queue_name, spec=None, channel=1, verbose=False,
+                  process_seconds=10, wait_seonds=5):
     """
     Starts a twisted process that will read messages on the amqp broker and
     post them as metrics.
     """
     factory = createAMQPListener(username, password, vhost, exchange_name,
                                  exchange_type, queue_name,
-                                 spec=spec, channel=channel, verbose=verbose)
+                                 spec=spec, channel=channel, verbose=verbose,
+                                 process_seconds=process_seconds,
+                                 wait_seconds=wait_seconds)
     reactor.connectTCP(host, port, factory)
 
 

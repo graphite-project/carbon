@@ -57,7 +57,7 @@ class HbaseTSDB(TSDB):
 
     def __init__(self, host_list, port, table_prefix, batch_size=1000,
                  transport='buffered', send_interval=60,
-                 reset_interval=1800, protocol='binary'):
+                 reset_interval=1800, protocol='binary', compat="0.94"):
 
         self.host_list = [gethostbyname(host) for host in host_list]
         self.thrift_port = port
@@ -65,6 +65,7 @@ class HbaseTSDB(TSDB):
 
         self.batch_size = batch_size
         self.table_prefix = table_prefix
+        self.compat = compat
         self.meta_name = "META"
         self.data_name = "DATA"
         self.send_interval = send_interval
@@ -88,7 +89,8 @@ class HbaseTSDB(TSDB):
             table_prefix=self.table_prefix,
             transport=self.transport_type,
             protocol=self.protocol,
-            autoconnect=False
+            autoconnect=False,
+            compat=self.compat
         )
         self.client.open()
         sleep(0.25)
@@ -118,7 +120,6 @@ class HbaseTSDB(TSDB):
         self.meta_table = self.client.table(self.meta_name)
         self.data_table = self.client.table(self.data_name)
         self.data_batch = self.data_table.batch()
-        self.batch_count = 0
         self.send_time = time()
         self.reset_time = time()
 
@@ -141,16 +142,17 @@ class HbaseTSDB(TSDB):
             self.__reset_conn()
 
     def __send(self):
-        if time() - self.send_time > self.send_interval or \
-                self.batch_count > self.batch_size:
+        cur_time = time()
+        if time() - self.reset_time > self.reset_interval:
+            self.__reset_conn()
+        elif cur_time - self.send_time > self.send_interval or \
+                len(self.data_batch._mutations) > self.batch_size:
             try:
                 self.data_batch.send()
             except Exception:
                 self.__refresh_conn()
                 self.data_batch.send()
             self.send_time = time()
-        if time() - self.reset_time > self.reset_interval:
-            self.__reset_conn()
 
     def __get_row(self, row, columns=None, send_batch=True):
         if time() - self.reset_time > self.reset_interval:
@@ -267,9 +269,8 @@ class HbaseTSDB(TSDB):
 
         """
 
-        info = self.info(metric)
+        archives = iter(self.info(metric)['archives'])
         now = int(time())
-        archives = iter(info['archives'])
         currentArchive = archives.next()
         currentPoints = []
 
@@ -281,7 +282,7 @@ class HbaseTSDB(TSDB):
                 if currentPoints: 
                     #put points in chronological order
                     currentPoints.reverse() 
-                    self.__archive_update_many(info, currentArchive, currentPoints)
+                    self.__archive_update_many(currentArchive, currentPoints)
                     currentPoints = []
                 try:
                     currentArchive = archives.next()
@@ -296,9 +297,9 @@ class HbaseTSDB(TSDB):
         #don't forget to commit after we've checked all the archives
         if currentArchive and currentPoints: 
             currentPoints.reverse()
-            self.__archive_update_many(info, currentArchive, currentPoints)
+            self.__archive_update_many(currentArchive, currentPoints)
 
-    def __archive_update_many(self, info, archive, points):
+    def __archive_update_many(self, archive, points):
         numPoints = archive['points']
         step = archive['secondsPerPoint']
         archiveId = archive['archiveId']
@@ -315,7 +316,6 @@ class HbaseTSDB(TSDB):
             rowkey = struct_pack(KEY_FMT, archiveId, slot)
             rowval = struct_pack(VAL_FMT, timestamp, value)
             self.data_batch.put(rowkey, {'cf:d': rowval})
-            self.batch_count += 1
         self.__send()
 
     def propagate(self, info, archives, points):
@@ -349,7 +349,6 @@ class HbaseTSDB(TSDB):
             rowkey = struct_pack(KEY_FMT, lower['archiveId'], lowerSlot)
             rowval = struct_pack(VAL_FMT, timestamp, aggregateValue)
             self.data_batch.put(rowkey, {"cf:d": rowval})
-            self.batch_count += 1
         self.__send()
 
     # returns list of values between the two times.  
@@ -376,7 +375,7 @@ class HbaseTSDB(TSDB):
             startkey = struct_pack(KEY_FMT, archive['archiveId'], t[0])
             endkey = struct_pack(KEY_FMT, archive['archiveId'], t[1])
             scan = self.data_table.scan(row_start = startkey, row_stop = endkey,
-                                        batch_size = self.batch_size)
+                                        columns=['cf:d'])
 
             for row in scan:
                 (timestamp, value) = struct_unpack(VAL_FMT, row[1]["cf:d"])
@@ -398,11 +397,10 @@ class HbaseTSDB(TSDB):
             return metric_len > 0
 
     def delete(self, metric):
-        #make sure the metric exists
-        if not self.exists(metric):
-            return
         #Get data on metric
         info = self.info(metric)
+        if not info:
+            return
         for archive in info['archives']:
             endSlot = int((time() / archive['secondsPerPoint']) % archive['points'])
             start_key = struct_pack(KEY_FMT, archive['archiveId'], 0)
@@ -413,13 +411,11 @@ class HbaseTSDB(TSDB):
             #then batch delete
             for row in scan:
                 self.data_batch.delete(row[0])
-                self.batch_count += 1
         #make sure there aren't any left over deletes
         self.data_batch.send()
         #now we remove the meta table row
         self.meta_table.delete('m_%s' % metric)
         self.meta_table.counter_dec('CTR', 'cf:CTR')
-
 
     def build_index(self, tmp_index):
         scan = self.meta_table.scan(columns=['cf:INFO'],
@@ -434,7 +430,9 @@ class HbaseTSDB(TSDB):
         log.msg("[IndexSearcher] index rebuild took %.6f seconds (%d entries)" %
              (time() - t, total_entries))
 
-def create_tables(host, port, table_prefix, transport, protocol):
+def create_tables(host, port=9090, table_prefix='graphite', 
+                  transport='buffered', 
+                  protocol='binary', compat="0.94"):
     meta = "META"
     data = "DATA"
 
@@ -443,7 +441,8 @@ def create_tables(host, port, table_prefix, transport, protocol):
         port=port,
         table_prefix=table_prefix,
         transport=transport,
-        protocol=protocol
+        protocol=protocol,
+        compat=compat
     )
     sleep(0.25)
     try:

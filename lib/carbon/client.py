@@ -61,10 +61,9 @@ class CarbonClientProtocol(Int32StringReceiver):
 
   def _sendDatapoints(self, datapoints):
       data_len = len(datapoints)
+      #log.debug("Sent datapoints (%s)\nUsing protocol %s" % (datapoints, settings.INTERNAL_DATA_TYPE)
       datapoints = pack_data(datapoints, settings.INTERNAL_DATA_TYPE,
-                             settings.USE_INSECURE_UNPICKLER,
-                             settings.PROTOBUF_DELIMITER,
-                             settings.COMPRESS_DATA)
+                             settings.USE_INSECURE_UNPICKLER)
       self.sendString(datapoints)
       instrumentation.increment(self.sent, data_len)
       instrumentation.increment(self.batchesSent)

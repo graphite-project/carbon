@@ -38,6 +38,7 @@ USER =
 # Limit the size of the cache to avoid swapping or becoming CPU bound.
 # Sorts and serving cache queries gets more expensive as the cache grows.
 # Use the value "inf" (infinity) for an unlimited cache size.
+# This is maximum number of datapoints that cache can hold.
 MAX_CACHE_SIZE = inf
 
 # Limits the number of whisper update_many() calls per second, which effectively
@@ -50,7 +51,7 @@ MAX_UPDATES_PER_SECOND = 500
 # If defined, this changes the MAX_UPDATES_PER_SECOND in Carbon when a
 # stop/shutdown is initiated.  This helps when MAX_UPDATES_PER_SECOND is
 # relatively low and carbon has cached a lot of updates; it enables the carbon
-# daemon to shutdown more quickly. 
+# daemon to shutdown more quickly.
 # MAX_UPDATES_PER_SECOND_ON_SHUTDOWN = 1000
 
 # Softly limits the number of whisper files that get created each minute.
@@ -314,7 +315,7 @@ PICKLE_RECEIVER_PORT = 2024
 
 # Filenames of the configuration files to use for this instance of aggregator.
 # Filenames are relative to CONF_DIR.
-# 
+#
 # AGGREGATION_RULES = aggregation-rules.conf
 # REWRITE_RULES = rewrite-rules.conf
 
@@ -324,7 +325,7 @@ PICKLE_RECEIVER_PORT = 2024
 # use multiple carbon-cache instances then it would look like this:
 #
 # DESTINATIONS = 127.0.0.1:2004:a, 127.0.0.1:2104:b
-# 
+#
 # The format is comma-delimited IP:PORT:INSTANCE where the :INSTANCE part is
 # optional and refers to the "None" instance if omitted.
 #

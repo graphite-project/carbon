@@ -103,7 +103,7 @@ class AggregationRule:
     self.aggregation_func = AGGREGATION_METHODS[method]
     self.build_regex()
     self.build_template()
-    self.cache = LRUCache(settings["AGGREGATION_CACHE_SIZE"] or 10000)
+    self.cache = LRUCache(settings.get("AGGREGATION_CACHE_SIZE", 10000))
 
   def get_aggregate_metric(self, metric_path):
     if metric_path in self.cache:

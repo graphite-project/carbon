@@ -304,6 +304,9 @@ MIN_RESET_RATIO=0.9
 # reset connections for no good reason.
 MIN_RESET_INTERVAL=121
 
+# cache size for aggregation metrics.  Helps control memory use of relays.
+AGGREGATION_CACHE_SIZE=10000
+
 [aggregator]
 LINE_RECEIVER_INTERFACE = 0.0.0.0
 LINE_RECEIVER_PORT = 2023

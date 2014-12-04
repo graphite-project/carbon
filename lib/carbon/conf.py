@@ -75,6 +75,7 @@ defaults = dict(
   MIN_RESET_INTERVAL=121,
   USE_RATIO_RESET=False,
   LOG_LISTENER_CONN_SUCCESS=True,
+  LOG_AGGREGATOR_MISSES=True,
   AGGREGATION_RULES='aggregation-rules.conf',
   REWRITE_RULES='rewrite-rules.conf',
   RELAY_RULES='relay-rules.conf',

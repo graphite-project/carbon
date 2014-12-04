@@ -379,3 +379,7 @@ MAX_AGGREGATION_INTERVALS = 5
 # In order to turn off logging of successful connections for the line
 # receiver, set this to False
 # LOG_LISTENER_CONN_SUCCESS = True
+
+# In order to turn off logging of metrics with no corresponding
+# aggregation rules receiver, set this to False
+# LOG_AGGREGATOR_MISSES = False

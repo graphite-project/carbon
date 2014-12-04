@@ -4,6 +4,32 @@ from os.path import exists, getmtime
 from twisted.internet.task import LoopingCall
 from carbon import log
 from carbon.aggregator.buffers import BufferManager
+from carbon.conf import settings
+import collections
+
+
+class LRUCache(object):
+    """simple LRU cache implementation """
+
+    def __init__(self, capacity):
+        self.capacity = capacity
+        self.cache = collections.OrderedDict()
+
+    def __contains__(self, key):
+        return key in self.cache
+
+    def __getitem__(self, key):
+        value = self.cache.pop(key)
+        self.cache[key] = value
+        return value
+
+    def __setitem__(self, key, value):
+        try:
+            self.cache.pop(key)
+        except KeyError:
+            if len(self.cache) >= self.capacity:
+                self.cache.popitem(last=False)
+        self.cache[key] = value
 
 
 class RuleManager:
@@ -77,7 +103,7 @@ class AggregationRule:
     self.aggregation_func = AGGREGATION_METHODS[method]
     self.build_regex()
     self.build_template()
-    self.cache = {}
+    self.cache = LRUCache(settings.get("AGGREGATION_CACHE_SIZE", 10000))
 
   def get_aggregate_metric(self, metric_path):
     if metric_path in self.cache:
@@ -93,7 +119,7 @@ class AggregationRule:
       except:
         log.err("Failed to interpolate template %s with fields %s" % (self.output_template, extracted_fields))
 
-    self.cache[metric_path] = result
+    if result: self.cache[metric_path] = result
     return result
 
   def build_regex(self):

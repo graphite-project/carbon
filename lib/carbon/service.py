@@ -76,6 +76,11 @@ def createBaseService(config):
                             MetricDatagramReceiver(),
                             interface=settings.UDP_RECEIVER_INTERFACE)
         service.setServiceParent(root_service)
+        if hasattr(settings, 'UDP_PICKLE_RECEIVER_PORT'):
+            service = UDPServer(int(settings.UDP_PICKLE_RECEIVER_PORT),
+                                MetricPickleReceiver(),
+                                interface=settings.UDP_PICKLE_RECEIVER_INTERFACE)
+            service.setServiceParent(root_service)
 
     if use_amqp:
         factory = amqp_listener.createAMQPListener(

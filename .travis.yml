@@ -13,4 +13,4 @@ install:
     - pip install tox --use-mirrors
 
 script:
-    - PYTHONPATH=lib tox -e $TOXENV
+    - tox -e $TOXENV

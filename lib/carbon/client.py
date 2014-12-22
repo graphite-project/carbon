@@ -14,7 +14,6 @@ try:
 except ImportError:
     log.debug("Couldn't import signal module")
 
-
 SEND_QUEUE_LOW_WATERMARK = settings.MAX_QUEUE_SIZE * settings.QUEUE_LOW_WATERMARK_PCT
 
 
@@ -29,9 +28,6 @@ class CarbonClientProtocol(Int32StringReceiver):
     self.destinationName = self.factory.destinationName
     self.queuedUntilReady = 'destinations.%s.queuedUntilReady' % self.destinationName
     self.sent = 'destinations.%s.sent' % self.destinationName
-    self.batchesSent = 'destinations.%s.batchesSent' % self.destinationName
-
-    self.slowConnectionReset = 'destinations.%s.slowConnectionReset' % self.destinationName
 
     self.factory.connectionMade.callback(self)
     self.factory.connectionMade = Deferred()
@@ -58,8 +54,16 @@ class CarbonClientProtocol(Int32StringReceiver):
       self.connected = False
 
   def sendDatapoint(self, metric, datapoint):
-    self.factory.enqueue(metric, datapoint)
-    reactor.callLater(settings.TIME_TO_DEFER_SENDING, self.sendQueued)
+    if self.paused:
+      self.factory.enqueue(metric, datapoint)
+      instrumentation.increment(self.queuedUntilReady)
+
+    elif self.factory.hasQueuedDatapoints():
+      self.factory.enqueue(metric, datapoint)
+      self.sendQueued()
+
+    else:
+      self._sendDatapoints([(metric, datapoint)])
 
   def _sendDatapoints(self, datapoints):
       self.sendString(pickle.dumps(datapoints, protocol=-1))
@@ -252,7 +256,8 @@ class CarbonClientFactory(ReconnectingClientFactory):
   def sendDatapoint(self, metric, datapoint):
     instrumentation.increment(self.attemptedRelays)
     instrumentation.max(self.relayMaxQueueLength, self.queueSize)
-    if self.queueSize >= settings.MAX_QUEUE_SIZE:
+    queueSize = self.queueSize
+    if queueSize >= settings.MAX_QUEUE_SIZE:
       if not self.queueFull.called:
         self.queueFull.callback(self.queueSize)
       instrumentation.increment(self.fullQueueDrops)

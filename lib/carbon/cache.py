@@ -12,52 +12,68 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License."""
 
-from threading import Lock
+import time
+from collections import deque
 from carbon.conf import settings
+try:
+    from collections import defaultdict
+except ImportError:
+    from util import defaultdict
 
 
-class MetricCache(dict):
-  def __init__(self):
+class _MetricCache(defaultdict):
+  def __init__(self, defaultfactory=deque, method="sorted"):
     self.size = 0
-    self.lock = Lock()
+    self.method = method
+    if self.method == "sorted":
+      self.queue = self.gen_queue()
+    else:
+      self.queue = False
+    super(_MetricCache, self).__init__(defaultfactory)
 
-  def __setitem__(self, key, value):
-    raise TypeError("Use store() method instead!")
+  def gen_queue(self):
+    while True:
+      t = time.time()
+      queue = sorted(self.counts, key=lambda x: x[1])
+      if settings.LOG_CACHE_QUEUE_SORTS:
+        log.debug("Sorted %d cache queues in %.6f seconds" % (len(queue), time.time() - t))
+      while queue:
+        yield queue.pop()[0]
 
   def store(self, metric, datapoint):
-    try:
-      self.lock.acquire()
-      self.setdefault(metric, []).append(datapoint)
-      self.size += 1
-    finally:
-      self.lock.release()
-
+    self.size += 1
+    self[metric].append(datapoint)
     if self.isFull():
       log.msg("MetricCache is full: self.size=%d" % self.size)
       state.events.cacheFull()
 
   def isFull(self):
-    return self.size >= settings.MAX_CACHE_SIZE
+    # Short circuit this test if there is no max cache size, then we don't need
+    # to do the someone expensive work of calculating the current size.
+    return settings.MAX_CACHE_SIZE != float('inf') and self.size >= settings.MAX_CACHE_SIZE
 
-  def pop(self, metric):
-    try:
-      self.lock.acquire()
-      datapoints = dict.pop(self, metric)
-      self.size -= len(datapoints)
-      return datapoints
-    finally:
-      self.lock.release()
+  def pop(self, metric=None):
+    if not self:
+      raise KeyError(metric)
+    elif not metric and self.method == "max":
+      metric = max(self.items(), key=lambda x: len(x[1]))[0]
+      datapoints = (metric, super(_MetricCache, self).pop(metric))
+    elif not metric and self.method == "naive":
+      datapoints = self.popitem()
+    elif not metric and self.method == "sorted":
+      metric = self.queue.next()
+      datapoints = (metric, super(_MetricCache, self).pop(metric))
+    self.size -= len(datapoints[1])
+    return datapoints
 
+  @property
   def counts(self):
-    try:
-      self.lock.acquire()
-      return [ (metric, len(datapoints)) for (metric, datapoints) in self.items() ]
-    finally:
-      self.lock.release()
+    return [(metric, len(datapoints)) for (metric, datapoints) in self.items()]
 
 
 # Ghetto singleton
-MetricCache = MetricCache()
+
+MetricCache = _MetricCache(method=settings.CACHE_WRITE_STRATEGY)
 
 
 # Avoid import circularities

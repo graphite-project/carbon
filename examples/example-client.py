@@ -19,64 +19,43 @@ import time
 import socket
 import platform
 import subprocess
+import socket
 
 CARBON_SERVER = '127.0.0.1'
 CARBON_PORT = 2003
 DELAY = 60
 
 def get_loadavg():
-    """
-    Get the load average for a unix-like system.
-    For more details, "man proc" and "man uptime"
-    """
-    if platform.system() == "Linux":
-        return open('/proc/loadavg').read().split()[:3]
-    else:
-        command = "uptime"
-        process = subprocess.Popen(command, stdout=subprocess.PIPE, shell=True)
-        stdout = process.communicate()[0].strip()
-        # Split on whitespace and commas
-        output = re.split("[\s,]+", stdout)
-        return output[-3:]
+  # For more details, "man proc" and "man uptime"  
+  if platform.system() == "Linux":
+    return open('/proc/loadavg').read().strip().split()[:3]
+  else:   
+    command = "uptime"
+    process = subprocess.Popen(command, stdout=subprocess.PIPE, shell=True)
+    os.waitpid(process.pid, 0)
+    output = process.stdout.read().replace(',', ' ').strip().split()
+    length = len(output)
+    return output[length - 3:length]
 
-def run(sock, delay):
-    """Make the client go go go"""
-    while True:
-        now = int(time.time())
-        lines = []
-        #We're gonna report all three loadavg values
-        loadavg = get_loadavg()
-        lines.append("system.loadavg_1min %s %d" % (loadavg[0], now))
-        lines.append("system.loadavg_5min %s %d" % (loadavg[1], now))
-        lines.append("system.loadavg_15min %s %d" % (loadavg[2], now))
-        message = '\n'.join(lines) + '\n' #all lines must end in a newline
-        print "sending message"
-        print '-' * 80
-        print message
-        sock.sendall(message)
-        time.sleep(delay)
+sock = socket.socket()
+try:
+  sock.connect( (CARBON_SERVER,CARBON_PORT) )
+except socket.error as e:
+  print "Couldn't connect (%(errno)d: %(errmsg)s) to %(server)s on port %(port)d, is carbon-agent.py running?" % { 'errno':e.errno, 'errmsg':os.strerror(e.errno), 'server':CARBON_SERVER, 'port':CARBON_PORT }
+  sys.exit(1)
 
-def main():
-    """Wrap it all up together"""
-    delay = DELAY
-    if len(sys.argv) > 1:
-        arg = sys.argv[1]
-        if arg.isdigit():
-            delay = int(arg)
-        else:
-            sys.stderr.write("Ignoring non-integer argument. Using default: %ss\n" % delay)
-
-    sock = socket.socket()
-    try:
-        sock.connect( (CARBON_SERVER, CARBON_PORT) )
-    except socket.error:
-        raise SystemExit("Couldn't connect to %(server)s on port %(port)d, is carbon-cache.py running?" % { 'server':CARBON_SERVER, 'port':CARBON_PORT })
-
-    try:
-        run(sock, delay)
-    except KeyboardInterrupt:
-        sys.stderr.write("\nExiting on CTRL-c\n")
-        sys.exit(0)
-
-if __name__ == "__main__":
-    main()
+while True:
+  now = int( time.time() )
+  lines = []
+  #We're gonna report all three loadavg values
+  loadavg = get_loadavg()
+  lines.append("system.loadavg_1min %s %d" % (loadavg[0],now))
+  lines.append("system.loadavg_5min %s %d" % (loadavg[1],now))
+  lines.append("system.loadavg_15min %s %d" % (loadavg[2],now))
+  message = '\n'.join(lines) + '\n' #all lines must end in a newline
+  print "sending message\n"
+  print '-' * 80
+  print message
+  print
+  sock.sendall(message)
+  time.sleep(delay)

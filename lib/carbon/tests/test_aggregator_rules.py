@@ -14,7 +14,7 @@ class AggregationRuleTest(unittest.TestCase):
         aggregated.hist.p999       (10) = avg hosts.*.hist.p999
 
         Before the abovementioned patch the second rule would be treated as
-        expected but the first rule would lead to an aggegated metric
+        expected but the first rule would lead to an aggregated metric
         aggregated.hist.p99 which would in fact be equivalent to
         avgSeries(hosts.*.hist.p99,hosts.*.hist.p999).
         """

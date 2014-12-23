@@ -38,7 +38,7 @@ class WhisperTSDB(TSDB):
         return whisper.setAggregationMethod(self._getFilesystemPath(metric), aggregationMethod, xFilesFactor)
 
     def create(self, metric, archiveConfig, xFilesFactor=None, aggregationMethod=None, sparse=False,
-               useFallocate=False):
+               useFallocate=False, tags=[]):
         dbFilePath = self._getFilesystemPath(metric)
         dbDir = dirname(dbFilePath)
 

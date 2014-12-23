@@ -92,14 +92,15 @@ def writeCachedDataPoints():
     for (metric, datapoints, dbFileExists) in optimalWriteOrder():
       dataWritten = True
 
+      for schema in schemas:
+        if schema.matches(metric):
+          if not dbFileExists:
+            log.creates("new metric %s matched schema %s" % (metric, schema.name))
+          retention_config = [archive.getTuple() for archive in schema.archives]
+          break
+
       if not dbFileExists:
         xFilesFactor, aggregationMethod = None, None
-
-        for schema in schemas:
-          if schema.matches(metric):
-            log.creates('new metric %s matched schema %s' % (metric, schema.name))
-            retention_config = [archive.getTuple() for archive in schema.archives]
-            break
 
         for schema in agg_schemas:
           if schema.matches(metric):

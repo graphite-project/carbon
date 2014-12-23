@@ -30,9 +30,8 @@ Where each <value> is a real number and <timestamp> is a UNIX epoch time.
 This program can be started standalone for testing or using carbon-cache.py
 (see example config file provided)
 """
-import sys
 import os
-import socket
+from socket import gethostname
 from optparse import OptionParser
 
 from twisted.internet.defer import inlineCallbacks
@@ -46,19 +45,14 @@ from time import time
 from random import randrange
 from zlib import decompress
 
-try:
-    import carbon
-except:
-    # this is being run directly, carbon is not installed
-    LIB_DIR = os.path.dirname(os.path.dirname(__file__))
-    sys.path.insert(0, LIB_DIR)
+import carbon
 
 import carbon.protocols #satisfy import order requirements
 from carbon.conf import settings
 from carbon import log, events, instrumentation, state
 
 
-HOSTNAME = socket.gethostname().split('.')[0]
+HOSTNAME = gethostname().split('.')[0]
 
 
 class AMQPGraphiteProtocol(AMQClient):

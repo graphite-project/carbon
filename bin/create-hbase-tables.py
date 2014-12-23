@@ -10,10 +10,10 @@ def main(options):
     config = config['HbaseDB']
     hbasedb.create_tables(host=choice(config['THRIFT_HOST_LIST']),
                           port=config['THRIFT_PORT'],
-                          table_prefix=config['GRAPHITE_PREFIX'],
+                          table_prefix=config['GRAPHITE_PREFIX'], 
                           transport=config['THRIFT_TRANSPORT_TYPE'],
                           protocol=config['THRIFT_PROTOCOL'])
-    
+ 
 def cli_opts():
     parser = argparse.ArgumentParser("Create HBase tables for Graphite")
     parser.add_argument('-c', '--config',                  

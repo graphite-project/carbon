@@ -9,34 +9,6 @@ from abc import ABCMeta, abstractmethod
 class TSDB:
     __metaclass__ = ABCMeta
 
-    # returns info for the underlying db (including 'aggregationMethod')
-
-    # info returned in the format
-    #info = {
-    # 'aggregationMethod' : aggregationTypeToMethod.get(aggregationType, 'average'),
-    # 'maxRetention' : maxRetention,
-    # 'xFilesFactor' : xff,
-    # 'archives' : archives,
-    #}
-    # where archives is a list of
-    # archiveInfo = {
-    # 'offset' : offset,
-    # 'secondsPerPoint' : secondsPerPoint,
-    # 'points' : points,
-    # 'retention' : secondsPerPoint * points,
-    # 'size' : points * pointSize,
-    #}
-    #
-    @abstractmethod
-    def info(self, metric):
-        pass
-
-    # aggregationMethod specifies the method to use when propogating data (see ``whisper.aggregationMethods``)
-    # xFilesFactor specifies the fraction of data points in a propagation interval that must have known values for a propagation to occur. If None, the existing xFilesFactor in path will not be changed
-    @abstractmethod
-    def setAggregationMethod(self, metric, aggregationMethod, xFilesFactor=None):
-        pass
-
     # archiveList is a list of archives, each of which is of the form (secondsPerPoint,numberOfPoints)
     # xFilesFactor specifies the fraction of data points in a propagation interval that must have known values for a propagation to occur
     # aggregationMethod specifies the function to use when propogating data (see ``whisper.aggregationMethods``)
@@ -53,14 +25,4 @@ class TSDB:
     # returns True or False
     @abstractmethod
     def exists(self, metric):
-        pass
-
-    #Migrate data from a higher-precision to lower precision archive.
-    @abstractmethod
-    def propagate(self, info, archives, points):
-        pass
-
-    #Delete a metric from all tables
-    @abstractmethod
-    def delete(self, metric):
         pass

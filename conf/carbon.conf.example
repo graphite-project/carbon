@@ -63,6 +63,17 @@ MAX_UPDATES_PER_SECOND = 500
 # the files quickly but at the risk of slowing I/O down considerably for a while.
 MAX_CREATES_PER_MINUTE = 50
 
+# The datapoints for a metric would be written to disk only if the number of
+# datapoints in memory for that metric is greater than or equal to MIN_DATAPOINTS_PER_UPDATE. 
+# However this constraint is lifted if the cache size grows beyond LOW_CACHE_SIZE.
+# Default value is 1. Increase it to get a more predictable write pattern across multiple 
+# carbon-cache instances i.e. every carbon-cache instance getting a share of disk I/O.
+# It helps in avoiding a large a number of small disk-writes as well.
+# The default value for LOW_CACHE_SIZE is 80% of MAX_CACHE_SIZE   
+MIN_DATAPOINTS_PER_UPDATE = 1
+LOW_CACHE_SIZE = inf
+
+
 LINE_RECEIVER_INTERFACE = 0.0.0.0
 LINE_RECEIVER_PORT = 2003
 

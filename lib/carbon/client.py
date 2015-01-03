@@ -1,3 +1,6 @@
+from collections import deque
+from time import time
+
 from twisted.application.service import Service
 from twisted.internet import reactor
 from twisted.internet.defer import Deferred, DeferredList
@@ -5,9 +8,7 @@ from twisted.internet.protocol import ReconnectingClientFactory
 from twisted.protocols.basic import Int32StringReceiver
 from carbon.conf import settings
 from carbon.util import pickle
-from carbon import log, state, instrumentation
-from collections import deque
-from time import time
+from carbon import instrumentation, log, pipeline, state
 
 try:
     import signal
@@ -384,3 +385,11 @@ class CarbonClientManager(Service):
 
   def __str__(self):
     return "<%s[%x]>" % (self.__class__.__name__, id(self))
+
+
+class RelayProcessor(pipeline.Processor):
+  plugin_name = 'relay'
+
+  def process(self, metric, datapoint):
+    state.client_manager.sendDatapoint(metric, datapoint)
+    return pipeline.Processor.NO_OUTPUT

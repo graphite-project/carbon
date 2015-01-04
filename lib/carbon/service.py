@@ -45,18 +45,17 @@ def createBaseService(config):
     root_service = CarbonRootService()
     root_service.setName(settings.program)
 
-    use_amqp = settings.get("ENABLE_AMQP", False)
-    if use_amqp:
+    if settings.ENABLE_AMQP:
         from carbon import amqp_listener
 
-        amqp_host = settings.get("AMQP_HOST", "localhost")
-        amqp_port = settings.get("AMQP_PORT", 5672)
-        amqp_user = settings.get("AMQP_USER", "guest")
-        amqp_password = settings.get("AMQP_PASSWORD", "guest")
-        amqp_verbose  = settings.get("AMQP_VERBOSE", False)
-        amqp_vhost    = settings.get("AMQP_VHOST", "/")
-        amqp_spec     = settings.get("AMQP_SPEC", None)
-        amqp_exchange_name = settings.get("AMQP_EXCHANGE", "graphite")
+        amqp_host = settings.AMQP_HOST
+        amqp_port = settings.AMQP_PORT
+        amqp_user = settings.AMQP_USER
+        amqp_password = settings.AMQP_PASSWORD
+        amqp_verbose = settings.AMQP_VERBOSE
+        amqp_vhost = settings.AMQP_VHOST
+        amqp_spec = settings.AMQP_SPEC
+        amqp_exchange_name = settings.AMQP_EXCHANGE
 
 
     for interface, port, protocol in ((settings.LINE_RECEIVER_INTERFACE,

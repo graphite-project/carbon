@@ -24,7 +24,7 @@ from carbon import state, util, events
 from carbon.log import carbonLogObserver
 from carbon.exceptions import CarbonConfigException
 
-state.events = state
+state.events = events
 
 
 class CarbonRootService(MultiService):

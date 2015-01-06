@@ -2,6 +2,8 @@
 
 [![Build Status](https://secure.travis-ci.org/graphite-project/carbon.png?branch=master)](http://travis-ci.org/graphite-project/carbon)
 
+## Overview
+
 Carbon is one of three components within the Graphite project:
 
 1. [Graphite-Web](https://github.com/graphite-project/graphite-web), a Django-based web application that renders graphs and dashboards

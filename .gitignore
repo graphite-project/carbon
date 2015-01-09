@@ -3,3 +3,5 @@ build
 dist
 *.log
 *.pyc
+.idea
+*.iml

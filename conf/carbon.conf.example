@@ -99,6 +99,31 @@ USE_FLOW_CONTROL = True
 LOG_UPDATES = False
 LOG_CACHE_HITS = False
 
+# The thread that writes metrics to disk can use on of the following strategies
+# determining the order in which metrics are removed from cache and flushed to
+# disk. The default option preserves the same behavior as has been historically
+# available in version 0.9.10.
+#
+# sorted - All metrics in the cache will be counted and an ordered list of
+# them will be sorted according to the number of datapoints in the cache at the
+# moment of the list's creation. Metrics will then be flushed from the cache to
+# disk in that order.
+#
+# max - The writer thread will always pop and flush the metric from cache
+# that has the most datapoints. This will give a strong flush preference to
+# frequently updated metrics and will also reduce random file-io. Infrequently
+# updated metrics may only ever be persisted to disk at daemon shutdown if
+# there are a large number of metrics which receive very frequent updates OR if
+# disk i/o is very slow.
+#
+# naive - Metrics will be flushed from the cache to disk in an unordered
+# fashion. This strategy may be desirable in situations where the storage for
+# whisper files is solid state, CPU resources are very limited or deference to
+# the OS's i/o scheduler is expected to compensate for the random write
+# pattern.
+#
+CACHE_WRITE_STRATEGY = sorted
+
 # On some systems it is desirable for whisper to write synchronously.
 # Set this option to True if you'd like to try this. Basically it will
 # shift the onus of buffering writes from the kernel into carbon's cache.

@@ -15,6 +15,7 @@ except ImportError:
   import pickle
   USING_CPICKLE = False
 
+from time import sleep, time
 from twisted.python.util import initgroups
 from twisted.scripts.twistd import runApp
 
@@ -163,3 +164,74 @@ def get_unpickler(insecure=False):
     return pickle
   else:
     return SafeUnpickler
+
+
+class TokenBucket(object):
+  '''This is a basic tokenbucket rate limiter implementation for use in
+  enforcing various configurable rate limits'''
+  def __init__(self, capacity, fill_rate):
+    '''Capacity is the total number of tokens the bucket can hold, fill rate is
+    the rate in tokens (or fractional tokens) to be added to the bucket per
+    second.'''
+    self.capacity = float(capacity)
+    self._tokens = float(capacity)
+    self.fill_rate = float(fill_rate)
+    self.timestamp = time()
+
+  def drain(self, cost, blocking=False):
+    '''Given a number of tokens (or fractions) drain will return True and
+    drain the number of tokens from the bucket if the capacity allows,
+    otherwise we return false and leave the contents of the bucket.'''
+    if cost <= self.tokens:
+      self._tokens -= cost
+      return True
+    else:
+      if blocking:
+        tokens_needed = cost - self._tokens
+        seconds_per_token = 1 / self.fill_rate
+        seconds_left = seconds_per_token * self.fill_rate
+        sleep(self.timestamp + seconds_left - time())
+        self._tokens -= cost
+        return True
+      return False
+
+  def setCapacityAndFillRate(self, new_capacity, new_fill_rate):
+    delta = float(new_capacity) - self.capacity
+    self.capacity = float(new_capacity)
+    self.fill_rate = float(new_fill_rate)
+    self._tokens = delta + self._tokens
+
+  @property
+  def tokens(self):
+    '''The tokens property will return the current number of tokens in the
+    bucket.'''
+    if self._tokens < self.capacity:
+      now = time()
+      delta = self.fill_rate * (now - self.timestamp)
+      self._tokens = min(self.capacity, self._tokens + delta)
+      self.timestamp = now
+    return self._tokens
+
+
+class PluginRegistrar(type):
+  """Clever subclass detection hack that makes plugin loading trivial.
+  To use this, define an abstract base class for plugin implementations
+  that defines the plugin API. Give that base class a __metaclass__ of
+  PluginRegistrar, and define a 'plugins = {}' class member. Subclasses
+  defining a 'plugin_name' member will then appear in the plugins dict.
+  """
+  def __init__(classObj, name, bases, members):
+    super(PluginRegistrar, classObj).__init__(name, bases, members)
+    if hasattr(classObj, 'plugin_name'):
+      classObj.plugins[classObj.plugin_name] = classObj
+
+
+def load_module(module_path, member=None):
+  module_name = splitext(basename(module_path))[0]
+  module_file = open(module_path, 'U')
+  description = ('.py', 'U', imp.PY_SOURCE)
+  module = imp.load_module(module_name, module_file, module_path, description)
+  if member:
+    return getattr(module, member)
+  else:
+    return module

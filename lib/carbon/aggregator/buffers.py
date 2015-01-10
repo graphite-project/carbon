@@ -51,7 +51,7 @@ class MetricBuffer:
     self.aggregation_frequency = int(frequency)
     self.aggregation_func = func
     self.compute_task = LoopingCall(self.compute_value)
-    self.compute_task.start(settings['WRITE_BACK_FREQUENCY'] or int(frequency), now=False)
+    self.compute_task.start(settings['WRITE_BACK_FREQUENCY'] or frequency, now=False)
     self.configured = True
 
   def compute_value(self):

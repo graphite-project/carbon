@@ -170,8 +170,8 @@ def loadAggregationSchemas():
         assert 0 <= xFilesFactor <= 1
       if aggregationMethod is not None:
         assert aggregationMethod in whisper.aggregationMethods
-    except:
-      log.msg("Invalid schemas found in %s." % section )
+    except ValueError:
+      log.msg("Invalid schemas found in %s." % section)
       continue
 
     archives = (xFilesFactor, aggregationMethod)

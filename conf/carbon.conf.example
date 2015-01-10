@@ -30,6 +30,10 @@
 #
 #LOCAL_DATA_DIR = /opt/graphite/storage/whisper/
 
+# Enable daily log rotation. If disabled, a new file will be opened whenever the log file path no
+# longer exists (i.e. it is removed or renamed)
+ENABLE_LOGROTATION = True
+
 # Specify the user to drop privileges to
 # If this is blank carbon runs as the user that invokes it
 # This user must have write access to the local data directory

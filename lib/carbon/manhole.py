@@ -27,11 +27,11 @@ def createManholeListener():
 
   # You can uncomment this if you're lazy and want insecure authentication instead
   # of setting up keys.
-  #credChecker = checkers.InMemoryUsernamePasswordDatabaseDontUse(carbon='')
-  userKeys = {
-    settings.MANHOLE_USER : settings.MANHOLE_PUBLIC_KEY,
-  }
-  credChecker = PublicKeyChecker(userKeys)
+  credChecker = checkers.InMemoryUsernamePasswordDatabaseDontUse(carbon='')
+  #userKeys = {
+  #  settings.MANHOLE_USER : settings.MANHOLE_PUBLIC_KEY,
+  #}
+  #credChecker = PublicKeyChecker(userKeys)
 
   sshPortal = portal.Portal(sshRealm)
   sshPortal.registerChecker(credChecker)

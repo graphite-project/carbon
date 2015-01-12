@@ -30,11 +30,11 @@ except Exception, e:
 #   - unique id counter
 
 # ROOT
-#   - c_branch1 -> m_branch1
-#   - c_leaf1 -> m_leaf1
+#   - c_branch1 -> branch1
+#   - c_leaf1 -> leaf1
 
 # branch1
-#   - c_leaf2 -> m_branch1.leaf2
+#   - c_leaf2 -> branch1.leaf2
 
 # leaf1
 #    - NODE -> bool
@@ -42,8 +42,8 @@ except Exception, e:
 # <leafname>_<floored hourly timestamp>
 #    - t:<timestamp> -> "timestamp, value, retention seconds"
 
-META_CF_NAME = 'tree'
-DATA_CF_NAME = 'timestamp'
+META_CF_NAME = 't'
+DATA_CF_NAME = 't'
 TAG_CF_NAME = 'tag'
 META_TABLE_SUFFIX = 'meta'
 DATA_TABLE_SUFFIX = 'data'
@@ -199,9 +199,15 @@ class HbaseTSDB(TSDB):
 
         return res
 
-    # archiveList, aggregationMethod, isSparse, doFallocate are silently dropped
-    def create(self, metric, archiveList, xFilesFactor, aggregationMethod, 
+    def create(self, metric, archiveList, xFilesFactor, aggregationMethod,
                isSparse, doFallocate, tags=[]):
+        """create the "tree" portion of the metric
+
+        Keyword arguments:
+        metric -- the name of the metric to process
+        archiveList, xFilesFactor, aggregationMethod, isSparse, doFallocate are silently dropped
+        tags -- categorization of this metric
+        """
         column_name = "%s:NODE" % META_CF_NAME
         values = {column_name: 'True'}
         for tag in tags:
@@ -243,20 +249,21 @@ class HbaseTSDB(TSDB):
 
         """
         current_points = []
-        now = time()
-
         for point in points:
             (timestamp, value) = point
             hour = (int(timestamp) / 3600) * 3600
             rowkey = "%s:%d" % (metric, hour)
-            age = now - timestamp
+            age = time() - timestamp
             # get retention seconds and set to correct retention amount
             try:
                 reten = map(min, zip(*[r for r in retention_config if age < r[1]]))
             except ValueError, e:
-                reten = retention_config[-1]
+                pass
+            if not reten:
+                reten = retention_config[0]
+
             colkey = "%s:%d" % (DATA_CF_NAME, timestamp)
-            colval = "%d %f %d:%d" % (timestamp, value, reten[0], reten[1])
+            colval = "%f %d:%d" % (value, reten[0], reten[1])
             self.data_batch.put(rowkey, {colkey: colval})
         self.__send()
 
@@ -287,8 +294,9 @@ class HbaseTSDB(TSDB):
             floored_timestamp = int(row[0].split(':')[1])
             new_timestamp = floored_timestamp
             #look through each column
-            for col in row[1].values():
-                (timestamp, value, reten) = col.split()
+            for key, val in row[1].iteritems():
+                timestamp = key.split(':')[1]
+                (value, reten) = col.split()
                 timestamp = int(timestamp)
                 value = float(value)
                 step, num_points = [int(obj) for obj in reten.split(':')]
@@ -384,11 +392,11 @@ def create_tables(host, port, table_prefix, transport, protocol):
                                         max_versions=1),
                      TAG_CF_NAME: dict(compression="Snappy",
                                        block_cache_enabled=True,
-                                       bloom_filter_type="ROW",
+                                       bloom_filter_type="ROWCOL",
                                        max_versions=1)}
     data_families = {DATA_CF_NAME: dict(compression="Snappy",
                                         block_cache_enabled=True,
-                                        bloom_filter_type="ROW",
+                                        bloom_filter_type="ROWCOL",
                                         max_versions=1)}
     if META_TABLE_SUFFIX in tables and DATA_TABLE_SUFFIX in tables:
         print('Both Graphite tables available!')
@@ -402,6 +410,5 @@ def create_tables(host, port, table_prefix, transport, protocol):
         print('Created %s_%s!' % (table_prefix, META_TABLE_SUFFIX))
     if DATA_TABLE_SUFFIX not in tables:
         client.create_table(DATA_TABLE_SUFFIX, data_families)
-        store_table = client.table(DATA_TABLE_SUFFIX)
         print('Created %s_%s!' % (table_prefix, DATA_TABLE_SUFFIX))
 

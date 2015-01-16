@@ -4,9 +4,11 @@ import sys
 import os
 import time
 import traceback
+import posixfile
 from os.path import basename, dirname, splitext, exists, join, isfile, expanduser, abspath
 from optparse import OptionParser
 from ceres import getTree, CeresNode
+from multiprocessing import Pool
 
 # Make carbon imports available for some functionality
 root_dir = os.environ['GRAPHITE_ROOT'] = os.environ.get('GRAPHITE_ROOT', '/opt/graphite/')
@@ -150,6 +152,7 @@ if __name__ == '__main__':
   parser.add_option('--daemon', action='store_true')
   parser.add_option('--verbose', action='store_true', help="Increase truthiness")
   parser.add_option('--log', help="Write to the given log file instead of stdout")
+  parser.add_option('--lock', help="lock file for maintenance proc")
   parser.add_option('--root', default='/opt/graphite/storage/ceres/',
                     help="Specify were to perform maintenance (default: /opt/graphite/storage/ceres/)")
   parser.add_option('--plugindir', default=default_plugindir,
@@ -157,6 +160,30 @@ if __name__ == '__main__':
   parser.add_option('--configdir', default=None, help="Path to the carbon-daemon instance configuration directory")
 
   options, args = parser.parse_args()
+
+  if options.lock:
+    lock_timeout = 60
+    got_lock = 0
+    while lock_timeout:
+      try:
+        lock = posixfile.open(options.lock, 'w')
+        lock.lock('w')
+        got_lock = 1
+        break
+      except IOError, e:
+        if e[0] == 11:
+          lock_timeout = lock_timeout - 1 
+          time.sleep(1)
+        else:
+          print "can't get lock, reason: %s" % e[1]
+          sys.exit(1)
+      except:
+        print "failed to get lock for some unknown reason"
+        sys.exit(1)
+
+    if not got_lock:
+      print "Failed to get lock for 60s"
+      sys.exit(1)
 
   if not options.configdir:
     sys.exit("You must specify a --configdir for the carbon-daemon instance config directory "
@@ -166,6 +193,9 @@ if __name__ == '__main__':
   Plugin.context['log'] = log
   Plugin.context['MissingRequiredParam'] = MissingRequiredParam
   Plugin.context['PluginFail'] = PluginFail
+  Plugin.context['params']['maxSlicesPerNode'] = 10
+  Plugin.context['params']['maxSliceGap'] = 80
+  Plugin.context['params']['mode'] = 'operate'
 
   from carbon.conf import settings, load_storage_rules
   settings.use_config_directory(options.configdir)
@@ -231,6 +261,8 @@ if __name__ == '__main__':
   # Begin walking the tree
   dispatch('maintenance_start', tree)
 
+  proc_pool = Pool(processes = 20)
+
   for current_dir, subdirs, files in os.walk(options.root):
     for subdir in subdirs:
       if subdir == '.ceres-tree':
@@ -243,8 +275,8 @@ if __name__ == '__main__':
         if exists( join(path, '.ceres-node') ):
           nodePath = tree.getNodePath(path)
           node = CeresNode(tree, nodePath, path)
-          dispatch('node_found', node)
-
+#          dispatch('node_found', node)
+          proc_pool.apply_async(dispatch, ('node_found', node,))
         else:
           dispatch('directory_found', path)
           if not os.listdir(path): # check again in case a handler empties it
@@ -253,4 +285,6 @@ if __name__ == '__main__':
       else:
         dispatch('directory_empty', path)
 
+  proc_pool.close()
+  proc_pool.join()
   dispatch('maintenance_complete', tree)

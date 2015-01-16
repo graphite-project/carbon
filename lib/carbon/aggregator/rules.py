@@ -93,7 +93,8 @@ class AggregationRule:
       except TypeError:
         log.err("Failed to interpolate template %s with fields %s" % (self.output_template, extracted_fields))
 
-    self.cache[metric_path] = result
+    if result:
+      self.cache[metric_path] = result
     return result
 
   def build_regex(self):

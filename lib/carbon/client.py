@@ -224,12 +224,13 @@ class CarbonClientManager(Service):
     Service.stopService(self)
     self.stopAllClients()
 
-  def startClient(self, destination):
+  def startClient(self, destination, mirror=False):
     if destination in self.client_factories:
       return
 
     log.clients("connecting to carbon daemon at %s:%d:%s" % destination)
-    self.router.addDestination(destination)
+    if not mirror:
+      self.router.addDestination(destination)
     factory = self.client_factories[destination] = CarbonClientFactory(destination)
     connectAttempted = DeferredList(
         [factory.connectionMade, factory.connectFailed],

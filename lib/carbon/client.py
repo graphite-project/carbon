@@ -266,5 +266,10 @@ class CarbonClientManager(Service):
     for destination in self.router.getDestinations(metric):
       self.client_factories[destination].sendDatapoint(metric, datapoint)
 
+    # Split a full dumped metric infos to MIRRORS_DESTINATIONS
+    if settings.MIRRORS_DESTINATIONS:
+      for destination in settings.MIRRORS_DESTINATIONS:
+        self.client_factories[destination].sendDatapoint(metric, datapoint)
+
   def __str__(self):
     return "<%s[%x]>" % (self.__class__.__name__, id(self))

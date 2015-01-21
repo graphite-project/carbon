@@ -4,17 +4,19 @@ from twisted.internet import reactor
 from twisted.internet.protocol import DatagramProtocol
 from twisted.internet.error import ConnectionDone
 from twisted.protocols.basic import LineOnlyReceiver, Int32StringReceiver
+from twisted.protocols.policies import TimeoutMixin
 from carbon import log, events, state, management
 from carbon.conf import settings
 from carbon.regexlist import WhiteList, BlackList
 from carbon.util import pickle, get_unpickler
 
 
-class MetricReceiver:
+class MetricReceiver(TimeoutMixin):
   """ Base class for all metric receiving protocols, handles flow
   control events and connection state logging.
   """
   def connectionMade(self):
+    self.setTimeout(settings.TIMEOUT)
     self.peerName = self.getPeerName()
     if settings.LOG_LISTENER_CONN_SUCCESS:
       log.listener("%s connection with %s established" % (self.__class__.__name__, self.peerName))
@@ -66,6 +68,7 @@ class MetricReceiver:
       datapoint = (time.time(), datapoint[1])
     
     events.metricReceived(metric, datapoint)
+    self.resetTimeout()
 
 
 class MetricLineReceiver(MetricReceiver, LineOnlyReceiver):

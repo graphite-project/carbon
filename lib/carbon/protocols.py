@@ -16,7 +16,7 @@ class MetricReceiver(TimeoutMixin):
   control events and connection state logging.
   """
   def connectionMade(self):
-    self.setTimeout(settings.TIMEOUT)
+    self.setTimeout(settings.METRIC_CLIENT_IDLE_TIMEOUT)
     self.peerName = self.getPeerName()
     if settings.LOG_LISTENER_CONN_SUCCESS:
       log.listener("%s connection with %s established" % (self.__class__.__name__, self.peerName))

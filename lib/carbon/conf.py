@@ -81,7 +81,7 @@ defaults = dict(
   REWRITE_RULES='rewrite-rules.conf',
   RELAY_RULES='relay-rules.conf',
   ENABLE_LOGROTATE=True,
-  TIMEOUT=60,
+  TIMEOUT=None,
 )
 
 

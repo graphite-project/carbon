@@ -12,14 +12,18 @@ from random import randrange
 import happybase
 
 try:
-    from redis import StrictRedis
+    from redis import Redis
+    redis = True
 except Exception, e:
     redis = False
 
 try:
     from msgpack import packb, unpackb
+    msgpack = True
 except Exception, e:
     msgpack = False
+    import cPickle
+
 # we manage a namespace table (NS) and then a data table (data)
 
 # the NS table is organized to mimic a tree structure, with a ROOT node containing links to its children.
@@ -64,8 +68,179 @@ class HbaseTSDB(TSDB):
         self.cache_ttl = 3600
         #use the reset function only for consistent connection creation
         self.__reset_conn(send_batch=False)
-        if redis:
-            self.redis_conn = redis.ConnectionPool(unix_socket_path = '/tmp/redis.sock')
+
+
+    def create(self, metric, archiveList, xFilesFactor, aggregationMethod,
+               isSparse, doFallocate, tags=[]):
+        """create the "tree" portion of the metric
+
+        Keyword arguments:
+        metric -- the name of the metric to process
+        archiveList, xFilesFactor, aggregationMethod, isSparse, doFallocate are silently dropped
+        tags -- categorization of this metric
+        """
+        column_name = "%s:NODE" % META_CF_NAME
+        values = {column_name: 'True'}
+        for tag in tags:
+            tag_key = "%s:%s" % (TAG_CF_NAME, tag)
+            values[tag_key] = 'True'
+        self.meta_table.put(metric, values)
+        counter_row = "%s:CTR" % META_CF_NAME
+        self.meta_table.counter_inc('CTR', counter_row)
+        metric_parts = metric.split('.')
+        metric_key = ""
+        metric_prefix = "%s:c_" % (META_CF_NAME)
+        prefix_len = len(metric_prefix)
+        for part in metric_parts:
+            # if parent is empty, special case for root
+            if metric_key == "":
+                prior_key = "ROOT"
+                metric_key = part
+            else:
+                prior_key = metric_key
+                metric_key = "%s.%s" % (metric_key, part)
+
+            # make sure parent of this node exists and is linked to us
+            metric_name = "%s%s" % (metric_prefix, part)
+            if metric_name == metric_prefix:
+                continue
+            parentLink = self.__get_row(prior_key,
+                                        column=[metric_name])
+            if len(parentLink) == 0:
+                self.meta_table.put(prior_key, {metric_name:
+                                                metric_key})
+
+    def update_many(self, metric, points, retention_config):
+        """Update many datapoints.
+
+        Keyword arguments:
+        metric -- the name of the metric to process
+        points  -- Is a list of (timestamp,value) points
+        retention_config -- the storage retentions (time per point, number of points) for this metric
+
+        """
+        reten_secs = {int(r[0] * r[1]):r for r in retention_config}
+        current_points = []
+        for point in points:
+            (timestamp, value) = point
+            hour = (int(timestamp) / 3600) * 3600
+            rowkey = "%s:%d" % (metric, hour)
+            age = time() - timestamp
+            # get retention seconds and set to correct retention amount
+            reten = retention_config[0]
+            for secs, ret in reten_secs.iteritems():
+                if age > secs:
+                    reten = ret
+
+            colkey = "%s:%d" % (DATA_CF_NAME, timestamp)
+            colval = "%f %d:%d" % (value, reten[0], reten[1])
+            self.data_batch.put(rowkey, {colkey: colval})
+        self.__send()
+
+    def propagate(self, metric, hours, retention_config, rollup='average'):
+        # make sure the write buffer is flushed
+        self.__reset_conn()
+
+        now = time()
+        #number of seconds to look through
+        deg_time = hours * 3600
+        oldest_time = now - deg_time
+        oldest_floor = (int(oldest_time) / 3600) * 3600
+
+        reten_secs = {int(r[0] * r[1]):r for r in retention_config}
+        reten = retention_config[-1]
+        for secs, ret in reten_secs.iteritems():
+            if oldest_time > secs:
+                reten = ret
+
+        startkey = "%s:%d" % (metric, oldest_floor)
+        endkey = "%s:%d" % (metric, now + 10)
+        scan = self.data_table.scan(row_start=startkey, row_stop=endkey,
+                                    batch_size = self.batch_size)
+        delete_cols = {}
+        for row in scan:
+            rollup_val = []
+            #Hacky, but it should work
+            #Basically, we assume the first timestamp we get 
+            #fits the new retention because we need *a* value
+            floored_timestamp = int(row[0].split(':')[1])
+            new_timestamp = floored_timestamp
+            #look through each column
+            for key, val in row[1].iteritems():
+                timestamp = key.split(':')[1]
+                (value, reten) = col.split()
+                timestamp = int(timestamp)
+                value = float(value)
+                step, num_points = [int(obj) for obj in reten.split(':')]
+                ret_diff = num_points / step
+                if timestamp % num_points == 0:
+                    new_timestamp = timestamp
+                if len(new_val) >= ret_diff:
+                    rollup_val = util.aggregate(rollup, rollup_val)
+                    val = "%d %f %d:%d" % (new_timestamp, rollup_val, points, num_points)
+                    colkey = "%s:%d" % (DATA_CF_NAME, new_timestamp)
+                    self.data_batch.put(row[0], {colkey, val})
+                    rollup_val = [value] 
+                    new_timestamp = floored_timestamp
+                else:
+                    rollup_val.append(value)
+                    #According to devs, sending deletes and updates in the 
+                    #same batch can be bad. We'll just hang on the "to be deleted"
+                    #columns for later
+                    delete_cols[row[0]] = col
+            self.__send()
+        #force a final send to empty batch
+        self.__reset_conn()
+        #Remove columns that were rolled up
+        for row, col in delete_cols.iteritems():
+            self.data_batch.delete(row, columns=[col])
+            self.__send()
+        self.__reset_conn()
+
+    def exists(self, metric):
+        column_name = "%s:NODE" % META_CF_NAME
+        try:
+            res = self.__get_row(metric, column=[column_name])
+    
+            metric_exists = bool(res[column_name])
+        except Exception, e:
+            return False
+        else:
+            return metric_exists
+
+    def delete(self, metric):
+        #Make sure write buffer is empty
+        self.__reset_conn()
+        #Get data on metric
+        if not self.exists(metric):
+            return
+        #we'll first get a scan object of all the data table rows associated
+        scan = self.data_table.scan(row_start = "%s:" % metric)
+        #then batch delete
+        for row in scan:
+            self.data_batch.delete(row[0])
+            #since we only actually send when required, this is fine
+            self.__send()
+        #make sure there aren't any left over deletes
+        self.__reset_conn()
+        #now we remove the meta table row
+        self.meta_table.delete(metric)
+        counter_row = "%s:CTR" % META_CF_NAME
+        self.meta_table.counter_dec('CTR', counter_row)
+
+    def build_index(self, tmp_index):
+        column_name = "%s:NODE" % META_CF_NAME
+        scan = self.meta_table.scan(columns=[column_name])
+        t = time()
+        total_entries = 0
+        for row in scan:
+            if bool(row[1][column_name]):
+                tmp_index.write('%s\n' % row[0])
+                total_entries += 1
+        tmp_index.flush()
+
+        log.msg("[IndexSearcher] index rebuild took %.6f seconds (%d entries)" %
+             (time() - t, total_entries))
 
     def __make_conn(self):
         try:
@@ -119,7 +294,7 @@ class HbaseTSDB(TSDB):
         self.data_table = self.client.table(DATA_TABLE_SUFFIX)
         self.data_batch = self.data_table.batch()
         self.send_time = time()
-        self.reset_time = time()
+        self.reset_time = self.send_time
 
     def __refresh_conn(self, wait_time=60):
         self.client.close()
@@ -154,25 +329,30 @@ class HbaseTSDB(TSDB):
 
     def __get_cached_row(self, row):
         res = None
-        red_con = Redis(ConnectionPool=self.redis_conn)
         try:
+            red_con = Redis(unix_socket_path = '/tmp/redis.sock')
             res = red_con.get(row)
         except Exception, e:
-            log.exception("Can't connect to redis...skipping %s" % row)
+            pass
         else:
-            if msgpack:
-                res = unpackb(res)
+            if res:
+                if msgpack:
+                    res = unpackb(res)
+                else:
+                    res = cPickle.load(res)
         return res
 
     def __put_cached_row(self, row, val):
-        red_con = Redis(ConnectionPool=self.redis_conn)
         if msgpack:
             val = packb(val)
+        else:
+            val = cPickle.dump(val)
         try:
+            red_con = Redis(unix_socket_path = '/tmp/redis.sock')
             red_con.set(row, val)
             red_con.expire(row, self.cache_ttl)
         except Exception, e:
-            log.exception("Can't connect to redis...skipping %s" % row)
+            pass
 
     def __get_row(self, row, column=None, send_batch=True):
         if time() - self.reset_time > self.reset_interval:
@@ -194,182 +374,10 @@ class HbaseTSDB(TSDB):
                 else:
                     res = self.meta_table.row(row)
             finally:
-                if redis:
+                if redis and res:
                     self.__put_cached_row(row, res)
 
         return res
-
-    def create(self, metric, archiveList, xFilesFactor, aggregationMethod,
-               isSparse, doFallocate, tags=[]):
-        """create the "tree" portion of the metric
-
-        Keyword arguments:
-        metric -- the name of the metric to process
-        archiveList, xFilesFactor, aggregationMethod, isSparse, doFallocate are silently dropped
-        tags -- categorization of this metric
-        """
-        column_name = "%s:NODE" % META_CF_NAME
-        values = {column_name: 'True'}
-        for tag in tags:
-            tag_key = "%s:%s" % (TAG_CF_NAME, tag)
-            values[tag_key] = 'True'
-        self.meta_table.put(metric, values)
-        counter_row = "%s:CTR" % META_CF_NAME
-        self.meta_table.counter_inc('CTR', counter_row)
-        metric_parts = metric.split('.')
-        metric_key = ""
-        metric_prefix = "%s:c_" % (META_CF_NAME)
-        prefix_len = len(metric_prefix)
-        for part in metric_parts:
-            # if parent is empty, special case for root
-            if metric_key == "":
-                prior_key = "ROOT"
-                metric_key = part
-            else:
-                prior_key = metric_key
-                metric_key = "%s.%s" % (metric_key, part)
-
-            # make sure parent of this node exists and is linked to us
-            metric_name = "%s%s" % (metric_prefix, part)
-            if metric_name == metric_prefix:
-                continue
-            parentLink = self.__get_row(prior_key,
-                                        column=[metric_name])
-            if len(parentLink) == 0:
-                self.meta_table.put(prior_key, {metric_name:
-                                                metric_key})
-
-    def update_many(self, metric, points, retention_config):
-        """Update many datapoints.
-
-        Keyword arguments:
-        metric -- the name of the metric to process
-        points  -- Is a list of (timestamp,value) points
-        retention_config -- the storage retentions (time per point, number of points) for this metric
-
-        """
-        current_points = []
-        for point in points:
-            (timestamp, value) = point
-            hour = (int(timestamp) / 3600) * 3600
-            rowkey = "%s:%d" % (metric, hour)
-            age = time() - timestamp
-            # get retention seconds and set to correct retention amount
-            try:
-                reten = map(min, zip(*[r for r in retention_config if age < r[1]]))
-            except ValueError, e:
-                pass
-            if not reten:
-                reten = retention_config[0]
-
-            colkey = "%s:%d" % (DATA_CF_NAME, timestamp)
-            colval = "%f %d:%d" % (value, reten[0], reten[1])
-            self.data_batch.put(rowkey, {colkey: colval})
-        self.__send()
-
-    """
-    def propagate(self, metric, hours, retention_config, rollup='average'):
-        # make sure the write buffer is flushed
-        self.__reset_conn()
-
-        now = time()
-        #number of seconds to look through
-        deg_time = hours * 3600
-        oldest_time = now - deg_time
-        oldest_floor = (int(oldest_time) / 3600) * 3600
-        try:
-            reten = map(min, zip(*[r for r in retention_config if age < r[1]]))
-        except ValueError, e:
-            reten = retention_config[-1]
-        startkey = "%s:%d" % (metric, oldest_floor)
-        endkey = "%s:%d" % (metric, now + 10)
-        scan = self.data_table.scan(row_start=startkey, row_stop=endkey,
-                                    batch_size = self.batch_size)
-        delete_cols = {}
-        for row in scan:
-            rollup_val = []
-            #Hacky, but it should work
-            #Basically, we assume the first timestamp we get 
-            #fits the new retention because we need *a* value
-            floored_timestamp = int(row[0].split(':')[1])
-            new_timestamp = floored_timestamp
-            #look through each column
-            for key, val in row[1].iteritems():
-                timestamp = key.split(':')[1]
-                (value, reten) = col.split()
-                timestamp = int(timestamp)
-                value = float(value)
-                step, num_points = [int(obj) for obj in reten.split(':')]
-                ret_diff = num_points / step
-                if timestamp % num_points == 0:
-                    new_timestamp = timestamp
-                if len(new_val) >= ret_diff:
-                    rollup_val = util.aggregate(rollup, rollup_val)
-                    val = "%d %f %d:%d" % (new_timestamp, rollup_val, points, num_points)
-                    colkey = "%s:%d" % (DATA_CF_NAME, new_timestamp)
-                    self.data_batch.put(row[0], {colkey, val})
-                    rollup_val = [value] 
-                    new_timestamp = floored_timestamp
-                else:
-                    rollup_val.append(value)
-                    #According to devs, sending deletes and updates in the 
-                    #same batch can be bad. We'll just hang on the "to be deleted"
-                    #columns for later
-                    delete_cols[row[0]] = col
-            self.__send()
-        #force a final send to empty batch
-        self.__reset_conn()
-        #Remove columns that were rolled up
-        for row, col in delete_cols.iteritems():
-            self.data_batch.delete(row, columns=[col])
-            self.__send()
-        self.__reset_conn()
-    """
-
-    def exists(self, metric):
-        column_name = "%s:NODE" % META_CF_NAME
-        try:
-            res = self.__get_row(metric, column=[column_name])
-    
-            metric_exists = bool(res[column_name])
-        except Exception, e:
-            return False
-        else:
-            return metric_exists
-
-    def delete(self, metric):
-        #Make sure write buffer is empty
-        self.__reset_conn()
-        #Get data on metric
-        if not self.exists(metric):
-            return
-        #we'll first get a scan object of all the data table rows associated
-        scan = self.data_table.scan(row_prefix = "%s:" % metric)
-        #then batch delete
-        for row in scan:
-            self.data_batch.delete(row[0])
-            #since we only actually send when required, this is fine
-            self.__send()
-        #make sure there aren't any left over deletes
-        self.__reset_conn()
-        #now we remove the meta table row
-        self.meta_table.delete(metric)
-        counter_row = "%s:CTR" % META_CF_NAME
-        self.meta_table.counter_dec('CTR', counter_row)
-
-    def build_index(self, tmp_index):
-        column_name = "%s:NODE" % META_CF_NAME
-        scan = self.meta_table.scan(columns=[column_name])
-        t = time()
-        total_entries = 0
-        for row in scan:
-            if bool(row[1][column_name]):
-                tmp_index.write('%s\n' % row[0])
-                total_entries += 1
-        tmp_index.flush()
-
-        log.msg("[IndexSearcher] index rebuild took %.6f seconds (%d entries)" %
-             (time() - t, total_entries))
 
 def create_tables(host, port, table_prefix, transport, protocol):
     client = happybase.Connection(

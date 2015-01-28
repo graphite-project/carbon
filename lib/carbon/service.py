@@ -203,9 +203,10 @@ def createRelayService(config):
       client_manager.startClient(destination)
 
     # Add configuration for MIRRORS
+    settings['MIRRORS_DESTINATIONS'] = []
     if settings.MIRRORS:
       for destination in util.parseDestinations(settings.MIRRORS):
-        settings.setdefault('MIRRORS_DESTINATIONS', []).append(destination)
+        settings['MIRRORS_DESTINATIONS'].append(destination)
         client_manager.startClient(destination, mirror=True)
     
     return root_service

@@ -8,7 +8,7 @@
 #                          Defaults to ../
 #   GRAPHITE_CONF_DIR    - Configuration directory (where this file lives).
 #                          Defaults to $GRAPHITE_ROOT/conf/
-#   GRAPHITE_STORAGE_DIR - Storage directory for whipser/rrd/log/pid files.
+#   GRAPHITE_STORAGE_DIR - Storage directory for whisper/rrd/log/pid files.
 #                          Defaults to $GRAPHITE_ROOT/storage/
 #
 # To change other directory paths, add settings to this file. The following

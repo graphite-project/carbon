@@ -18,7 +18,7 @@ class Event:
     for handler in self.handlers:
       try:
         handler(*args, **kwargs)
-      except:
+      except Exception:
         log.err(None, "Exception in %s event handler: args=%s kwargs=%s" % (self.name, args, kwargs))
 
 

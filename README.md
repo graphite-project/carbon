@@ -1,3 +1,5 @@
+The major difference between this project and master is the inclusion of HBase connectivity. We can connect a carbon server (or group of carbon servers) to a HBase cluster for storage. It's fast, it's linearly scalable (just add nodes), and it gives us built-in redundancy, which whisper could not provide without very complex config files.
+
 # Carbon
 
 [![Build Status](https://secure.travis-ci.org/graphite-project/carbon.png?branch=master)](http://travis-ci.org/graphite-project/carbon)

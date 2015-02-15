@@ -1,7 +1,7 @@
 import traceback
 import whisper
 from carbon import log
-from carbon.storage import getFilesystemPath
+from carbon.storage import storage
 
 
 
@@ -9,7 +9,7 @@ def getMetadata(metric, key):
   if key != 'aggregationMethod':
     return dict(error="Unsupported metadata key \"%s\"" % key)
 
-  wsp_path = getFilesystemPath(metric)
+  wsp_path = storage.getFilesystemPath(metric)
   try:
     value = whisper.info(wsp_path)['aggregationMethod']
     return dict(value=value)
@@ -22,7 +22,7 @@ def setMetadata(metric, key, value):
   if key != 'aggregationMethod':
     return dict(error="Unsupported metadata key \"%s\"" % key)
 
-  wsp_path = getFilesystemPath(metric)
+  wsp_path = storage.getFilesystemPath(metric)
   try:
     old_value = whisper.setAggregationMethod(wsp_path, value)
     return dict(old_value=old_value, new_value=value)

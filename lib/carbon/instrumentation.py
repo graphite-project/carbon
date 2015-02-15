@@ -109,8 +109,8 @@ def recordMetrics():
     record('errors', errors)
     record('cache.queries', cacheQueries)
     record('cache.bulk_queries', cacheBulkQueries)
-    record('cache.queues', len(cache.MetricCache))
-    record('cache.size', cache.MetricCache.size)
+    record('cache.queues', sum([ len(c) for c in cache.metric_caches]))
+    record('cache.size', sum([ c.size for c in cache.metric_caches]))
     record('cache.overflow', cacheOverflow)
 
   # aggregator metrics
@@ -158,7 +158,8 @@ def cache_record(metric, value):
     else:
       fullMetric = '%s.agents.%s-%s.%s' % (prefix, HOSTNAME, settings.instance, metric)
     datapoint = (time.time(), value)
-    cache.MetricCache.store(fullMetric, datapoint)
+    for c in cache.metric_caches:
+      c.store(fullMetric, datapoint)
 
 def relay_record(metric, value):
     prefix = settings.CARBON_METRIC_PREFIX

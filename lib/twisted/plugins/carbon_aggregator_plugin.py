@@ -3,7 +3,6 @@ from zope.interface import implements
 from twisted.plugin import IPlugin
 from twisted.application.service import IServiceMaker
 
-from carbon import service
 from carbon import conf
 
 
@@ -18,6 +17,7 @@ class CarbonAggregatorServiceMaker(object):
         """
         Construct a C{carbon-aggregator} service.
         """
+        from carbon import service
         return service.createAggregatorService(options)
 
 

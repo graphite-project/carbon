@@ -3,7 +3,6 @@ from zope.interface import implements
 from twisted.plugin import IPlugin
 from twisted.application.service import IServiceMaker
 
-from carbon import service
 from carbon import conf
 
 
@@ -18,6 +17,7 @@ class CarbonRelayServiceMaker(object):
         """
         Construct a C{carbon-relay} service.
         """
+        from carbon import service
         return service.createRelayService(options)
 
 

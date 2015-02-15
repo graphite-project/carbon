@@ -5,6 +5,7 @@ from twisted.internet.protocol import DatagramProtocol
 from twisted.internet.error import ConnectionDone
 from twisted.protocols.basic import LineOnlyReceiver, Int32StringReceiver
 from carbon import log, events, state, management
+from carbon.cache import default_cache
 from carbon.conf import settings
 from carbon.regexlist import WhiteList, BlackList
 from carbon.util import pickle, get_unpickler
@@ -119,6 +120,7 @@ class MetricPickleReceiver(MetricReceiver, Int32StringReceiver):
 
 class CacheManagementHandler(Int32StringReceiver):
   MAX_LENGTH = 1024 ** 3 # 1mb
+  metric_cache = default_cache
 
   def connectionMade(self):
     peer = self.transport.getPeer()
@@ -136,7 +138,7 @@ class CacheManagementHandler(Int32StringReceiver):
     request = self.unpickler.loads(rawRequest)
     if request['type'] == 'cache-query':
       metric = request['metric']
-      datapoints = MetricCache.get(metric, [])
+      datapoints = self.metric_cache.get(metric, [])
       result = dict(datapoints=datapoints)
       if settings.LOG_CACHE_HITS:
         log.query('[%s] cache query for \"%s\" returned %d values' % (self.peerAddr, metric, len(datapoints)))
@@ -146,7 +148,7 @@ class CacheManagementHandler(Int32StringReceiver):
       datapointsByMetric = {}
       metrics = request['metrics']
       for metric in metrics:
-        datapointsByMetric[metric] = MetricCache.get(metric, [])
+        datapointsByMetric[metric] = self.metric_cache.get(metric, [])
 
       result = dict(datapointsByMetric=datapointsByMetric)
 
@@ -170,5 +172,4 @@ class CacheManagementHandler(Int32StringReceiver):
 
 
 # Avoid import circularities
-from carbon.cache import MetricCache
 from carbon import instrumentation

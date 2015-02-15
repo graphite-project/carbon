@@ -21,6 +21,7 @@ from twisted.python.components import Componentized
 from twisted.python.log import ILogObserver
 # Attaching modules to the global state module simplifies import order hassles
 from carbon import state, events, instrumentation, util
+from carbon.cache import default_cache, hot_metric_cache
 from carbon.exceptions import CarbonConfigException
 from carbon.log import carbonLogObserver
 from carbon.pipeline import Processor, run_pipeline
@@ -216,8 +217,13 @@ def setupRelayProcessor(root_service, settings):
 def setupWriterProcessor(root_service, settings):
   from carbon import cache  # Register CacheFeedingProcessor
   from carbon.protocols import CacheManagementHandler
-  from carbon.writer import WriterService
+  from carbon.writer import Writer, WriterService
+  from carbon.storage import storage, hot_storage
   from carbon import events
+
+  # setup file writer
+  writer = Writer(default_cache, storage)
+  writer_service = WriterService(writer)
 
   factory = ServerFactory()
   factory.protocol = CacheManagementHandler
@@ -225,10 +231,16 @@ def setupWriterProcessor(root_service, settings):
     settings.CACHE_QUERY_PORT,
     factory,
     interface=settings.CACHE_QUERY_INTERFACE)
-  service.setServiceParent(root_service)
 
-  writer_service = WriterService()
+  service.setServiceParent(root_service)
   writer_service.setServiceParent(root_service)
+
+  # setup hot writer
+  if settings.USE_HOT_STORAGE:
+    hot_writer = Writer(hot_metric_cache, hot_storage, float('inf'), float('inf'))
+    hot_writer_service = WriterService(hot_writer)
+    hot_writer_service.setServiceParent(root_service)
+
 
   if settings.USE_FLOW_CONTROL:
     events.cacheFull.addHandler(events.pauseReceivingMetrics)

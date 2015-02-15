@@ -13,6 +13,7 @@ See the License for the specific language governing permissions and
 limitations under the License."""
 
 import os, re
+from twisted.internet.task import LoopingCall
 import whisper
 
 from os.path import join, exists, sep
@@ -26,12 +27,14 @@ STORAGE_SCHEMAS_CONFIG = join(settings.CONF_DIR, 'storage-schemas.conf')
 STORAGE_AGGREGATION_CONFIG = join(settings.CONF_DIR, 'storage-aggregation.conf')
 STORAGE_LISTS_DIR = join(settings.CONF_DIR, 'lists')
 
-def getFilesystemPath(metric):
-  metric_path = metric.replace('.',sep).lstrip(sep) + '.wsp'
-  return join(settings.LOCAL_DATA_DIR, metric_path)
+HOT_STORAGE_SCHEMAS_CONFIG = join(settings.CONF_DIR, 'hot-storage-schemas.conf')
+HOT_STORAGE_AGGREGATION_CONFIG = join(settings.CONF_DIR, 'hot-storage-aggregation.conf')
 
 
 class Schema:
+  def __init__(self):
+      pass
+
   def test(self, metric):
     raise NotImplementedError()
 
@@ -110,86 +113,136 @@ class Archive:
     return Archive(secondsPerPoint, points)
 
 
-def loadStorageSchemas():
-  schemaList = []
-  config = OrderedConfigParser()
-  config.read(STORAGE_SCHEMAS_CONFIG)
+class Storage:
+    def __init__(self, storage_data_dir, storage_schemas_config, storage_aggregation_config, storage_list_dirs):
+        self.storage_data_dir = storage_data_dir
+        self.storage_schemas_config = storage_schemas_config
+        self.storage_aggregation_config = storage_aggregation_config
+        self.storage_list_dirs = storage_list_dirs
+        self.storage_schemas = Storage.__loadStorageSchemas(self.storage_schemas_config)
+        self.aggregation_schemas = Storage.__loadAggregationSchemas(self.storage_aggregation_config)
 
-  for section in config.sections():
-    options = dict( config.items(section) )
-    matchAll = options.get('match-all')
-    pattern = options.get('pattern')
-    listName = options.get('list')
+        self.storage_reload_task = LoopingCall(self.reloadStorageSchemas)
+        self.aggregation_reload_task = LoopingCall(self.reloadAggregationSchemas)
 
-    retentions = options['retentions'].split(',')
-    archives = [ Archive.fromString(s) for s in retentions ]
-    
-    if matchAll:
-      mySchema = DefaultSchema(section, archives)
+    def getFilesystemPath(self, metric):
+        metric_path = metric.replace('.',sep).lstrip(sep) + '.wsp'
+        return join(self.storage_data_dir, metric_path)
 
-    elif pattern:
-      mySchema = PatternSchema(section, pattern, archives)
-
-    elif listName:
-      mySchema = ListSchema(section, listName, archives)
-    
-    archiveList = [a.getTuple() for a in archives]
-
-    try:
-      whisper.validateArchiveList(archiveList)
-      schemaList.append(mySchema)
-    except whisper.InvalidConfiguration, e:
-      log.msg("Invalid schemas found in %s: %s" % (section, e) )
-  
-  schemaList.append(defaultSchema)
-  return schemaList
+    def reloadStorageSchemas(self):
+        try:
+            self.storage_schemas = Storage.__loadStorageSchemas(self.storage_schemas_config)
+        except Exception:
+            log.msg("Failed to reload storage SCHEMAS")
+            log.err()
 
 
-def loadAggregationSchemas():
-  # NOTE: This abuses the Schema classes above, and should probably be refactored.
-  schemaList = []
-  config = OrderedConfigParser()
+    def reloadAggregationSchemas(self):
+        try:
+            self.aggregation_schemas = Storage.__loadAggregationSchemas(self.storage_aggregation_config)
+        except Exception:
+            log.msg("Failed to reload aggregation SCHEMAS")
+            log.err()
 
-  try:
-    config.read(STORAGE_AGGREGATION_CONFIG)
-  except (IOError, CarbonConfigException):
-    log.msg("%s not found or wrong perms, ignoring." % STORAGE_AGGREGATION_CONFIG)
+    def startRefreshes(self):
+        self.storage_reload_task.start(60, False)
+        self.aggregation_reload_task.start(60, False)
 
-  for section in config.sections():
-    options = dict( config.items(section) )
-    matchAll = options.get('match-all')
-    pattern = options.get('pattern')
-    listName = options.get('list')
+    def stopRefreshes(self):
+        self.storage_reload_task.stop()
+        self.aggregation_reload_task.stop()
 
-    xFilesFactor = options.get('xfilesfactor')
-    aggregationMethod = options.get('aggregationmethod')
+    @staticmethod
+    def __loadStorageSchemas(storage_schemas_config):
+        schemaList = []
+        config = OrderedConfigParser()
+        config.read(storage_schemas_config)
 
-    try:
-      if xFilesFactor is not None:
-        xFilesFactor = float(xFilesFactor)
-        assert 0 <= xFilesFactor <= 1
-      if aggregationMethod is not None:
-        assert aggregationMethod in whisper.aggregationMethods
-    except ValueError:
-      log.msg("Invalid schemas found in %s." % section)
-      continue
+        for section in config.sections():
+            options = dict( config.items(section) )
+            matchAll = options.get('match-all')
+            pattern = options.get('pattern')
+            listName = options.get('list')
 
-    archives = (xFilesFactor, aggregationMethod)
+            retentions = options['retentions'].split(',')
+            archives = [ Archive.fromString(s) for s in retentions ]
 
-    if matchAll:
-      mySchema = DefaultSchema(section, archives)
+            mySchema = None
+            if matchAll:
+                mySchema = DefaultSchema(section, archives)
 
-    elif pattern:
-      mySchema = PatternSchema(section, pattern, archives)
+            elif pattern:
+                mySchema = PatternSchema(section, pattern, archives)
 
-    elif listName:
-      mySchema = ListSchema(section, listName, archives)
+            elif listName:
+                mySchema = ListSchema(section, listName, archives)
 
-    schemaList.append(mySchema)
+            archiveList = [a.getTuple() for a in archives]
 
-  schemaList.append(defaultAggregation)
-  return schemaList
+            try:
+                whisper.validateArchiveList(archiveList)
+                if mySchema:
+                    schemaList.append(mySchema)
+
+            except whisper.InvalidConfiguration, e:
+                log.msg("Invalid schemas found in %s: %s" % (section, e) )
+
+        schemaList.append(defaultSchema)
+        return schemaList
+
+
+    @staticmethod
+    def __loadAggregationSchemas(storage_aggregation_config):
+        # NOTE: This abuses the Schema classes above, and should probably be refactored.
+        schemaList = []
+        config = OrderedConfigParser()
+
+        try:
+            config.read(storage_aggregation_config)
+        except (IOError, CarbonConfigException):
+            log.msg("%s not found or wrong perms, ignoring." % storage_aggregation_config)
+
+        for section in config.sections():
+            options = dict( config.items(section) )
+            matchAll = options.get('match-all')
+            pattern = options.get('pattern')
+            listName = options.get('list')
+
+            xFilesFactor = options.get('xfilesfactor')
+            aggregationMethod = options.get('aggregationmethod')
+
+            try:
+                if xFilesFactor is not None:
+                    xFilesFactor = float(xFilesFactor)
+                    assert 0 <= xFilesFactor <= 1
+                if aggregationMethod is not None:
+                    assert aggregationMethod in whisper.aggregationMethods
+            except ValueError:
+                log.msg("Invalid schemas found in %s." % section)
+                continue
+
+            archives = (xFilesFactor, aggregationMethod)
+
+            mySchema = None
+            if matchAll:
+                mySchema = DefaultSchema(section, archives)
+
+            elif pattern:
+                mySchema = PatternSchema(section, pattern, archives)
+
+            elif listName:
+                mySchema = ListSchema(section, listName, archives)
+
+            if mySchema:
+                schemaList.append(mySchema)
+
+        schemaList.append(defaultAggregation)
+        return schemaList
 
 defaultArchive = Archive(60, 60 * 24 * 7) #default retention for unclassified data (7 days of minutely data)
 defaultSchema = DefaultSchema('default', [defaultArchive])
 defaultAggregation = DefaultSchema('default', (None, None))
+
+storage = Storage(settings.LOCAL_DATA_DIR, STORAGE_SCHEMAS_CONFIG, STORAGE_AGGREGATION_CONFIG, STORAGE_LISTS_DIR)
+hot_storage = Storage(settings.HOT_DATA_DIR, HOT_STORAGE_SCHEMAS_CONFIG, HOT_STORAGE_AGGREGATION_CONFIG, STORAGE_LISTS_DIR) \
+    if settings.USE_HOT_STORAGE else None

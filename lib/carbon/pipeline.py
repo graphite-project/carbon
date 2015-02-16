@@ -25,7 +25,7 @@ def run_pipeline(metric, datapoint, processors=None):
     for out_metric, out_datapoint in processor.process(metric, datapoint):
       try:
         run_pipeline(out_metric, out_datapoint, processors[1:])
-      except:
+      except Exception:
         log.err()
-  except:
+  except Exception:
     log.err()

@@ -126,7 +126,7 @@ class Writer:
                     settings.WHISPER_SPARSE_CREATE,
                     settings.WHISPER_FALLOCATE_CREATE)
                 instrumentation.increment('creates')
-            except:
+            except Exception:
                 log.err("Error creating %s" % (dbFilePath))
                 continue
           # If we've got a rate limit configured lets makes sure we enforce it

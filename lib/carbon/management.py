@@ -13,7 +13,7 @@ def getMetadata(metric, key):
   try:
     value = whisper.info(wsp_path)['aggregationMethod']
     return dict(value=value)
-  except:
+  except Exception:
     log.err()
     return dict(error=traceback.format_exc())
 
@@ -26,6 +26,6 @@ def setMetadata(metric, key, value):
   try:
     old_value = whisper.setAggregationMethod(wsp_path, value)
     return dict(old_value=old_value, new_value=value)
-  except:
+  except Exception:
     log.err()
     return dict(error=traceback.format_exc())

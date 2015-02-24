@@ -203,7 +203,7 @@ def setupRelayProcessor(root_service, settings):
     aggregation_rules_path = settings["aggregation-rules"]
     RuleManager.read_from(aggregation_rules_path)
     router = AggregatedConsistentHashingRouter(RuleManager, settings.REPLICATION_FACTOR)
-  elif settings.RELAY_METHOD == 'relay-rules':
+  elif settings.RELAY_METHOD == 'rules':
     router = RelayRulesRouter(settings["relay-rules"])
 
   state.client_manager = CarbonClientManager(router)

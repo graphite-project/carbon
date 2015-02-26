@@ -1,6 +1,6 @@
 from unittest import TestCase
 from mock import Mock, PropertyMock, patch
-from carbon.cache import _MetricCache, DrainStrategy, MaxStrategy, RandomStrategy, SortedStrategy
+from carbon.cache import MetricCache, DrainStrategy, MaxStrategy, RandomStrategy, SortedStrategy
 
 
 class MetricCacheTest(TestCase):
@@ -12,13 +12,13 @@ class MetricCacheTest(TestCase):
     self._settings_patch = patch.dict('carbon.conf.settings', settings)
     self._settings_patch.start()
     self.strategy_mock = Mock(spec=DrainStrategy)
-    self.metric_cache = _MetricCache(self.strategy_mock)
+    self.metric_cache = MetricCache(self.strategy_mock)
 
   def tearDown(self):
     self._settings_patch.stop()
 
   def test_cache_is_a_dict(self):
-    self.assertTrue(issubclass(_MetricCache, dict))
+    self.assertTrue(issubclass(MetricCache, dict))
 
   def test_initial_size(self):
     self.assertEqual(0, self.metric_cache.size)
@@ -44,15 +44,15 @@ class MetricCacheTest(TestCase):
 
   def test_store_checks_fullness(self):
     is_full_mock = PropertyMock()
-    with patch.object(_MetricCache, 'is_full', is_full_mock):
+    with patch.object(MetricCache, 'is_full', is_full_mock):
       with patch('carbon.cache.events'):
-        metric_cache = _MetricCache()
+        metric_cache = MetricCache()
         metric_cache.store('foo', (123456, 1.0))
         is_full_mock.assert_called_once()
 
   def test_store_on_full_triggers_events(self):
     is_full_mock = PropertyMock(return_value=True)
-    with patch.object(_MetricCache, 'is_full', is_full_mock):
+    with patch.object(MetricCache, 'is_full', is_full_mock):
       with patch('carbon.cache.events') as events_mock:
         self.metric_cache.store('foo', (123456, 1.0))
         events_mock.return_value.cacheFull.assert_called_once()
@@ -118,7 +118,7 @@ class MetricCacheTest(TestCase):
     self.assertEqual('foo', self.metric_cache.drain_metric()[0])
 
   def test_drain_metric_works_without_strategy(self):
-    metric_cache = _MetricCache()  # No strategy
+    metric_cache = MetricCache()  # No strategy
 
     metric_cache.store('foo', (123456, 1.0))
     self.assertEqual('foo', metric_cache.drain_metric()[0])
@@ -157,7 +157,7 @@ class MetricCacheTest(TestCase):
 
 class DrainStrategyTest(TestCase):
   def setUp(self):
-    self.metric_cache = _MetricCache()
+    self.metric_cache = MetricCache()
 
   def test_max_strategy(self):
     self.metric_cache.store('foo', (123456, 1.0))
@@ -220,7 +220,7 @@ class DrainStrategyTest(TestCase):
 
 class RandomStrategyTest(TestCase):
   def setUp(self):
-    self.metric_cache = _MetricCache()
+    self.metric_cache = MetricCache()
 
   def test_random_strategy(self):
     self.metric_cache.store('foo', (123456, 1.0))

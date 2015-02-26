@@ -17,7 +17,7 @@ import sys
 import pwd
 import errno
 
-from os.path import join, dirname, normpath, exists, isdir
+from os.path import join, dirname, normpath, exists, isdir, isfile
 from optparse import OptionParser
 from ConfigParser import ConfigParser
 
@@ -81,6 +81,7 @@ defaults = dict(
   REWRITE_RULES='rewrite-rules.conf',
   RELAY_RULES='relay-rules.conf',
   ENABLE_LOGROTATE=True,
+  USE_HOT_STORAGE=False,
 )
 
 
@@ -212,6 +213,7 @@ class CarbonCacheOptions(usage.Options):
         # Normalize and expand paths
         settings["STORAGE_DIR"] = os.path.normpath(os.path.expanduser(settings["STORAGE_DIR"]))
         settings["LOCAL_DATA_DIR"] = os.path.normpath(os.path.expanduser(settings["LOCAL_DATA_DIR"]))
+        settings["HOT_DATA_DIR"] = os.path.normpath(os.path.expanduser(settings["HOT_DATA_DIR"]))
         settings["WHITELISTS_DIR"] = os.path.normpath(os.path.expanduser(settings["WHITELISTS_DIR"]))
         settings["PID_DIR"] = os.path.normpath(os.path.expanduser(settings["PID_DIR"]))
         settings["LOG_DIR"] = os.path.normpath(os.path.expanduser(settings["LOG_DIR"]))
@@ -248,6 +250,10 @@ class CarbonCacheOptions(usage.Options):
                 whisper.LOCK = True
             else:
                 log.err("WHISPER_LOCK_WRITES is enabled but import of fcntl module failed.")
+
+        hot_storage_dir = settings["HOT_DATA_DIR"]
+        hot_storage_schemas = join(settings["CONF_DIR"], "hot-storage-schemas.conf")
+        settings.USE_HOT_STORAGE = isdir(hot_storage_dir) and isfile(hot_storage_schemas)
 
         if not "action" in self:
             self["action"] = "start"
@@ -546,6 +552,8 @@ def read_config(program, options, **kwargs):
         "LOG_DIR", join(settings["STORAGE_DIR"], "log", program))
     settings.setdefault(
         "LOCAL_DATA_DIR", join(settings["STORAGE_DIR"], "whisper"))
+    settings.setdefault(
+        "HOT_DATA_DIR", join(settings["STORAGE_DIR"], "hot_whisper"))
     settings.setdefault(
         "WHITELISTS_DIR", join(settings["STORAGE_DIR"], "lists"))
 

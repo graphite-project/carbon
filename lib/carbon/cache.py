@@ -20,7 +20,6 @@ from carbon.conf import settings
 from carbon import events, log
 from carbon.pipeline import Processor
 
-
 def by_timestamp((timestamp, value)):  # useful sort key function
   return timestamp
 
@@ -29,7 +28,9 @@ class CacheFeedingProcessor(Processor):
   plugin_name = 'write'
 
   def process(self, metric, datapoint):
-    MetricCache.store(metric, datapoint)
+    for c in metric_caches:
+      c.store(metric, datapoint)
+
     return Processor.NO_OUTPUT
 
 
@@ -81,7 +82,7 @@ class SortedStrategy(DrainStrategy):
     return self.queue.next()
 
 
-class _MetricCache(dict):
+class MetricCache(dict):
   """A Singleton dictionary of metric names and lists of their datapoints"""
   def __init__(self, strategy=None):
     self.size = 0
@@ -146,7 +147,6 @@ class _MetricCache(dict):
       # Updating a duplicate does not increase the cache size
       self[metric][timestamp] = value
 
-
 # Initialize a singleton cache instance
 write_strategy = None
 if settings.CACHE_WRITE_STRATEGY == 'max':
@@ -156,7 +156,13 @@ if settings.CACHE_WRITE_STRATEGY == 'sorted':
 if settings.CACHE_WRITE_STRATEGY == 'random':
   write_strategy = RandomStrategy
 
-MetricCache = _MetricCache(write_strategy)
+default_cache = MetricCache(write_strategy)
+hot_metric_cache = MetricCache(write_strategy) if settings.USE_HOT_STORAGE else None
+
+metric_caches = [default_cache]
+
+if settings.USE_HOT_STORAGE:
+  metric_caches.append(hot_metric_cache)
 
 # Avoid import circularities
 from carbon import state

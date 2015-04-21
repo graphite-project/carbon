@@ -96,6 +96,7 @@ class IntervalBuffer:
     self.active = True
 
   def mark_inactive(self):
+    self.values = []
     self.active = False
 
 

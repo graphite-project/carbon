@@ -36,7 +36,7 @@ class _MetricCache(defaultdict):
       t = time.time()
       queue = sorted(self.counts, key=lambda x: x[1])
       if settings.LOG_CACHE_QUEUE_SORTS:
-        log.debug("Sorted %d cache queues in %.6f seconds" % (len(queue), time.time() - t))
+        log.msg("Sorted %d cache queues in %.6f seconds" % (len(queue), time.time() - t))
       while queue:
         yield queue.pop()[0]
 

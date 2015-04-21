@@ -32,7 +32,7 @@ from twisted.application.service import Service
 try:
     import signal
 except ImportError:
-    log.debug("Couldn't import signal module")
+    log.msg("Couldn't import signal module")
 
 
 SCHEMAS = loadStorageSchemas()
@@ -199,7 +199,7 @@ class WriterService(Service):
 
     def startService(self):
         if 'signal' in globals().keys():
-          log.debug("Installing SIG_IGN for SIGHUP")
+          log.msg("Installing SIG_IGN for SIGHUP")
           signal.signal(signal.SIGHUP, signal.SIG_IGN)
         self.storage_reload_task.start(60, False)
         self.aggregation_reload_task.start(60, False)

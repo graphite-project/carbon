@@ -62,16 +62,18 @@ def createBaseService(config):
         amqp_spec = settings.get("AMQP_SPEC", None)
         amqp_exchange_name = settings.get("AMQP_EXCHANGE", "graphite")
 
-    for interface, port, protocol in ((settings.LINE_RECEIVER_INTERFACE,
-                                       settings.LINE_RECEIVER_PORT,
-                                       MetricLineReceiver),
-                                      (settings.PICKLE_RECEIVER_INTERFACE,
-                                       settings.PICKLE_RECEIVER_PORT,
-                                       MetricPickleReceiver)):
+    for interface, port, backlog, protocol in ((settings.LINE_RECEIVER_INTERFACE,
+                                                settings.LINE_RECEIVER_PORT,
+                                                settings.LINE_RECEIVER_BACKLOG,
+                                                MetricLineReceiver),
+                                               (settings.PICKLE_RECEIVER_INTERFACE,
+                                                settings.PICKLE_RECEIVER_PORT,
+                                                settings.PICKLE_RECEIVER_BACKLOG,
+                                                MetricPickleReceiver)):
         if port:
             factory = ServerFactory()
             factory.protocol = protocol
-            service = TCPServer(int(port), factory, interface=interface)
+            service = TCPServer(int(port), factory, interface=interface, backlog=backlog)
             service.setServiceParent(root_service)
 
     if settings.ENABLE_UDP_LISTENER:

@@ -107,6 +107,10 @@ USE_INSECURE_UNPICKLER = False
 CACHE_QUERY_INTERFACE = 0.0.0.0
 CACHE_QUERY_PORT = 7002
 
+# Set the TCP backlog for the listen socket created by the cache query
+# listener. You shouldn't change this unless you know what you're doing.
+# CACHE_QUERY_BACKLOG = 1024
+
 # Set this to False to drop datapoints received after the cache
 # reaches MAX_CACHE_SIZE. If this is True (the default) then sockets
 # over which metrics are received will temporarily stop accepting

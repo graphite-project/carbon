@@ -126,7 +126,8 @@ def createCacheService(config):
     factory = ServerFactory()
     factory.protocol = CacheManagementHandler
     service = TCPServer(int(settings.CACHE_QUERY_PORT), factory,
-                        interface=settings.CACHE_QUERY_INTERFACE)
+                        interface=settings.CACHE_QUERY_INTERFACE,
+                        backlog=settings.CACHE_QUERY_BACKLOG)
     service.setServiceParent(root_service)
 
     # have to import this *after* settings are defined

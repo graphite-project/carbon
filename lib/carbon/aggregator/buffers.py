@@ -63,7 +63,7 @@ class MetricBuffer:
       if buffer.active:
         value = self.aggregation_func(buffer.values)
         datapoint = (buffer.interval, value)
-        state.events.metricGenerated(self.metric_path, datapoint)
+        events.metricGenerated(self.metric_path, datapoint)
         state.instrumentation.increment('aggregateDatapointsSent')
         buffer.mark_inactive()
 
@@ -103,4 +103,4 @@ class IntervalBuffer:
 BufferManager = BufferManager()
 
 # Avoid import circularity
-from carbon import state
+from carbon import events, state

@@ -45,7 +45,7 @@ class _MetricCache(defaultdict):
     self[metric].append(datapoint)
     if self.isFull():
       log.msg("MetricCache is full: self.size=%d" % self.size)
-      state.events.cacheFull()
+      events.cacheFull()
 
   def isFull(self):
     # Short circuit this test if there is no max cache size, then we don't need
@@ -80,4 +80,4 @@ MetricCache = _MetricCache(method=settings.CACHE_WRITE_STRATEGY)
 
 
 # Avoid import circularities
-from carbon import log, state
+from carbon import log, state, events

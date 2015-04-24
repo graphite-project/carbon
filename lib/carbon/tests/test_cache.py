@@ -43,7 +43,7 @@ class MetricCacheIntegrity(MockerTestCase):
         self.assertEqual(("d.e.f", deque([datapoint1])), (m, d))
 
         self.assertEqual(0, MetricCache.size)
-        self.assertEqual(0, calculate_size(MetricsCache))
+        self.assertEqual(0, self.calculate_size(MetricCache))
 
     def test_write_strategy_naive(self):
         """Create a metric cache, insert metrics, ensure naive writes"""
@@ -65,7 +65,7 @@ class MetricCacheIntegrity(MockerTestCase):
         cache.pop()
 
         self.assertEqual(0, cache.size)
-        self.assertEqual(0, calculate_size(cache))
+        self.assertEqual(0, self.calculate_size(cache))
 
     def test_write_strategy_max(self):
         """Create a metric cache, insert metrics, ensure naive writes"""
@@ -89,4 +89,4 @@ class MetricCacheIntegrity(MockerTestCase):
         self.assertEqual(("d.e.f", deque([datapoint1])), (m, d))
 
         self.assertEqual(0, cache.size)
-        self.assertEqual(0, calculate_size(cache))
+        self.assertEqual(0, self.calculate_size(cache))

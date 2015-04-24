@@ -90,3 +90,27 @@ class MetricCacheIntegrity(MockerTestCase):
 
         self.assertEqual(0, cache.size)
         self.assertEqual(0, self.calculate_size(cache))
+
+    def test_empty_pop(self):
+        """Create a metric cache, insert metrics, pop too many times"""
+        config = self.makeFile(content="[foo]\nCACHE_WRITE_STRATEGY = naive")
+        settings = read_config("carbon-foo",
+                               FakeOptions(config=config, instance=None,
+                                           pidfile=None, logdir=None),
+                               ROOT_DIR="foo")
+        cache = _MetricCache(method=settings.CACHE_WRITE_STRATEGY)
+        self.assertEqual("naive", cache.method)
+        now = time.time()
+        datapoint1 = (now - 10, float(1))
+        datapoint2 = (now, float(2))
+        cache.store("d.e.f", datapoint1)
+        cache.store("a.b.c", datapoint1)
+        cache.store("a.b.c", datapoint2)
+
+        cache.pop()
+        cache.pop()
+        with self.assertRaises(KeyError):
+            cache.pop()
+
+        self.assertEqual(0, cache.size)
+        self.assertEqual(0, self.calculate_size(cache))

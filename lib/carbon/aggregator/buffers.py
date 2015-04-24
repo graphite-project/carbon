@@ -64,7 +64,7 @@ class MetricBuffer:
         value = self.aggregation_func(buffer.values)
         datapoint = (buffer.interval, value)
         events.metricGenerated(self.metric_path, datapoint)
-        state.instrumentation.increment('aggregateDatapointsSent')
+        instrumentation.increment('aggregateDatapointsSent')
         buffer.mark_inactive()
 
       if buffer.interval < age_threshold:
@@ -103,4 +103,4 @@ class IntervalBuffer:
 BufferManager = BufferManager()
 
 # Avoid import circularity
-from carbon import events, state
+from carbon import events, state, instrumentation

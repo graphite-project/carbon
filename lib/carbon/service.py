@@ -35,9 +35,6 @@ class CarbonRootService(MultiService):
 
 def createBaseService(config):
     from carbon.conf import settings
-    from carbon import instrumentation
-
-    state.instrumentation = instrumentation
 
     from carbon.protocols import (MetricLineReceiver, MetricPickleReceiver,
                                   MetricDatagramReceiver)

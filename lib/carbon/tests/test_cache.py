@@ -19,6 +19,9 @@ class FakeOptions(object):
 
 class MetricCacheIntegrity(MockerTestCase):
 
+    def calculate_size(self, cache):
+        return reduce(lambda x, y: x + len(y), cache.values(), 0)
+
     def test_metrics_cache_init(self):
         """A new metric cache should have zero elements"""
         self.assertEqual(0, MetricCache.size)
@@ -40,6 +43,7 @@ class MetricCacheIntegrity(MockerTestCase):
         self.assertEqual(("d.e.f", deque([datapoint1])), (m, d))
 
         self.assertEqual(0, MetricCache.size)
+        self.assertEqual(0, calculate_size(MetricsCache))
 
     def test_write_strategy_naive(self):
         """Create a metric cache, insert metrics, ensure naive writes"""
@@ -61,6 +65,7 @@ class MetricCacheIntegrity(MockerTestCase):
         cache.pop()
 
         self.assertEqual(0, cache.size)
+        self.assertEqual(0, calculate_size(cache))
 
     def test_write_strategy_max(self):
         """Create a metric cache, insert metrics, ensure naive writes"""
@@ -84,3 +89,4 @@ class MetricCacheIntegrity(MockerTestCase):
         self.assertEqual(("d.e.f", deque([datapoint1])), (m, d))
 
         self.assertEqual(0, cache.size)
+        self.assertEqual(0, calculate_size(cache))

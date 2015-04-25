@@ -116,9 +116,9 @@ def recordMetrics():
   # aggregator metrics
   elif settings.program == 'carbon-aggregator':
     record = aggregator_record
-    record('allocatedBuffers', len(BufferManager))
+    record('allocatedBuffers', len(carbon.aggregator.buffers.BufferManager))
     record('bufferedDatapoints',
-           sum([b.size for b in BufferManager.buffers.values()]))
+           sum([b.size for b in carbon.aggregator.buffers.BufferManager.buffers.values()]))
     record('aggregateDatapointsSent', myStats.get('aggregateDatapointsSent', 0))
 
   # relay metrics
@@ -185,4 +185,3 @@ class InstrumentationService(Service):
 
 # Avoid import circularities
 from carbon import state, events, cache
-from carbon.aggregator.buffers import BufferManager

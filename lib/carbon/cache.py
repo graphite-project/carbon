@@ -58,6 +58,7 @@ class _MetricCache(defaultdict):
     elif metric:
       datapoints = (metric, super(_MetricCache, self).pop(metric))
     elif not metric and self.method == "max":
+      # TODO: [jssjr 2015-04-24] This is O(n^2) and suuuuuper slow.
       metric = max(self.items(), key=lambda x: len(x[1]))[0]
       datapoints = (metric, super(_MetricCache, self).pop(metric))
     elif not metric and self.method == "naive":

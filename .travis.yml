@@ -5,7 +5,6 @@ env:
   - TOXENV=py26
   - TOXENV=py27
   - TOXENV=lint
-  - TOXENV=benchmark
 
 before_install:
   # TODO: [jssjr 2014-09-23] Remove this when /opt/graphite isn't hardcoded

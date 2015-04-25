@@ -171,6 +171,8 @@ def aggregator_record(metric, value):
 class InstrumentationService(Service):
     def __init__(self):
         self.record_task = LoopingCall(recordMetrics)
+        # Default handlers
+        events.metricReceived.addHandler(lambda metric, datapoint: increment('metricsReceived'))
 
     def startService(self):
         if settings.CARBON_METRIC_INTERVAL > 0:

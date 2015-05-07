@@ -21,12 +21,12 @@ from os.path import join, dirname, normpath, exists, isdir
 from optparse import OptionParser
 from ConfigParser import ConfigParser
 
+import whisper
 from carbon import log
 from carbon.exceptions import CarbonConfigException
 
 from twisted.python import usage
 
-import whisper
 
 defaults = dict(
   USER="",
@@ -42,7 +42,6 @@ defaults = dict(
   ENABLE_PICKLE_RECEIVER=True,
   PICKLE_RECEIVER_INTERFACE='0.0.0.0',
   PICKLE_RECEIVER_PORT=2004,
-  COMPRESS_DATA=False,
   CACHE_QUERY_INTERFACE='0.0.0.0',
   CACHE_QUERY_PORT=7002,
   LOG_UPDATES=True,
@@ -58,13 +57,15 @@ defaults = dict(
   TIME_TO_DEFER_SENDING=0.0001,
   ENABLE_AMQP=False,
   AMQP_VERBOSE=False,
+  AMQP_VHOST='/',
+  AMQP_SPEC='',
   BIND_PATTERNS=['#'],
   ENABLE_MANHOLE=False,
   MANHOLE_INTERFACE='127.0.0.1',
   MANHOLE_PORT=7222,
   MANHOLE_USER="",
   MANHOLE_PUBLIC_KEY="",
-  RELAY_METHOD='rules',
+  RELAY_METHOD='relay-rules',
   REPLICATION_FACTOR=1,
   DESTINATIONS=[],
   USE_FLOW_CONTROL=True,
@@ -72,15 +73,18 @@ defaults = dict(
   USE_WHITELIST=False,
   CARBON_METRIC_PREFIX='carbon',
   CARBON_METRIC_INTERVAL=60,
+  CACHE_WRITE_STRATEGY='sorted',
   WRITE_BACK_FREQUENCY=None,
   MIN_RESET_STAT_FLOW=1000,
   MIN_RESET_RATIO=0.9,
   MIN_RESET_INTERVAL=121,
   USE_RATIO_RESET=False,
   LOG_LISTENER_CONN_SUCCESS=True,
+  LOG_AGGREGATOR_MISSES=True,
   AGGREGATION_RULES='aggregation-rules.conf',
   REWRITE_RULES='rewrite-rules.conf',
   RELAY_RULES='relay-rules.conf',
+  ENABLE_LOGROTATE=True,
   DB_INIT_FUNC="carbon.db.NewWhisperDB",
   THRIFT_PORT=9090,
   THRIFT_HOST_LIST=['localhost'],
@@ -170,16 +174,17 @@ class Settings(dict):
         # Attempt to figure out numeric types automatically
         try:
           value = int(value)
-        except:
+        except ValueError:
           try:
             value = float(value)
-          except:
+          except ValueError:
             pass
 
       self[key] = value
 
 
 settings = Settings()
+settings.update(defaults)
 
 
 class CarbonCacheOptions(usage.Options):
@@ -217,6 +222,14 @@ class CarbonCacheOptions(usage.Options):
         program_settings = read_config(program, self)
         settings.update(program_settings)
         settings["program"] = program
+
+        # Normalize and expand paths
+        settings["STORAGE_DIR"] = os.path.normpath(os.path.expanduser(settings["STORAGE_DIR"]))
+        settings["LOCAL_DATA_DIR"] = os.path.normpath(os.path.expanduser(settings["LOCAL_DATA_DIR"]))
+        settings["WHITELISTS_DIR"] = os.path.normpath(os.path.expanduser(settings["WHITELISTS_DIR"]))
+        settings["PID_DIR"] = os.path.normpath(os.path.expanduser(settings["PID_DIR"]))
+        settings["LOG_DIR"] = os.path.normpath(os.path.expanduser(settings["LOG_DIR"]))
+        settings["pidfile"] = os.path.normpath(os.path.expanduser(settings["pidfile"]))
 
         # Set process uid/gid by changing the parent config, if a user was
         # provided in the configuration file.
@@ -306,7 +319,7 @@ class CarbonCacheOptions(usage.Options):
             try:
                 pid = int(pf.read().strip())
                 pf.close()
-            except:
+            except IOError:
                 print "Could not read pidfile %s" % pidfile
                 raise SystemExit(1)
             print "Sending kill signal to pid %d" % pid
@@ -328,7 +341,7 @@ class CarbonCacheOptions(usage.Options):
             try:
                 pid = int(pf.read().strip())
                 pf.close()
-            except:
+            except IOError:
                 print "Failed to read pid from %s" % pidfile
                 raise SystemExit(1)
 
@@ -346,7 +359,7 @@ class CarbonCacheOptions(usage.Options):
                 try:
                     pid = int(pf.read().strip())
                     pf.close()
-                except:
+                except IOError:
                     print "Could not read pidfile %s" % pidfile
                     raise SystemExit(1)
                 if _process_alive(pid):
@@ -357,8 +370,20 @@ class CarbonCacheOptions(usage.Options):
                     print "Removing stale pidfile %s" % pidfile
                     try:
                         os.unlink(pidfile)
-                    except:
+                    except IOError:
                         print "Could not remove pidfile %s" % pidfile
+            # Try to create the PID directory
+            else:
+                if not os.path.exists(settings["PID_DIR"]):
+                    try:
+                        os.makedirs(settings["PID_DIR"])
+                    except OSError as exc: # Python >2.5
+                        if exc.errno == errno.EEXIST and os.path.isdir(settings["PID_DIR"]):
+                           pass
+                        else:
+                           raise
+
+
 
             print "Starting %s (instance %s)" % (program, instance)
 
@@ -402,9 +427,9 @@ class CarbonRelayOptions(CarbonCacheOptions):
 
         if self["aggregation-rules"] is None:
             self["rules"] = join(settings["CONF_DIR"], settings['AGGREGATION_RULES'])
-        settings["aggregation-rules"] = self["aggregation-rules"]
+        settings["aggregation-rules"] = self["rules"]
 
-        if settings["RELAY_METHOD"] not in ("rules", "consistent-hashing", "aggregated-consistent-hashing"):
+        if settings["RELAY_METHOD"] not in ("relay-rules", "rules", "consistent-hashing", "aggregated-consistent-hashing"):
             print ("In carbon.conf, RELAY_METHOD must be either 'rules' or "
                    "'consistent-hashing' or 'aggregated-consistent-hashing'. Invalid value: '%s'" %
                    settings.RELAY_METHOD)
@@ -497,7 +522,6 @@ def read_config(program, options, **kwargs):
     """
     settings = Settings()
     settings.update(defaults)
-    
 
     # Initialize default values if not set yet.
     for name, value in kwargs.items():
@@ -567,7 +591,6 @@ def read_config(program, options, **kwargs):
             options["pidfile"] or
             join(settings["PID_DIR"], '%s.pid' % program))
         settings["LOG_DIR"] = (options["logdir"] or settings["LOG_DIR"])
-
     settings.readFrom(join(settings['CONF_DIR'], 'graphite-db.conf'),
         settings['DB_INIT_FUNC'].split('.')[2])
 

@@ -1,20 +1,23 @@
 #!/bin/bash
-# chkconfig: - 25 75
+# chkconfig:   - 25 75
 # description: carbon-cache
 # processname: carbon-cache
 
-export PYTHONPATH="$GRAPHITE_DIR/lib:$PYTHONPATH"
-
 # Source function library.
 if [ -e /etc/rc.d/init.d/functions ]; then
-    . /etc/rc.d/init.d/functions
-fi
+    . /etc/rc.d/init.d/functions;
+fi;
 
 DAEMON="cache"
-GRAPHITE_DIR="/opt/graphite"
+GRAPHITE_DIR="/usr/local/rnt/"
 LOG_DIR="/var/log/graphite"
 CONF="${GRAPHITE_DIR}/conf/carbon.conf"
 INSTANCES=$(grep "^\[${DAEMON}" ${CONF} | cut -d \[ -f 2 | cut -d \] -f 1 | cut -d : -f 2)
+
+function die {
+  echo $1
+  exit 1
+}
 
 start(){
     if [ -n ${CARBON_INSTANCE} ]; then
@@ -30,7 +33,7 @@ start(){
             echo_failure
         fi
         echo ""
-   fi
+    fi
 }
 
 stop(){
@@ -55,24 +58,18 @@ stop(){
             fi
         fi
         rm -f $LOG_DIR/${DAEMON}-${CARBON_INSTANCE}/carbon-${DAEMON}.pid
-        if [ $? -eq 0 ]; then
-            echo_success
-        else
-            echo_failure
-        fi
-        echo ""
     fi
 }
 
 status(){
     if [ -n ${CARBON_INSTANCE} ]; then
         $GRAPHITE_DIR/bin/carbon-${DAEMON}.py --instance=${CARBON_INSTANCE} --pidfile=$LOG_DIR/${DAEMON}-${CARBON_INSTANCE}/carbon-${DAEMON}.pid --logdir=$LOG_DIR/${DAEMON}-${CARBON_INSTANCE} status
-
+    
         if [ $? -eq 0 ]; then
             echo_success
         else
             echo_failure
-        fi
+        fi;
         echo ""
     fi
 }
@@ -148,3 +145,4 @@ case "$1" in
   *)
     prog_usage
 esac
+

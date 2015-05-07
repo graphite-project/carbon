@@ -12,120 +12,121 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License."""
 
-
+import os
 import time
 from os.path import exists, dirname
-import errno
 
-from db import APP_DB
+import whisper
 from carbon import state
 from carbon.cache import MetricCache
-from carbon.storage import loadStorageSchemas, loadAggregationSchemas
+from carbon.storage import getFilesystemPath, loadStorageSchemas,\
+    loadAggregationSchemas
 from carbon.conf import settings
 from carbon import log, events, instrumentation
+from carbon.util import TokenBucket
 
 from twisted.internet import reactor
 from twisted.internet.task import LoopingCall
 from twisted.application.service import Service
 
+try:
+    import signal
+except ImportError:
+    log.debug("Couldn't import signal module")
 
-lastCreateInterval = 0
-createCount = 0
-schemas = loadStorageSchemas()
-agg_schemas = loadAggregationSchemas()
+from db import APP_DB
+
+SCHEMAS = loadStorageSchemas()
+AGGREGATION_SCHEMAS = loadAggregationSchemas()
 CACHE_SIZE_LOW_WATERMARK = settings.MAX_CACHE_SIZE * 0.95
+
+
+# Inititalize token buckets so that we can enforce rate limits on creates and
+# updates if the config wants them.
+CREATE_BUCKET = None
+UPDATE_BUCKET = None
+if settings.MAX_CREATES_PER_MINUTE != float('inf'):
+  capacity = settings.MAX_CREATES_PER_MINUTE
+  fill_rate = float(settings.MAX_CREATES_PER_MINUTE) / 60
+  CREATE_BUCKET = TokenBucket(capacity, fill_rate)
+
+if settings.MAX_UPDATES_PER_SECOND != float('inf'):
+  capacity = settings.MAX_UPDATES_PER_SECOND
+  fill_rate = settings.MAX_UPDATES_PER_SECOND
+  UPDATE_BUCKET = TokenBucket(capacity, fill_rate)
 
 
 def optimalWriteOrder():
   """Generates metrics with the most cached values first and applies a soft
   rate limit on new metrics"""
-  global lastCreateInterval
-  global createCount
-  metrics = MetricCache.counts()
-
-  #metrics.sort(key=lambda item: item[1], reverse=True)  # by queue size, descending
-  #log.debug("Sorted %d cache queues in %.6f seconds" % (len(metrics),
-  #                                                      time.time() - t))
-
-  for metric, queueSize in metrics:
+  while MetricCache:
+    (metric, datapoints) = MetricCache.drain_metric()
     if state.cacheTooFull and MetricCache.size < CACHE_SIZE_LOW_WATERMARK:
       events.cacheSpaceAvailable()
 
-    dbFileExists = APP_DB.exists(metric)
+    dbFileExists, dbFilePath = APP_DB.exists(metric)
 
-    if not dbFileExists:
-      createCount += 1
-      now = time.time()
+    if not dbFileExists and CREATE_BUCKET:
+      # If our tokenbucket has enough tokens available to create a new metric
+      # file then yield the metric data to complete that operation. Otherwise
+      # we'll just drop the metric on the ground and move on to the next
+      # metric.
+      # XXX This behavior should probably be configurable to no tdrop metrics
+      # when rate limitng unless our cache is too big or some other legit
+      # reason.
+      if CREATE_BUCKET.drain(1):
+        yield (metric, datapoints, dbFilePath, dbFileExists)
+      continue
 
-      if now - lastCreateInterval >= 60:
-        lastCreateInterval = now
-        createCount = 1
-
-      elif createCount >= settings.MAX_CREATES_PER_MINUTE:
-        # dropping queued up datapoints for new metrics prevents filling up the entire cache
-        # when a bunch of new metrics are received.
-        try:
-          MetricCache.pop(metric)
-        except KeyError:
-          pass
-
-        continue
-
-    try:  # metrics can momentarily disappear from the MetricCache due to the implementation of MetricCache.store()
-      datapoints = MetricCache.pop(metric)
-    except KeyError:
-      log.msg("MetricCache contention, skipping %s update for now" % metric)
-      continue  # we simply move on to the next metric when this race condition occurs
-
-    yield (metric, datapoints, dbFileExists)
+    yield (metric, datapoints, dbFilePath, dbFileExists)
 
 
 def writeCachedDataPoints():
   "Write datapoints until the MetricCache is completely empty"
-  updates = 0
-  lastSecond = 0
-  retention_config = None
 
   while MetricCache:
     dataWritten = False
 
-    for (metric, datapoints, dbFileExists) in optimalWriteOrder():
+    for (metric, datapoints, dbFilePath, dbFileExists) in optimalWriteOrder():
       dataWritten = True
 
-      for schema in schemas:
+      #we *always* need the storage schema. Not just for new metrics
+      archiveConfig = None
+      for schema in SCHEMAS:
         if schema.matches(metric):
-          if not dbFileExists:
-            log.creates("new metric %s matched schema %s" % (metric, schema.name))
-          retention_config = [archive.getTuple() for archive in schema.archives]
+          archiveConfig = [archive.getTuple() for archive in schema.archives]
           break
 
+      if not archiveConfig:
+        raise Exception("No storage schema matched the metric '%s', check your storage-schemas.conf file." % metric)
+
       if not dbFileExists:
+        archiveConfig = None
         xFilesFactor, aggregationMethod = None, None
 
-        for schema in agg_schemas:
+        for schema in AGGREGATION_SCHEMAS:
           if schema.matches(metric):
             log.creates('new metric %s matched aggregation schema %s' % (metric, schema.name))
             xFilesFactor, aggregationMethod = schema.archives
             break
 
-        if not retention_config:
-          raise Exception("No storage schema matched the metric '%s', check your storage-schemas.conf file." % metric)
-        log.creates("creating database metric %s (metric=%s xff=%s agg=%s)" %
-                   (metric, retention_config, xFilesFactor, aggregationMethod))
-
+        log.creates("creating database file %s (archive=%s xff=%s agg=%s)" %
+                    (dbFilePath, archiveConfig, xFilesFactor, aggregationMethod))
         try:
-          APP_DB.create(metric, retention_config, xFilesFactor, aggregationMethod, settings.WHISPER_SPARSE_CREATE, settings.WHISPER_FALLOCATE_CREATE)
+          APP_DB.create(metric, archiveConfig, xFilesFactor, aggregationMethod, settings.WHISPER_SPARSE_CREATE, settings.WHISPER_FALLOCATE_CREATE)
           instrumentation.increment('creates')
-        except OSError as e:
-          if e.errno != errno.EEXIST:
-            log.err("%s" % e)
-
+        except:
+          log.err("Error creating %s" % (dbFilePath))
+          continue
+      # If we've got a rate limit configured lets makes sure we enforce it
+      if UPDATE_BUCKET:
+        UPDATE_BUCKET.drain(1, blocking=True)
       try:
         t1 = time.time()
-        APP_DB.update_many(metric, datapoints, retention_config)
-        t2 = time.time()
-        updateTime = t2 - t1
-      except:
+        #whisper.update_many(dbFilePath, datapoints)
+        APP_DB.update_many(metric, datapoints, archiveConfig)
+        updateTime = time.time() - t1
+      except Exception:
         log.msg("Error writing to %s" % (metric))
         log.err()
         instrumentation.increment('errors')
@@ -133,20 +134,8 @@ def writeCachedDataPoints():
         pointCount = len(datapoints)
         instrumentation.increment('committedPoints', pointCount)
         instrumentation.append('updateTimes', updateTime)
-
         if settings.LOG_UPDATES:
           log.updates("wrote %d datapoints for %s in %.5f seconds" % (pointCount, metric, updateTime))
-
-        # Rate limit update operations
-        thisSecond = int(t2)
-
-        if thisSecond != lastSecond:
-          lastSecond = thisSecond
-          updates = 0
-        else:
-          updates += 1
-          if updates >= settings.MAX_UPDATES_PER_SECOND:
-            time.sleep(int(t2 + 1) - t2)
 
     # Avoid churning CPU when only new metrics are in the cache
     if not dataWritten:
@@ -157,36 +146,39 @@ def writeForever():
   while reactor.running:
     try:
       writeCachedDataPoints()
-    except:
+    except Exception:
       log.err()
-
     time.sleep(1)  # The writer thread only sleeps when the cache is empty or an error occurs
 
 
 def reloadStorageSchemas():
-  global schemas
+  global SCHEMAS
   try:
-    schemas = loadStorageSchemas()
-  except:
-    log.msg("Failed to reload storage schemas")
+    SCHEMAS = loadStorageSchemas()
+  except Exception:
+    log.msg("Failed to reload storage SCHEMAS")
     log.err()
 
 
 def reloadAggregationSchemas():
-  global agg_schemas
+  global AGGREGATION_SCHEMAS
   try:
-    agg_schemas = loadAggregationSchemas()
-  except:
-    log.msg("Failed to reload aggregation schemas")
+    AGGREGATION_SCHEMAS = loadAggregationSchemas()
+  except Exception:
+    log.msg("Failed to reload aggregation SCHEMAS")
     log.err()
 
 
 def shutdownModifyUpdateSpeed():
-  try:
-    settings.MAX_UPDATES_PER_SECOND = settings.MAX_UPDATES_PER_SECOND_ON_SHUTDOWN
-    log.msg("Carbon shutting down.  Changed the update rate to: " + str(settings.MAX_UPDATES_PER_SECOND_ON_SHUTDOWN))
-  except KeyError:
-    log.msg("Carbon shutting down.  Update rate not changed")
+    try:
+        shut = settings.MAX_UPDATES_PER_SECOND_ON_SHUTDOWN
+        if UPDATE_BUCKET:
+          UPDATE_BUCKET.setCapacityAndFillRate(shut,shut)
+        if CREATE_BUCKET:
+          CREATE_BUCKET.setCapacityAndFillRate(shut,shut)
+        log.msg("Carbon shutting down.  Changed the update rate to: " + str(settings.MAX_UPDATES_PER_SECOND_ON_SHUTDOWN))
+    except KeyError:
+        log.msg("Carbon shutting down.  Update rate not changed")
 
 
 class WriterService(Service):
@@ -196,6 +188,9 @@ class WriterService(Service):
         self.aggregation_reload_task = LoopingCall(reloadAggregationSchemas)
 
     def startService(self):
+        if 'signal' in globals().keys():
+          log.debug("Installing SIG_IGN for SIGHUP")
+          signal.signal(signal.SIGHUP, signal.SIG_IGN)
         self.storage_reload_task.start(60, False)
         self.aggregation_reload_task.start(60, False)
         reactor.addSystemEventTrigger('before', 'shutdown', shutdownModifyUpdateSpeed)

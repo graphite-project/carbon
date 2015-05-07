@@ -1,34 +1,30 @@
 import sys
-from os import setregid, setreuid, environ
-from pwd import getpwnam
+import os
+import pwd
+import __builtin__
 
 from os.path import abspath, basename, dirname, join
 try:
   from cStringIO import StringIO
 except ImportError:
   from StringIO import StringIO
-
 try:
   import cPickle as pickle
   USING_CPICKLE = True
-except:
+except ImportError:
   import pickle
   USING_CPICKLE = False
 
+from time import sleep, time
 from twisted.python.util import initgroups
 from twisted.scripts.twistd import runApp
 
-try:
-  from msgpack import packb
-except:
-  pass
-
 
 def dropprivs(user):
-  uid, gid = getpwnam(user)[2:4]
+  uid, gid = pwd.getpwnam(user)[2:4]
   initgroups(uid, gid)
-  setregid(gid, gid)
-  setreuid(uid, uid)
+  os.setregid(gid, gid)
+  os.setreuid(uid, uid)
   return (uid, gid)
 
 
@@ -38,7 +34,7 @@ def run_twistd_plugin(filename):
 
     bin_dir = dirname(abspath(filename))
     root_dir = dirname(bin_dir)
-    environ.setdefault('GRAPHITE_ROOT', root_dir)
+    os.environ.setdefault('GRAPHITE_ROOT', root_dir)
 
     program = basename(filename).split('.')[0]
 
@@ -52,8 +48,8 @@ def run_twistd_plugin(filename):
       return
 
     # This isn't as evil as you might think
-    __builtins__["instance"] = options.instance
-    __builtins__["program"] = program
+    __builtin__.instance = options.instance
+    __builtin__.program = program
 
     # Then forward applicable options to either twistd or to the plugin itself.
     twistd_options = ["--no_save"]
@@ -63,7 +59,7 @@ def run_twistd_plugin(filename):
     try:
         from twisted.internet import epollreactor
         twistd_options.append("--reactor=epoll")
-    except:
+    except ImportError:
         pass
 
     if options.debug or options.nodaemon:
@@ -113,6 +109,8 @@ def parseDestinations(destination_strings):
 
   return destinations
 
+
+
 # This whole song & dance is due to pickle being insecure
 # yet performance critical for carbon. We leave the insecure
 # mode (which is faster) as an option (USE_INSECURE_UNPICKLER).
@@ -142,12 +140,7 @@ if USING_CPICKLE:
     def loads(cls, pickle_string):
       pickle_obj = pickle.Unpickler(StringIO(pickle_string))
       pickle_obj.find_global = cls.find_class
-      try:
-        ret = pickle_obj.load()
-      except Exception as e:
-        ret = None
-        pass
-      return ret
+      return pickle_obj.load()
 
 else:
   class SafeUnpickler(pickle.Unpickler):
@@ -170,6 +163,7 @@ else:
     @classmethod
     def loads(cls, pickle_string):
       return cls(StringIO(pickle_string)).load()
+ 
 
 def get_unpickler(insecure=False):
   if insecure:
@@ -177,32 +171,73 @@ def get_unpickler(insecure=False):
   else:
     return SafeUnpickler
 
-def pack_data(datapoints, pack_type=None, safe_pickle=False):
 
-    #msgpack serialization
-    if pack_type == "msgpack":
-      try:
-        data = packb(datapoints)
-      except Exception:
-        raise ValueError('msgpack package not imported')
+class TokenBucket(object):
+  '''This is a basic tokenbucket rate limiter implementation for use in
+  enforcing various configurable rate limits'''
+  def __init__(self, capacity, fill_rate):
+    '''Capacity is the total number of tokens the bucket can hold, fill rate is
+    the rate in tokens (or fractional tokens) to be added to the bucket per
+    second.'''
+    self.capacity = float(capacity)
+    self._tokens = float(capacity)
+    self.fill_rate = float(fill_rate)
+    self.timestamp = time()
 
-    #Default to pickle
+  def drain(self, cost, blocking=False):
+    '''Given a number of tokens (or fractions) drain will return True and
+    drain the number of tokens from the bucket if the capacity allows,
+    otherwise we return false and leave the contents of the bucket.'''
+    if cost <= self.tokens:
+      self._tokens -= cost
+      return True
     else:
-      data = pickle.dumps(datapoints, protocol=-1)
+      if blocking:
+        tokens_needed = cost - self._tokens
+        seconds_per_token = 1 / self.fill_rate
+        seconds_left = seconds_per_token * self.fill_rate
+        sleep(self.timestamp + seconds_left - time())
+        self._tokens -= cost
+        return True
+      return False
 
-    return data
+  def setCapacityAndFillRate(self, new_capacity, new_fill_rate):
+    delta = float(new_capacity) - self.capacity
+    self.capacity = float(new_capacity)
+    self.fill_rate = float(new_fill_rate)
+    self._tokens = delta + self._tokens
 
-def aggregate(aggregationMethod, knownValues):
-    if aggregationMethod == 'average':
-        return float(sum(knownValues)) / float(len(knownValues))
-    elif aggregationMethod == 'sum':
-        return float(sum(knownValues))
-    elif aggregationMethod == 'last':
-        return knownValues[len(knownValues) - 1]
-    elif aggregationMethod == 'max':
-        return max(knownValues)
-    elif aggregationMethod == 'min':
-        return min(knownValues)
-    else:
-        raise Exception("Unrecognized aggregation method %s" %
-                        aggregationMethod)
+  @property
+  def tokens(self):
+    '''The tokens property will return the current number of tokens in the
+    bucket.'''
+    if self._tokens < self.capacity:
+      now = time()
+      delta = self.fill_rate * (now - self.timestamp)
+      self._tokens = min(self.capacity, self._tokens + delta)
+      self.timestamp = now
+    return self._tokens
+
+
+class PluginRegistrar(type):
+  """Clever subclass detection hack that makes plugin loading trivial.
+  To use this, define an abstract base class for plugin implementations
+  that defines the plugin API. Give that base class a __metaclass__ of
+  PluginRegistrar, and define a 'plugins = {}' class member. Subclasses
+  defining a 'plugin_name' member will then appear in the plugins dict.
+  """
+  def __init__(classObj, name, bases, members):
+    super(PluginRegistrar, classObj).__init__(name, bases, members)
+    if hasattr(classObj, 'plugin_name'):
+      classObj.plugins[classObj.plugin_name] = classObj
+
+
+def load_module(module_path, member=None):
+  module_name = splitext(basename(module_path))[0]
+  module_file = open(module_path, 'U')
+  description = ('.py', 'U', imp.PY_SOURCE)
+  module = imp.load_module(module_name, module_file, module_path, description)
+  if member:
+    return getattr(module, member)
+  else:
+    return module

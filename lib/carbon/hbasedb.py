@@ -53,10 +53,12 @@ META_TABLE_SUFFIX = 'meta'
 DATA_TABLE_SUFFIX = 'data'
 
 class HbaseTSDB(TSDB):
-    def __init__(self, host_list, port, table_prefix, batch_size=1000,
+    def __init__(self, host_list, port, table_prefix, thrift_host='localhost', batch_size=1000,
                  transport='buffered', send_interval=60,
-                 reset_interval=1800, protocol='binary'):
+                 reset_interval=1800, protocol='binary', single_host=True):
         self.host_list = [gethostbyname(host) for host in host_list]
+        self.single_thrift_host = thrift_host
+        self.use_single_host = single_host
         self.thrift_port = port
         self.transport_type = transport
         self.batch_size = batch_size
@@ -66,6 +68,11 @@ class HbaseTSDB(TSDB):
         self.protocol = protocol
         self.table_prefix = table_prefix
         self.cache_ttl = 3600
+        self.redis_path = "/tmp/redis.sock"
+        try:
+            self.red_con =  Redis(unix_socket_path = '/tmp/redis.sock')
+        except Exception, e:
+            pass
         #use the reset function only for consistent connection creation
         self.__reset_conn(send_batch=False)
 
@@ -89,8 +96,8 @@ class HbaseTSDB(TSDB):
         self.meta_table.counter_inc('CTR', counter_row)
         metric_parts = metric.split('.')
         metric_key = ""
+        prior_key = "ROOT"
         metric_prefix = "%s:c_" % (META_CF_NAME)
-        prefix_len = len(metric_prefix)
         for part in metric_parts:
             # if parent is empty, special case for root
             if metric_key == "":
@@ -106,7 +113,7 @@ class HbaseTSDB(TSDB):
                 continue
             parentLink = self.__get_row(prior_key,
                                         column=[metric_name])
-            if len(parentLink) == 0:
+            if not parentLink:
                 self.meta_table.put(prior_key, {metric_name:
                                                 metric_key})
 
@@ -119,7 +126,12 @@ class HbaseTSDB(TSDB):
         retention_config -- the storage retentions (time per point, number of points) for this metric
 
         """
-        reten_secs = {int(r[0] * r[1]):r for r in retention_config}
+        try:
+            reten_secs = {int(r[0] * r[1]):r for r in retention_config}
+        except TypeError:
+            reten_secs = {604800:(60,10080)}
+            retention_config = [(60, 10080)]
+
         current_points = []
         for point in points:
             (timestamp, value) = point
@@ -138,6 +150,14 @@ class HbaseTSDB(TSDB):
         self.__send()
 
     def propagate(self, metric, hours, retention_config, rollup='average'):
+        """Roll data up into lower resolution retention
+
+        Keyword arguments:
+        metric -- the name of the metric to process
+        hours -- the "window" (number of hours) that we'll be looking at.
+        retention_config -- the storage retentions (time per point, number of points) for this metric
+
+        """
         # make sure the write buffer is flushed
         self.__reset_conn()
 
@@ -147,7 +167,12 @@ class HbaseTSDB(TSDB):
         oldest_time = now - deg_time
         oldest_floor = (int(oldest_time) / 3600) * 3600
 
-        reten_secs = {int(r[0] * r[1]):r for r in retention_config}
+        try:
+            reten_secs = {int(r[0] * r[1]):r for r in retention_config}
+        except TypeError:
+            reten_secs = {604800:(60,10080)}
+            retention_config = [(60, 10080)]
+
         reten = retention_config[-1]
         for secs, ret in reten_secs.iteritems():
             if oldest_time > secs:
@@ -198,24 +223,35 @@ class HbaseTSDB(TSDB):
         self.__reset_conn()
 
     def exists(self, metric):
+        """Does a metric exist
+
+        Keyword arguments:
+        metric -- the name of the metric to process
+        """
         column_name = "%s:NODE" % META_CF_NAME
         try:
             res = self.__get_row(metric, column=[column_name])
     
             metric_exists = bool(res[column_name])
         except Exception, e:
-            return False
-        else:
-            return metric_exists
+            metric_exists = False
+        #carbon now expects a file path as well as a bool, so we'll send nothing
+        return metric_exists, ""
 
     def delete(self, metric):
+        """Delete a metric
+
+        Keyword arguments:
+        metric -- the name of the metric to process
+        """
         #Make sure write buffer is empty
         self.__reset_conn()
         #Get data on metric
-        if not self.exists(metric):
+        does_exist, _ = self.exists(metric)
+        if not does_exist:
             return
         #we'll first get a scan object of all the data table rows associated
-        scan = self.data_table.scan(row_start = "%s:" % metric)
+        scan = self.data_table.scan(row_prefix = "%s:" % metric)
         #then batch delete
         for row in scan:
             self.data_batch.delete(row[0])
@@ -229,6 +265,11 @@ class HbaseTSDB(TSDB):
         self.meta_table.counter_dec('CTR', counter_row)
 
     def build_index(self, tmp_index):
+        """
+        We need this function for compatibility, be we shouldn't actually use it.
+        The size of the index file it would create (at scale) causes *huge* memory
+        usage in the web server.
+        """
         column_name = "%s:NODE" % META_CF_NAME
         scan = self.meta_table.scan(columns=[column_name])
         t = time()
@@ -247,11 +288,15 @@ class HbaseTSDB(TSDB):
             del self.client
         except Exception, e:
             pass
-        if self.host_list < 1:
-            log.msg("Empty host list. Very bad! Very bad!")
-            exit(2)
-        self.thrift_host = choice(self.host_list)
-        log.msg("Reconnecting to %s::%s" % (self.thrift_host, self.thrift_port))
+        if not self.use_single_host:
+            if self.host_list < 1:
+                log.msg("Empty host list. Very bad! Very bad!")
+                exit(2)
+            self.thrift_host = choice(self.host_list)
+            log.msg("Reconnecting to %s::%s" % (self.thrift_host, self.thrift_port))
+        else:
+            self.thrift_host = self.single_thrift_host
+   
         self.client = happybase.Connection(
             host=self.thrift_host,
             port=self.thrift_port,
@@ -268,7 +313,7 @@ class HbaseTSDB(TSDB):
         except Exception, e:
             res = 0
         #should remove non-responsive hosts
-        if res < 1:
+        if not self.use_single_host and res < 1:
             try:
                 del self.host_list[self.host_list.index(self.thrift_host)]
             except Exception, e:
@@ -290,6 +335,11 @@ class HbaseTSDB(TSDB):
         else:
             log.msg('Cannot get connection to HBase because %s.' % e)
             exit(2)
+        try:
+            self.red_con.close()
+            self.red_con =  Redis(unix_socket_path = '/tmp/redis.sock')
+        except Exception, e:
+            pass
         self.meta_table = self.client.table(META_TABLE_SUFFIX)
         self.data_table = self.client.table(DATA_TABLE_SUFFIX)
         self.data_batch = self.data_table.batch()
@@ -313,6 +363,11 @@ class HbaseTSDB(TSDB):
                 break
         else:
             self.__reset_conn()
+        try:
+            self.red_con.close()
+            self.red_con =  Redis(unix_socket_path = '/tmp/redis.sock')
+        except Exception, e:
+            pass
 
     def __send(self):
         cur_time = time()
@@ -330,8 +385,7 @@ class HbaseTSDB(TSDB):
     def __get_cached_row(self, row):
         res = None
         try:
-            red_con = Redis(unix_socket_path = '/tmp/redis.sock')
-            res = red_con.get(row)
+            res = self.red_con.get(row)
         except Exception, e:
             pass
         else:
@@ -348,18 +402,15 @@ class HbaseTSDB(TSDB):
         else:
             val = cPickle.dump(val)
         try:
-            red_con = Redis(unix_socket_path = '/tmp/redis.sock')
-            red_con.set(row, val)
-            red_con.expire(row, self.cache_ttl)
+            self.red_con.set(row, val)
+            self.red_con.expire(row, self.cache_ttl)
         except Exception, e:
             pass
 
     def __get_row(self, row, column=None, send_batch=True):
         if time() - self.reset_time > self.reset_interval:
             self.__reset_conn(send_batch=send_batch)
-        res = None
-        if redis:
-            res = self.__get_cached_row(row)
+        res = self.__get_cached_row(row)
         if not res:
             try:
                 if column:

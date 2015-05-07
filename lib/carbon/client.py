@@ -1,13 +1,20 @@
+from collections import deque
+from time import time
+
 from twisted.application.service import Service
 from twisted.internet import reactor
 from twisted.internet.defer import Deferred, DeferredList
 from twisted.internet.protocol import ReconnectingClientFactory
 from twisted.protocols.basic import Int32StringReceiver
 from carbon.conf import settings
-from carbon.util import pack_data
-from carbon import log, state, instrumentation
-from collections import deque
-from time import time
+from carbon.util import pickle
+from carbon import instrumentation, log, pipeline, state
+
+try:
+    import signal
+except ImportError:
+    log.debug("Couldn't import signal module")
+
 
 SEND_QUEUE_LOW_WATERMARK = settings.MAX_QUEUE_SIZE * settings.QUEUE_LOW_WATERMARK_PCT
 
@@ -23,7 +30,6 @@ class CarbonClientProtocol(Int32StringReceiver):
     self.destinationName = self.factory.destinationName
     self.queuedUntilReady = 'destinations.%s.queuedUntilReady' % self.destinationName
     self.sent = 'destinations.%s.sent' % self.destinationName
-    self.relayMaxQueueLength = 'destinations.%s.relayMaxQueueLength' % self.destinationName
     self.batchesSent = 'destinations.%s.batchesSent' % self.destinationName
 
     self.slowConnectionReset = 'destinations.%s.slowConnectionReset' % self.destinationName
@@ -44,7 +50,7 @@ class CarbonClientProtocol(Int32StringReceiver):
     self.sendQueued()
 
   def stopProducing(self):
-    self.disconnect
+    self.disconnect()
 
   def disconnect(self):
     if self.connected:
@@ -54,18 +60,11 @@ class CarbonClientProtocol(Int32StringReceiver):
 
   def sendDatapoint(self, metric, datapoint):
     self.factory.enqueue(metric, datapoint)
-    #reactor.callLater(settings.TIME_TO_DEFER_SENDING, self.sendQueued)
-    if not self.factory.deferSendPending:
-      self.factory.deferSendPending = True
-      reactor.callLater(settings.TIME_TO_DEFER_SENDING, self.sendQueued)
+    reactor.callLater(settings.TIME_TO_DEFER_SENDING, self.sendQueued)
 
   def _sendDatapoints(self, datapoints):
-      data_len = len(datapoints)
-      #log.debug("Sent datapoints (%s)\nUsing protocol %s" % (datapoints, settings.INTERNAL_DATA_TYPE)
-      datapoints = pack_data(datapoints, settings.INTERNAL_DATA_TYPE,
-                             settings.USE_INSECURE_UNPICKLER)
-      self.sendString(datapoints)
-      instrumentation.increment(self.sent, data_len)
+      self.sendString(pickle.dumps(datapoints, protocol=-1))
+      instrumentation.increment(self.sent, len(datapoints))
       instrumentation.increment(self.batchesSent)
       self.factory.checkQueue()
 
@@ -93,9 +92,7 @@ class CarbonClientProtocol(Int32StringReceiver):
     """
     chained_invocation_delay = 0.0001
     queueSize = self.factory.queueSize
-    self.factory.deferSendPending = False
 
-    instrumentation.max(self.relayMaxQueueLength, queueSize)
     if self.paused:
       instrumentation.max(self.queuedUntilReady, queueSize)
       return
@@ -113,7 +110,6 @@ class CarbonClientProtocol(Int32StringReceiver):
         queueSize < SEND_QUEUE_LOW_WATERMARK):
       self.factory.queueHasSpace.callback(queueSize)
     if self.factory.hasQueuedDatapoints():
-      self.factory.deferSendPending = True
       reactor.callLater(chained_invocation_delay, self.sendQueued)
 
 
@@ -183,11 +179,12 @@ class CarbonClientFactory(ReconnectingClientFactory):
     self.connectFailed = Deferred()
     self.connectionMade = Deferred()
     self.connectionLost = Deferred()
-    self.deferSendPending = False
     # Define internal metric names
     self.attemptedRelays = 'destinations.%s.attemptedRelays' % self.destinationName
     self.fullQueueDrops = 'destinations.%s.fullQueueDrops' % self.destinationName
     self.queuedUntilConnected = 'destinations.%s.queuedUntilConnected' % self.destinationName
+    self.relayMaxQueueLength = 'destinations.%s.relayMaxQueueLength' % self.destinationName
+
   def queueFullCallback(self, result):
     state.events.cacheFull()
     log.clients('%s send queue is full (%d datapoints)' % (self, result))
@@ -228,13 +225,13 @@ class CarbonClientFactory(ReconnectingClientFactory):
     settings.MAX_DATAPOINTS_PER_MESSAGE items from the left of the
     queue.
     """
-    datapoints = []
-    for count in xrange(settings.MAX_DATAPOINTS_PER_MESSAGE):
-      try:
-        datapoints.append(self.queue.popleft())
-      except IndexError:
-        break
-    return datapoints
+    def yield_max_datapoints():
+      for count in range(settings.MAX_DATAPOINTS_PER_MESSAGE):
+        try:
+          yield self.queue.popleft()
+        except IndexError:
+          raise StopIteration
+    return list(yield_max_datapoints())
 
   def checkQueue(self):
     """Check if the queue is empty. If the queue isn't empty or
@@ -255,6 +252,7 @@ class CarbonClientFactory(ReconnectingClientFactory):
 
   def sendDatapoint(self, metric, datapoint):
     instrumentation.increment(self.attemptedRelays)
+    instrumentation.max(self.relayMaxQueueLength, self.queueSize)
     if self.queueSize >= settings.MAX_QUEUE_SIZE:
       if not self.queueFull.called:
         self.queueFull.callback(self.queueSize)
@@ -263,9 +261,7 @@ class CarbonClientFactory(ReconnectingClientFactory):
       self.enqueue(metric, datapoint)
 
     if self.connectedProtocol:
-      if not self.deferSendPending:
-        self.deferSendPending = True
-        reactor.callLater(settings.TIME_TO_DEFER_SENDING, self.connectedProtocol.sendQueued)
+      reactor.callLater(settings.TIME_TO_DEFER_SENDING, self.connectedProtocol.sendQueued)
     else:
       instrumentation.increment(self.queuedUntilConnected)
 
@@ -329,6 +325,9 @@ class CarbonClientManager(Service):
     self.client_factories = {} # { destination : CarbonClientFactory() }
 
   def startService(self):
+    if 'signal' in globals().keys():
+      log.debug("Installing SIG_IGN for SIGHUP")
+      signal.signal(signal.SIGHUP, signal.SIG_IGN)
     Service.startService(self)
     for factory in self.client_factories.values():
       if not factory.started:
@@ -386,3 +385,11 @@ class CarbonClientManager(Service):
 
   def __str__(self):
     return "<%s[%x]>" % (self.__class__.__name__, id(self))
+
+
+class RelayProcessor(pipeline.Processor):
+  plugin_name = 'relay'
+
+  def process(self, metric, datapoint):
+    state.client_manager.sendDatapoint(metric, datapoint)
+    return pipeline.Processor.NO_OUTPUT

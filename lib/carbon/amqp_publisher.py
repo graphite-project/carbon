@@ -30,9 +30,8 @@ import txamqp.spec
 
 
 @inlineCallbacks
-def writeMetric(data, host, port, username, password,
-                vhost, exchange, queue, compressed=False, batch_size=100, 
-                spec=None, channel_number=1, ssl=False):
+def writeMetric(metric_path, value, timestamp, host, port, username, password,
+                vhost, exchange, spec=None, channel_number=1, ssl=False):
 
     if not spec:
         spec = txamqp.spec.load(os.path.normpath(
@@ -55,10 +54,10 @@ def writeMetric(data, host, port, username, password,
     yield channel.exchange_declare(exchange=exchange, type="topic",
                                    durable=True, auto_delete=False)
 
-    message = Content( data )
+    message = Content( "%f %d" % (value, timestamp) )
     message["delivery mode"] = 2
 
-    channel.basic_publish(exchange=exchange, content=message, routing_key='')
+    channel.basic_publish(exchange=exchange, content=message, routing_key=metric_path)
     yield channel.channel_close()
 
 
@@ -102,7 +101,7 @@ def main():
       else:
         timestamp = time.time()
 
-    except:
+    except ValueError:
       parser.print_usage()
       raise SystemExit(1)
 

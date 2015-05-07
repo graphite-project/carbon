@@ -12,8 +12,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License."""
 
-from os import stat as os_stat
-import re
+import os, re
 import whisper
 
 from os.path import join, exists, sep
@@ -26,6 +25,11 @@ from carbon import log
 STORAGE_SCHEMAS_CONFIG = join(settings.CONF_DIR, 'storage-schemas.conf')
 STORAGE_AGGREGATION_CONFIG = join(settings.CONF_DIR, 'storage-aggregation.conf')
 STORAGE_LISTS_DIR = join(settings.CONF_DIR, 'lists')
+
+def getFilesystemPath(metric):
+  metric_path = metric.replace('.',sep).lstrip(sep) + '.wsp'
+  return join(settings.LOCAL_DATA_DIR, metric_path)
+
 
 class Schema:
   def test(self, metric):
@@ -66,9 +70,10 @@ class ListSchema(Schema):
     self.path = join(settings.WHITELISTS_DIR, listName)
 
     if exists(self.path):
-      self.mtime = os_stat(self.path).st_mtime
-      with open(self.path, 'rb') as file_handle:
-        self.members = pickle.load(file_handle)
+      self.mtime = os.stat(self.path).st_mtime
+      fh = open(self.path, 'rb')
+      self.members = pickle.load(fh)
+      fh.close()
 
     else:
       self.mtime = 0
@@ -76,12 +81,13 @@ class ListSchema(Schema):
 
   def test(self, metric):
     if exists(self.path):
-      current_mtime = os_stat(self.path).st_mtime
+      current_mtime = os.stat(self.path).st_mtime
 
       if current_mtime > self.mtime:
         self.mtime = current_mtime
-        with open(self.path, 'rb') as fh:
-          self.members = pickle.load(fh)
+        fh = open(self.path, 'rb')
+        self.members = pickle.load(fh)
+        fh.close()
 
     return metric in self.members
 
@@ -164,8 +170,8 @@ def loadAggregationSchemas():
         assert 0 <= xFilesFactor <= 1
       if aggregationMethod is not None:
         assert aggregationMethod in whisper.aggregationMethods
-    except:
-      log.msg("Invalid schemas found in %s." % section )
+    except ValueError:
+      log.msg("Invalid schemas found in %s." % section)
       continue
 
     archives = (xFilesFactor, aggregationMethod)

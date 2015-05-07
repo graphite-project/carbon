@@ -5,4 +5,6 @@ several modules.
 
 metricReceiversPaused = False
 cacheTooFull = False
+client_manager = None
 connectedMetricReceiverProtocols = set()
+pipeline_processors = []

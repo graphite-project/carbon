@@ -40,7 +40,6 @@ from twisted.internet.protocol import ReconnectingClientFactory
 from txamqp.protocol import AMQClient
 from txamqp.client import TwistedDelegate
 import txamqp.spec
-
 from time import time
 from random import randrange
 from zlib import decompress
@@ -51,9 +50,7 @@ import carbon.protocols #satisfy import order requirements
 from carbon.conf import settings
 from carbon import log, events, instrumentation, state
 
-
 HOSTNAME = gethostname().split('.')[0]
-
 
 class AMQPGraphiteProtocol(AMQClient):
     """This is the protocol instance that will receive and post metrics."""
@@ -94,15 +91,14 @@ class AMQPGraphiteProtocol(AMQClient):
 
         yield chan.basic_consume(queue=my_queue, no_ack=True,
                                  consumer_tag=self.consumer_tag)
-
     @inlineCallbacks
     def receive_loop(self):
         proc_secs = self.factory.process_seconds
         wait_secs = self.factory.wait_seconds
-
         queue = yield self.queue(self.consumer_tag)
         #process seconds
         end_time = time() + randrange(proc_secs)
+
         while True:
             if time() > end_time or state.cacheTooFull:
                 end_time = time() + randrange(wait_secs)
@@ -118,13 +114,14 @@ class AMQPGraphiteProtocol(AMQClient):
 
         if self.factory.verbose:
             log.listener("Message received: %s" % (message,))
-        metric = message.routing_key
 
+        metric = message.routing_key
+ 
         try:
             message_body = decompress(message.content.body)
         except Exception, e:
             message_body = message.content.body
-
+ 
         for line in message_body.split("\n"):
             line = line.strip()
             if not line:
@@ -166,9 +163,9 @@ class AMQPReconnectingFactory(ReconnectingClientFactory):
         self.spec = spec
         self.channel = channel
         self.exchange_name = exchange_name
+        self.verbose = verbose
         self.queue_name = queue_name
         self.exchange_type = exchange_type
-        self.verbose = verbose
         self.process_seconds = process_seconds
         self.wait_seconds = wait_seconds
 
@@ -182,7 +179,6 @@ class AMQPReconnectingFactory(ReconnectingClientFactory):
 def createAMQPListener(username, password, vhost, exchange_name, exchange_type,
                        queue_name, spec=None, channel=1, verbose=False,
                        process_seconds=10, wait_seconds=5):
-                       
     """
     Create an C{AMQPReconnectingFactory} configured with the specified options.
     """
@@ -240,6 +236,10 @@ def main():
                       help="exchange", metavar="EXCHANGE",
                       default="graphite")
 
+    parser.add_option("-v", "--verbose", dest="verbose",
+                      help="verbose",
+                      default=False, action="store_true")
+
     parser.add_option("-E", "--exchange-type", dest="exchange_type",
                       help="exchange type", metavar="EXCHANGETYPE",
                       default="topic")
@@ -247,10 +247,6 @@ def main():
     parser.add_option("-q", "--queue", dest="queue",
                       help="queue", metavar="QUEUE",
                       default="graphite")
-
-    parser.add_option("-v", "--verbose", dest="verbose",
-                      help="verbose",
-                      default=False, action="store_true")
 
     (options, args) = parser.parse_args()
 

@@ -1,4 +1,4 @@
-from time import time
+import time
 
 from twisted.internet import reactor
 from twisted.internet.protocol import DatagramProtocol
@@ -9,10 +9,6 @@ from carbon.conf import settings
 from carbon.regexlist import WhiteList, BlackList
 from carbon.util import pickle, get_unpickler
 
-try:
-    from msgpack import unpackb
-except Exception:
-    pass
 
 class MetricReceiver:
   """ Base class for all metric receiving protocols, handles flow
@@ -27,8 +23,9 @@ class MetricReceiver:
       self.pauseReceiving()
 
     state.connectedMetricReceiverProtocols.add(self)
-    events.pauseReceivingMetrics.addHandler(self.pauseReceiving)
-    events.resumeReceivingMetrics.addHandler(self.resumeReceiving)
+    if settings.USE_FLOW_CONTROL:
+      events.pauseReceivingMetrics.addHandler(self.pauseReceiving)
+      events.resumeReceivingMetrics.addHandler(self.resumeReceiving)
 
   def getPeerName(self):
     if hasattr(self.transport, 'getPeer'):
@@ -52,8 +49,9 @@ class MetricReceiver:
       log.listener("%s connection with %s lost: %s" % (self.__class__.__name__, self.peerName, reason.value))
 
     state.connectedMetricReceiverProtocols.remove(self)
-    events.pauseReceivingMetrics.removeHandler(self.pauseReceiving)
-    events.resumeReceivingMetrics.removeHandler(self.resumeReceiving)
+    if settings.USE_FLOW_CONTROL:
+      events.pauseReceivingMetrics.removeHandler(self.pauseReceiving)
+      events.resumeReceivingMetrics.removeHandler(self.resumeReceiving)
 
   def metricReceived(self, metric, datapoint):
     if BlackList and metric in BlackList:
@@ -65,7 +63,7 @@ class MetricReceiver:
     if datapoint[1] != datapoint[1]: # filter out NaN values
       return
     if int(datapoint[0]) == -1: # use current time if none given: https://github.com/graphite-project/carbon/issues/54
-      datapoint = (time(), datapoint[1])
+      datapoint = (time.time(), datapoint[1])
     
     events.metricReceived(metric, datapoint)
 
@@ -74,13 +72,13 @@ class MetricLineReceiver(MetricReceiver, LineOnlyReceiver):
   delimiter = '\n'
 
   def lineReceived(self, lines):
-    for line in lines.split(delimiter):
+    for line in lines.split(self.delimiter):
       try:
         metric, value, timestamp = line.strip().split()
-        datapoint = ( float(timestamp), float(value) )
-      except:
-        log.listener('invalid line received from client %s, ignoring' % self.peerName)
-        return
+        datapoint = (float(timestamp), float(value))
+      except ValueError:
+        log.listener('invalid line (%s) received from client %s, ignoring' % (line.strip(), self.peerName))
+        continue
 
     self.metricReceived(metric, datapoint)
 
@@ -93,8 +91,8 @@ class MetricDatagramReceiver(MetricReceiver, DatagramProtocol):
         datapoint = ( float(timestamp), float(value) )
 
         self.metricReceived(metric, datapoint)
-      except:
-        log.listener('invalid line received from %s, ignoring' % host)
+      except ValueError:
+        log.listener('invalid line (%s) received from %s, ignoring' % (line, host))
 
 
 class MetricPickleReceiver(MetricReceiver, Int32StringReceiver):
@@ -107,39 +105,18 @@ class MetricPickleReceiver(MetricReceiver, Int32StringReceiver):
   def stringReceived(self, data):
     try:
       datapoints = self.unpickler.loads(data)
-    except Exception:
-      pass
-    if not datapoints:
+    except pickle.UnpicklingError:
       log.listener('invalid pickle received from %s, ignoring' % self.peerName)
       return
 
     for (metric, datapoint) in datapoints:
       try:
         datapoint = ( float(datapoint[0]), float(datapoint[1]) ) #force proper types
-      except Exception:
+      except ValueError:
         continue
-      #log.debug("Receiving metric %s: %s" % (metric, datapoint))
+
       self.metricReceived(metric, datapoint)
 
-class MetricMsgPackReceiver(MetricReceiver, Int32StringReceiver):
-  MAX_LENGTH = 2 ** 20
-
-  def connectionMade(self):
-    MetricReceiver.connectionMade(self)
-  
-  def dataReceived(self, data):
-    try:
-      datapoints = unpackb(data)
-    except Exception:
-      log.listener('invalid msgpack data %r received from %s' % ( data, self.peerName))
-      return
-    for (metric, datapoint) in datapoints:
-      try:
-        datapoint = ( float(datapoint[0]), float(datapoint[1]) )
-      except Exception:
-        continue
-
-    self.metricReceived(metric, datapoint)
 
 class CacheManagementHandler(Int32StringReceiver):
   MAX_LENGTH = 1024 ** 3 # 1mb
@@ -157,13 +134,7 @@ class CacheManagementHandler(Int32StringReceiver):
       log.query("%s connection lost: %s" % (self.peerAddr, reason.value))
 
   def stringReceived(self, rawRequest):
-    if not rawRequest:
-      log.query('Empty query request')
-      return
     request = self.unpickler.loads(rawRequest)
-    if not request:
-      log.query('Empty query request')
-      return
     if request['type'] == 'cache-query':
       metric = request['metric']
       datapoints = MetricCache.get(metric, [])

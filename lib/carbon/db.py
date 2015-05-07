@@ -41,7 +41,7 @@ class WhisperDB(object):
     return whisper.update_many(self.__getFilesystemPath(metric), datapoints)
 
   def exists(self, metric):
-    return exists(self.__getFilesystemPath(metric))
+    return exists(self.__getFilesystemPath(metric)), self.__getFilesystemPath(metric)
 
 def NewWhisperDB():
   return WhisperDB(settings.LOCAL_DATA_DIR)

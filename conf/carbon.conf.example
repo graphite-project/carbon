@@ -75,6 +75,10 @@ MAX_CREATES_PER_MINUTE = 50
 LINE_RECEIVER_INTERFACE = 0.0.0.0
 LINE_RECEIVER_PORT = 2003
 
+# Set the TCP backlog for the listen socket created by the line receiver. You
+# shouldn't change this unless you know what you're doing.
+# LINE_RECEIVER_BACKLOG = 1024
+
 # Set this to True to enable the UDP listener. By default this is off
 # because it is very common to run multiple carbon daemons and managing
 # another (rarely used) port for every carbon instance is not fun.
@@ -88,6 +92,10 @@ UDP_RECEIVER_PORT = 2003
 PICKLE_RECEIVER_INTERFACE = 0.0.0.0
 PICKLE_RECEIVER_PORT = 2004
 
+# Set the TCP backlog for the listen socket created by the pickle receiver. You
+# shouldn't change this unless you know what you're doing.
+# PICKLE_RECEIVER_BACKLOG = 1024
+
 # Set to false to disable logging of successful connections
 LOG_LISTENER_CONNECTIONS = True
 
@@ -98,6 +106,10 @@ USE_INSECURE_UNPICKLER = False
 
 CACHE_QUERY_INTERFACE = 0.0.0.0
 CACHE_QUERY_PORT = 7002
+
+# Set the TCP backlog for the listen socket created by the cache query
+# listener. You shouldn't change this unless you know what you're doing.
+# CACHE_QUERY_BACKLOG = 1024
 
 # Set this to False to drop datapoints received after the cache
 # reaches MAX_CACHE_SIZE. If this is True (the default) then sockets

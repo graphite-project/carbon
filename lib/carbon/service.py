@@ -127,14 +127,14 @@ def createRelayService(config):
 def setupReceivers(root_service, settings):
   from carbon.protocols import MetricLineReceiver, MetricPickleReceiver, MetricDatagramReceiver
 
-  for protocol, interface, port in [
-      (MetricLineReceiver, settings.LINE_RECEIVER_INTERFACE, settings.LINE_RECEIVER_PORT),
-      (MetricPickleReceiver, settings.PICKLE_RECEIVER_INTERFACE, settings.PICKLE_RECEIVER_PORT)
+  for protocol, interface, port, backlog in [
+      (MetricLineReceiver, settings.LINE_RECEIVER_INTERFACE, settings.LINE_RECEIVER_PORT, settings.LINE_RECEIVER_BACKLOG),
+      (MetricPickleReceiver, settings.PICKLE_RECEIVER_INTERFACE, settings.PICKLE_RECEIVER_PORT, settings.PICKLE_RECEIVER_BACKLOG)
     ]:
     if port:
       factory = ServerFactory()
       factory.protocol = protocol
-      service = TCPServer(port, factory, interface=interface)
+      service = TCPServer(port, factory, interface=interface, backlog=backlog)
       service.setServiceParent(root_service)
 
   if settings.ENABLE_UDP_LISTENER:
@@ -237,7 +237,8 @@ def setupWriterProcessor(root_service, settings):
   service = TCPServer(
     settings.CACHE_QUERY_PORT,
     factory,
-    interface=settings.CACHE_QUERY_INTERFACE)
+    interface=settings.CACHE_QUERY_INTERFACE,
+    backlog=settings.CACHE_QUERY_BACKLOG)
   service.setServiceParent(root_service)
 
   writer_service = WriterService()

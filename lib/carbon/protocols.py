@@ -80,7 +80,7 @@ class MetricLineReceiver(MetricReceiver, LineOnlyReceiver):
         log.listener('invalid line (%s) received from client %s, ignoring' % (line.strip(), self.peerName))
         continue
 
-    self.metricReceived(metric, datapoint)
+      self.metricReceived(metric, datapoint)
 
 
 class MetricDatagramReceiver(MetricReceiver, DatagramProtocol):

@@ -132,19 +132,20 @@ class _MetricCache(dict):
     return sorted(datapoint_index.items(), key=by_timestamp)
 
   def store(self, metric, datapoint):
-    self.setdefault(metric, {})
-    timestamp, value = datapoint
-    if timestamp not in self[metric]:
-      # Not a duplicate, hence process if cache is not full
-      if self.is_full:
-        log.msg("MetricCache is full: self.size=%d" % self.size)
-        events.cacheFull()
-      else:
-        self.size += 1
-        self[metric][timestamp] = value
+    if self.is_full:
+      log.msg("MetricCache is full: self.size=%d" % self.size)
+      events.cacheFull()
     else:
-      # Updating a duplicate does not increase the cache size
-      self[metric][timestamp] = value
+      timestamp, value = datapoint
+      self.setdefault(metric, {})
+      incremented = True if timestamp not in self[metric] else False
+      try:
+        # Updating a duplicate does not increase the cache size
+        self[metric][timestamp] = value
+        if incremented:
+          self.size += 1
+      except KeyError:
+        pass
 
 
 # Initialize a singleton cache instance

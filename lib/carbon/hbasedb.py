@@ -112,7 +112,9 @@ class HbaseTSDB(TSDB):
             if metric_name == metric_prefix:
                 continue
             parentLink = self.__get_row(prior_key,
-                                        column=[metric_name])
+                                        column=[metric_name],
+                                        send_batch=False,
+                                        use_cache=False)
             if not parentLink:
                 self.meta_table.put(prior_key, {metric_name:
                                                 metric_key})
@@ -407,10 +409,14 @@ class HbaseTSDB(TSDB):
         except Exception, e:
             pass
 
-    def __get_row(self, row, column=None, send_batch=True):
+    def __get_row(self, row, column=None, send_batch=True, use_cache=True):
         if time() - self.reset_time > self.reset_interval:
             self.__reset_conn(send_batch=send_batch)
-        res = self.__get_cached_row(row)
+        res = None
+        if use_cache:
+            res = self.__get_cached_row(row)
+            if res and column and column[0] not in res.keys():
+                res = None
         if not res:
             try:
                 if column:

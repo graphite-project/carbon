@@ -13,6 +13,7 @@ fi;
 CARBON_DAEMON="aggregator"
 GRAPHITE_DIR="/opt/graphite"
 INSTANCES=`grep "^\[${CARBON_DAEMON}" ${GRAPHITE_DIR}/conf/carbon.conf | cut -d \[ -f 2 | cut -d \] -f 1 | cut -d : -f 2`
+[[ $(echo "$INSTANCES" | wc -l) > 1 ]] && INSTANCES=$(echo "$INSTANCES" | grep -v ${CARBON_DAEMON})
 
 function die {
   echo $1

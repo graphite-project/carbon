@@ -13,6 +13,7 @@ fi;
 CARBON_DAEMON="cache"
 GRAPHITE_DIR="/opt/graphite"
 INSTANCES=`grep "^\[${CARBON_DAEMON}" ${GRAPHITE_DIR}/conf/carbon.conf | cut -d \[ -f 2 | cut -d \] -f 1 | cut -d : -f 2`
+[[ $(echo "$INSTANCES" | wc -l) > 1 ]] && INSTANCES=$(echo "$INSTANCES" | grep -v ${CARBON_DAEMON})
 
 function die {
   echo $1
@@ -47,6 +48,29 @@ stop(){
         fi;
         echo "Stopping carbon-${CARBON_DAEMON}:${INSTANCE}..."
         bin/carbon-${CARBON_DAEMON}.py --instance=${INSTANCE} stop
+
+        # delay stop to let cache to be flushed on slow storage
+        queue_flush_wait_time=3600
+        time_spent=0
+        echo -n "Flushing datas to disk (for at least ${queue_flush_wait_time} sec) : "
+        while [[ $queue_flush_wait_time -gt 0 ]]; do
+            sleep 1
+            queue_flush_wait_time=$(( $queue_flush_wait_time - 1 ))
+            time_spent=$(( $time_spent + 1 ))
+            if [ $(( $time_spent % 60 )) -eq 0 ]; then
+                echo -n $(( $time_spent / 60 ))
+            else
+                echo -n "."
+            fi
+            if [ $(/usr/bin/pgrep -f "carbon-${CARBON_DAEMON}.py --instance=${INSTANCE}" | /usr/bin/wc -l) -eq 0 ]; then
+                break
+            fi
+        done
+        if [ $(/usr/bin/pgrep -f "carbon-${CARBON_DAEMON}.py --instance=${INSTANCE}" | /usr/bin/wc -l) -eq 0 ]; then
+            echo " flushed in ${time_spent} sec"
+        else
+            echo
+        fi
 
         if [ `sleep 3; /usr/bin/pgrep -f "carbon-${CARBON_DAEMON}.py --instance=${INSTANCE}" | /usr/bin/wc -l` -gt 0 ]; then
             echo "Carbon did not stop yet. Sleeping longer, then force killing it...";

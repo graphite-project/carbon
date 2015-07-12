@@ -110,8 +110,8 @@ class CarbonClientFactory(ReconnectingClientFactory):
     self.relayMaxQueueLength = 'destinations.%s.relayMaxQueueLength' % self.destinationName
 
   def queueFullCallback(self, result):
-    state.events.cacheFull()
     log.clients('%s send queue is full (%d datapoints)' % (self, result))
+    state.events.cacheFull()
 
   def queueSpaceCallback(self, result):
     if self.queueFull.called:

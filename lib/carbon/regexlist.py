@@ -6,13 +6,26 @@ from twisted.internet.task import LoopingCall
 
 
 class RegexList:
-  """ Maintain a list of regex for matching whitelist and blacklist """
+  """ Maintain a list of regex for matching flushlist, whitelist and blacklist """
 
   def __init__(self):
     self.regex_list = []
     self.list_file = None
     self.read_task = LoopingCall(self.read_list)
     self.rules_last_read = 0.0
+
+  def load_from(self, list):
+    new_regex_list = []
+    for line in list:
+      pattern = line.strip()
+      if line.startswith('#') or not pattern:
+        continue
+      try:
+        new_regex_list.append(re.compile(pattern))
+      except re.error:
+        log.err("Failed to parse '%s' in '%s'. Ignoring line" % (pattern, self.list_file))
+
+    self.regex_list = new_regex_list
 
   def read_from(self, list_file):
     self.list_file = list_file
@@ -60,3 +73,4 @@ class RegexList:
 
 WhiteList = RegexList()
 BlackList = RegexList()
+FlushList = RegexList()

@@ -1,0 +1,7 @@
+# This file takes a single regular expression per line
+# If CACHE_WRITE_STRATEGY is set to 'tuned' in carbon.conf, any metrics in cache memory which
+# match one of these expressions will be flushed into whisper database at regular interval
+# This file is reloaded automatically when changes are made
+#
+#^carbon\..*
+

@@ -23,6 +23,9 @@ lastUsageTime = time.time()
 #metric_prefix = "Graphite.backend.%(program)s.%(instance)s." % settings
 
 
+def set(stat, val):
+  stats[stat] = val
+
 def increment(stat, increase=1):
   try:
     stats[stat] += increase
@@ -112,6 +115,10 @@ def recordMetrics():
     record('cache.queries', cacheQueries)
     record('cache.bulk_queries', cacheBulkQueries)
     record('cache.overflow', cacheOverflow)
+    record('persist.queues', myStats.get('persist.queues', 0))
+    record('persist.size', myStats.get('persist.size', 0))
+    record('persist.fileSize', myStats.get('persist.fileSize', 0))
+    record('persist.fileGeneration', myStats.get('persist.fileGeneration', 0))
 
   # aggregator metrics
   elif settings.program == 'carbon-aggregator':

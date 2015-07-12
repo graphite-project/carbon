@@ -148,6 +148,13 @@ LOG_CACHE_QUEUE_SORTS = True
 #
 CACHE_WRITE_STRATEGY = sorted
 
+# Define the interval (in seconds) between each launch of cache persistance procedure.
+# Persistent cache is stored in a file (cache.persist) in the log directory of each carbon-cache instance
+# and is loaded at startup if file exists. This file is also created during process shutdown.
+# This file allow to not loose metrics if cache daemon is shutdown that are not yet flushed in whisper db
+# Set to 0 to disable (persistent file still be created at process shutdown)
+CACHE_PERSIST_INTERVAL = 1800
+
 # On some systems it is desirable for whisper to write synchronously.
 # Set this option to True if you'd like to try this. Basically it will
 # shift the onus of buffering writes from the kernel into carbon's cache.

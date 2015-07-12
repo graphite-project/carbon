@@ -4,6 +4,7 @@ from twisted.internet.protocol import DatagramProtocol
 from twisted.internet.error import ConnectionDone
 from twisted.protocols.basic import LineOnlyReceiver, Int32StringReceiver
 from carbon import log, events, state, management
+from carbon.cache import MetricCache
 from carbon.conf import settings
 from carbon.regexlist import WhiteList, BlackList
 from carbon.util import pickle, get_unpickler
@@ -161,6 +162,10 @@ class CacheManagementHandler(Int32StringReceiver):
 
     elif request['type'] == 'set-metadata':
       result = management.setMetadata(request['metric'], request['key'], request['value'])
+
+    elif request['type'] == 'persist-cache':
+      MetricCache.savePersistMetricCache()
+      result = dict(status="started")
 
     else:
       result = dict(error="Invalid request type \"%s\"" % request['type'])

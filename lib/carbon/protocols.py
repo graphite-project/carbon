@@ -167,6 +167,14 @@ class CacheManagementHandler(Int32StringReceiver):
       MetricCache.savePersistMetricCache()
       result = dict(status="started")
 
+    elif request['type'] == 'flush-cache':
+      MetricCache.start_flush(request.get('metric', None))
+      result = dict(status="started")
+
+    elif request['type'] == 'stop-flush-cache':
+      MetricCache.stop_flush(True)
+      result = dict(status="stopped")
+
     else:
       result = dict(error="Invalid request type \"%s\"" % request['type'])
 

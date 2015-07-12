@@ -74,3 +74,4 @@ class RegexList:
 WhiteList = RegexList()
 BlackList = RegexList()
 FlushList = RegexList()
+ForceFlushList = RegexList()

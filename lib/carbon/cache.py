@@ -17,7 +17,7 @@ import re
 import random
 from collections import deque
 from carbon.conf import settings
-from carbon.regexlist import FlushList
+from carbon.regexlist import FlushList, ForceFlushList
 try:
     from collections import defaultdict
 except ImportError:
@@ -34,6 +34,7 @@ class _MetricCache(defaultdict):
       self.queue = self.gen_queue_tuned()
     else:
       self.queue = False
+    self.flushqueue = False
     super(_MetricCache, self).__init__(defaultfactory)
 
   def gen_queue(self):
@@ -194,9 +195,42 @@ class _MetricCache(defaultdict):
       if settings.LOG_CACHE_QUEUE_SORTS:
         log.msg("[tuned##] written %d queues/%d metrics in %.2f second (%.2f queues/sec %.2f metrics/sec) (global)" % (g_count, g_size, time.time() - start, g_count / (time.time() - start), g_size / (time.time() - start)))
 
+  def gen_queue_flush(self):
+    self.flushqueue_start = time.time()
+    self.flushqueue_count = 0
+    queue = self.items()
+    if ForceFlushList is not None and len(queue) != 0:
+      for metric in queue:
+        if metric[0] in ForceFlushList:
+          self.flushqueue_count += 1
+          log.msg("flushing %s" %  metric[0])
+          yield metric[0]
+
   def shutdown(self):
     # change to simple dequeuing system. generator will not be used any more
     self.method = "naive"
+
+  def start_flush(self, metric = None):
+    if self.method == "flush":
+      return
+    if metric == None:
+      log.msg("[flush] no flush")
+      return
+    metrics_list = [metric]
+    self.save_method = self.method
+    ForceFlushList.load_from(metrics_list)
+    self.flushqueue = self.gen_queue_flush()
+    self.method = "flush"
+    log.msg("[flush] starting flushing %s" % metrics_list)
+
+  def stop_flush(self, abort=False):
+    if self.method != "flush":
+      return
+    self.flushqueue = False
+    self.method = self.save_method
+    if abort == True:
+      log.msg("[flush] abort flush detected")
+    log.msg("[flush] flushed %d queues in %.2f seconds" % (self.flushqueue_count, time.time() - self.flushqueue_start))
 
   def store(self, metric, datapoint):
     self.size += 1
@@ -218,8 +252,16 @@ class _MetricCache(defaultdict):
       datapoints = (metric, super(_MetricCache, self).pop(metric))
     elif not metric and self.method == "naive":
       datapoints = self.popitem()
-    elif not metric and self.method == "sorted" or self.method == "tuned":
-      metric = self.queue.next()
+    elif not metric and self.method == "sorted" or self.method == "tuned" or self.method == "flush":
+      if self.method == "flush":
+        try:
+          metric = self.flushqueue.next()
+        except StopIteration, e:
+          # no more metrics to flush. Restore context and return first metric found
+          self.stop_flush()
+          metric = self.items()[0][0]
+      else:
+        metric = self.queue.next()
 
       # async flushing events could cause errors (if metric already popped)
       try:

@@ -48,6 +48,7 @@ class _MetricCache(defaultdict):
 
   def gen_queue_tuned(self):
 
+    from carbon import instrumentation
     while True:
 
       start = time.time()
@@ -124,6 +125,11 @@ class _MetricCache(defaultdict):
           yield metric[0]
         if settings.LOG_CACHE_QUEUE_SORTS:
           log.msg("[tuned#1] written %d queues/%d metrics in %.2f seconds (%.2f queues/sec %.2f metrics/sec) (more numerous metrics/queue : %d -> %d)" % (count, size, time.time() - t, count / (time.time() - t), size / (time.time() - t), len1, len2))
+        instrumentation.set('tuned.largest.len1', len1, True)
+        instrumentation.set('tuned.largest.len2', len2, True)
+        instrumentation.set('tuned.largest.rate', size / (time.time() - t), True)
+        instrumentation.set('tuned.largest.count', count, True)
+        instrumentation.set('tuned.largest.size', size, True)
         g_size += size
         g_count += count
 
@@ -146,6 +152,9 @@ class _MetricCache(defaultdict):
           yield metric[0]
         if settings.LOG_CACHE_QUEUE_SORTS:
           log.msg("[tuned#2] written %d queues/%d metrics in %.2f seconds (%.2f queues/sec %.2f metrics/sec) (random)" % (count, size, time.time() - t, count / (time.time() - t), size / (time.time() - t)))
+        instrumentation.set('tuned.random.rate', size / (time.time() - t), True)
+        instrumentation.set('tuned.random.count', count, True)
+        instrumentation.set('tuned.random.size', size, True)
         g_size += size
         g_count += count
 
@@ -173,6 +182,11 @@ class _MetricCache(defaultdict):
           yield metric[0]
         if settings.LOG_CACHE_QUEUE_SORTS:
           log.msg("[tuned#3] written %d queues/%d metrics in %.2f seconds (%.2f queues/sec %.2f metrics/sec) (oldest : %d sec -> %d sec late)" % (count, size, time.time() - t, count / (time.time() - t), size / (time.time() - t), int(ts1), int(ts2)))
+        instrumentation.set('tuned.oldest.late1', int(ts1), True)
+        instrumentation.set('tuned.oldest.late2', int(ts2), True)
+        instrumentation.set('tuned.oldest.rate', size / (time.time() - t), True)
+        instrumentation.set('tuned.oldest.count', count, True)
+        instrumentation.set('tuned.oldest.size', size, True)
         g_size += size
         g_count += count
 
@@ -189,11 +203,17 @@ class _MetricCache(defaultdict):
         if count != 0:
           if settings.LOG_CACHE_QUEUE_SORTS:
             log.msg("[tuned#4] written %d queues/%d metrics in %.2f seconds (%.2f queues/sec %.2f metrics/sec) (flushlist)" % (count, size, time.time() - t, count / (time.time() - t), size / (time.time() - t)))
+          instrumentation.set('tuned.flush.rate', size / (time.time() - t), True)
+          instrumentation.set('tuned.flush.count', count, True)
+          instrumentation.set('tuned.flush.size', size, True)
         g_size += size
         g_count += count
 
       if settings.LOG_CACHE_QUEUE_SORTS:
         log.msg("[tuned##] written %d queues/%d metrics in %.2f second (%.2f queues/sec %.2f metrics/sec) (global)" % (g_count, g_size, time.time() - start, g_count / (time.time() - start), g_size / (time.time() - start)))
+      instrumentation.set('tuned.global.rate', g_size / (time.time() - start), True)
+      instrumentation.set('tuned.global.count', g_count, True)
+      instrumentation.set('tuned.global.size', g_size, True)
 
   def gen_queue_flush(self):
     self.flushqueue_start = time.time()

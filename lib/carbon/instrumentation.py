@@ -9,6 +9,7 @@ from carbon.conf import settings
 
 
 stats = {}
+statsPersist = {}
 HOSTNAME = socket.gethostname().replace('.','_')
 PAGESIZE = os.sysconf('SC_PAGESIZE')
 rusage = getrusage(RUSAGE_SELF)
@@ -23,8 +24,11 @@ lastUsageTime = time.time()
 #metric_prefix = "Graphite.backend.%(program)s.%(instance)s." % settings
 
 
-def set(stat, val):
-  stats[stat] = val
+def set(stat, val, persist=False):
+  if persist == False:
+    stats[stat] = val
+  else:
+    statsPersist[stat] = val
 
 def increment(stat, increase=1):
   try:
@@ -119,6 +123,27 @@ def recordMetrics():
     record('persist.size', myStats.get('persist.size', 0))
     record('persist.fileSize', myStats.get('persist.fileSize', 0))
     record('persist.fileGeneration', myStats.get('persist.fileGeneration', 0))
+    if settings.CACHE_WRITE_STRATEGY == "tuned":
+      record('tuned.largest.len1',  statsPersist.get('tuned.largest.len1',  0))
+      record('tuned.largest.len2',  statsPersist.get('tuned.largest.len2',  0))
+      record('tuned.largest.rate',  statsPersist.get('tuned.largest.rate',  0))
+      record('tuned.largest.count', statsPersist.get('tuned.largest.count', 0))
+      record('tuned.largest.size',  statsPersist.get('tuned.largest.size',  0))
+      record('tuned.random.rate',   statsPersist.get('tuned.random.rate',   0))
+      record('tuned.random.count',  statsPersist.get('tuned.random.count',  0))
+      record('tuned.random.size',   statsPersist.get('tuned.random.size',   0))
+      record('tuned.oldest.late1',  statsPersist.get('tuned.oldest.late1',  0))
+      record('tuned.oldest.late2',  statsPersist.get('tuned.oldest.late2',  0))
+      record('tuned.oldest.rate',   statsPersist.get('tuned.oldest.rate',   0))
+      record('tuned.oldest.count',  statsPersist.get('tuned.oldest.count',  0))
+      record('tuned.oldest.size',   statsPersist.get('tuned.oldest.size',   0))
+      record('tuned.flush.rate',    statsPersist.get('tuned.flush.rate',    0))
+      record('tuned.flush.count',   statsPersist.get('tuned.flush.count',   0))
+      record('tuned.flush.size',    statsPersist.get('tuned.flush.size',    0))
+      record('tuned.global.rate',   statsPersist.get('tuned.global.rate',   0))
+      record('tuned.global.count',  statsPersist.get('tuned.global.count',  0))
+      record('tuned.global.size',   statsPersist.get('tuned.global.size',   0))
+
 
   # aggregator metrics
   elif settings.program == 'carbon-aggregator':

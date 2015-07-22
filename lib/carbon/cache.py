@@ -220,15 +220,44 @@ class _MetricCache(defaultdict):
     self.flushqueue_count = 0
     queue = self.items()
     if ForceFlushList is not None and len(queue) != 0:
+      count = 0
+      for metric in queue:
+        if metric[0] in ForceFlushList:
+          count += 1
+      log.msg("[flush] flushing %d queues..." % count)
       for metric in queue:
         if metric[0] in ForceFlushList:
           self.flushqueue_count += 1
-          log.msg("flushing %s" %  metric[0])
           yield metric[0]
 
   def shutdown(self):
     # change to simple dequeuing system. generator will not be used any more
     self.method = "naive"
+
+  # change settings online via carbonlink
+  def set_param(self, key, value):
+    if key == "CACHE_WRITE_STRATEGY":
+      if value not in ('sorted', 'max', 'naive', 'tuned'):
+        return dict(error="bad strategy name")
+
+      # do not update method if memtory-to-disk flushing is in progress
+      if self.method == "flush":
+        attr = "save_method"
+      else:
+        attr = "method"
+      setattr(self, attr, value)
+
+      if value == "sorted":
+        self.queue = self.gen_queue()
+      elif value == "tuned":
+        self.queue = self.gen_queue_tuned()
+      else:
+        self.queue = False
+
+    else:
+      return dict(error="bad param")
+
+    return dict(status="ok")
 
   def start_flush(self, metric = None):
     if self.method == "flush":

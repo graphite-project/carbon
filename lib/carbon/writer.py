@@ -55,6 +55,20 @@ if settings.MAX_UPDATES_PER_SECOND != float('inf'):
   UPDATE_BUCKET = TokenBucket(capacity, fill_rate)
 
 
+def set_param_writer(key, value):
+  if key == "MAX_UPDATES_PER_SECOND":
+    try:
+      val = int(value) 
+      if UPDATE_BUCKET:
+        UPDATE_BUCKET.setCapacityAndFillRate(val, val)
+    except:
+      return dict(error="bad value")
+
+  else:
+    return dict(error="bad param")
+
+  return dict(status="ok")
+
 def optimalWriteOrder():
   """Generates metrics with the most cached values first and applies a soft
   rate limit on new metrics"""

@@ -65,7 +65,9 @@ def run_twistd_plugin(filename):
     if options.debug or options.nodaemon:
         twistd_options.extend(["--nodaemon"])
     if options.profile:
-        twistd_options.append("--profile")
+        twistd_options.extend(["--profile", options.profile])
+    if options.profiler:
+        twistd_options.extend(["--profiler", options.profiler])
     if options.pidfile:
         twistd_options.extend(["--pidfile", options.pidfile])
     if options.umask:
@@ -79,7 +81,7 @@ def run_twistd_plugin(filename):
 
     for option_name, option_value in vars(options).items():
         if (option_value is not None and
-            option_name not in ("debug", "profile", "pidfile", "umask", "nodaemon")):
+            option_name not in ("debug", "profile", "profiler", "pidfile", "umask", "nodaemon")):
             twistd_options.extend(["--%s" % option_name.replace("_", "-"),
                                    option_value])
 

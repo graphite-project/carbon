@@ -48,14 +48,14 @@ class MetricCacheTest(TestCase):
       with patch('carbon.cache.events'):
         metric_cache = _MetricCache()
         metric_cache.store('foo', (123456, 1.0))
-        is_full_mock.assert_called_once()
+        self.assertEqual(1, is_full_mock.call_count)
 
   def test_store_on_full_triggers_events(self):
     is_full_mock = PropertyMock(return_value=True)
     with patch.object(_MetricCache, 'is_full', is_full_mock):
       with patch('carbon.cache.events') as events_mock:
         self.metric_cache.store('foo', (123456, 1.0))
-        events_mock.return_value.cacheFull.assert_called_once()
+        events_mock.cacheFull.assert_called_with()
 
   def test_pop_multiple_datapoints(self):
     self.metric_cache.store('foo', (123456, 1.0))
@@ -74,7 +74,7 @@ class MetricCacheTest(TestCase):
     with patch.object(self.metric_cache, '_check_available_space') as check_space_mock:
       self.metric_cache.store('foo', (123456, 1.0))
       self.metric_cache.pop('foo')
-      check_space_mock.assert_called_once()
+      self.assertEqual(1, check_space_mock.call_count)
 
   def test_pop_returns_sorted_timestamps(self):
     self.metric_cache.store('foo', (123457, 2.0))

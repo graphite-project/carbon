@@ -32,7 +32,7 @@
 
 # Enable daily log rotation. If disabled, a new file will be opened whenever the log file path no
 # longer exists (i.e. it is removed or renamed)
-ENABLE_LOGROTATION = True
+ENABLE_LOGROTATE = True
 
 # Specify the user to drop privileges to
 # If this is blank carbon runs as the user that invokes it

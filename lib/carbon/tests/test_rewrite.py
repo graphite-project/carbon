@@ -85,7 +85,7 @@ class TestRewriteRuleManager(TestCase):
     with patch.object(RewriteRuleManager, 'read_rules'):
       with patch.object(RewriteRuleManager.read_task, 'start') as task_start_mock:
         RewriteRuleManager.read_from('foo.conf')
-        task_start_mock.assert_called_once()
+        self.assertEqual(1, task_start_mock.call_count)
 
   def test_read_records_mtime(self):
     import carbon.rewrite

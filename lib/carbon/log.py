@@ -13,7 +13,7 @@ class CarbonLogFile(DailyLogFile):
     DailyLogFile.__init__(self, *args, **kwargs)
     # avoid circular dependencies
     from carbon.conf import settings
-    self.enableRotation = settings.ENABLE_LOGROTATE
+    self.enableRotation = settings.ENABLE_LOGROTATION
 
   def shouldRotate(self):
     if self.enableRotation:

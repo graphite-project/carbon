@@ -52,7 +52,7 @@ class MetricBuffer:
       else:
         ## rather drop the datapoint than overwrite the entry in the storage?
         log.aggregator("WARNING: dropped datapoint on %(path)s, out of sequence for %(interval)d seconds. Consider increasing MAX_AGGREGATION_INTERVALS=%(mai)d  " \
-           % ('path',self.metric_path, 'interval', self.most_recent_interval - interval, 'mai', settings['MAX_AGGREGATION_INTERVALS']) )
+           % ('path',self.metric_path, 'interval', self.most_recent_interval - interval, 'mai', settings['MAX_AGGREGATION_INTERVALS']))
 
 
   def configure_aggregation(self, frequency, func):
@@ -67,8 +67,8 @@ class MetricBuffer:
     
     interval_threshold = self.most_recent_interval - (settings['MAX_AGGREGATION_INTERVALS'] * self.aggregation_frequency) 
     age_threshold = 0 
-    if ( settings['MAX_AGGREGATION_AGE'] > 0 ):
-      age_threshold = time.time() - self.aggregation_frequency * max( settings['MAX_AGGREGATION_AGE'], settings['MAX_AGGREGATION_INTERVALS'] )
+    if (settings['MAX_AGGREGATION_AGE'] > 0):
+      age_threshold = time.time() - self.aggregation_frequency * max(settings['MAX_AGGREGATION_AGE'], settings['MAX_AGGREGATION_INTERVALS'])
  
     for buffer in self.interval_buffers.values():
       if buffer.active:
@@ -78,7 +78,7 @@ class MetricBuffer:
         state.instrumentation.increment('aggregateDatapointsSent')
         buffer.mark_inactive()
 
-      if buffer.interval < interval_threshold or buffer.updated < age_threshold :
+      if buffer.interval < interval_threshold or buffer.updated < age_threshold:
         del self.interval_buffers[buffer.interval]
         if not self.interval_buffers:
           self.close()
@@ -95,7 +95,7 @@ class MetricBuffer:
 
 
 class IntervalBuffer:
-  __slots__ = ('interval', 'values', 'active','updated')
+  __slots__ = ('interval', 'values', 'active', 'updated')
 
   def __init__(self, interval):
     self.interval = interval
@@ -104,7 +104,7 @@ class IntervalBuffer:
     self.updated = time.time()
 
   def input(self, datapoint):
-    self.values.append( datapoint[1] )
+    self.values.append(datapoint[1])
     self.active = True
     self.updated = time.time()
 

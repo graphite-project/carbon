@@ -76,7 +76,8 @@ class CarbonClientProtocol(Int32StringReceiver):
       queueSize = self.factory.queueSize
       if (self.factory.queueFull.called and
           queueSize < SEND_QUEUE_LOW_WATERMARK):
-        self.factory.queueHasSpace.callback(queueSize)
+        if not self.factory.queueHasSpace.called:
+          self.factory.queueHasSpace.callback(queueSize)
 
   def __str__(self):
     return 'CarbonClientProtocol(%s:%d:%s)' % (self.factory.destination)

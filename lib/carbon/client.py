@@ -108,7 +108,8 @@ class CarbonClientProtocol(Int32StringReceiver):
     self._sendDatapoints(self.factory.takeSomeFromQueue())
     if (self.factory.queueFull.called and
         queueSize < SEND_QUEUE_LOW_WATERMARK):
-      self.factory.queueHasSpace.callback(queueSize)
+      if not self.factory.queueHasSpace.called:
+        self.factory.queueHasSpace.callback(queueSize)
     if self.factory.hasQueuedDatapoints():
       reactor.callLater(chained_invocation_delay, self.sendQueued)
 

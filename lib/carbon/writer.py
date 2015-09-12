@@ -96,11 +96,8 @@ def optimalWriteOrder():
 def writeCachedDataPoints():
   "Write datapoints until the MetricCache is completely empty"
 
-  updates = 0
-  lastSecond = 0
-  
   global flush
- 
+
   while MetricCache:
     dataWritten = False
 

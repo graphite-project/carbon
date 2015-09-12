@@ -436,6 +436,9 @@ def get_default_parser(usage="%prog [options] <start|stop|status>"):
         "--profile",
         help="Record performance profile data to the given file")
     parser.add_option(
+        "--profiler",
+        help="Specify the profiler to use")
+    parser.add_option(
         "--pidfile", default=None,
         help="Write pid to the given file")
     parser.add_option(

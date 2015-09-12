@@ -78,7 +78,7 @@ class MetricBuffer:
         state.instrumentation.increment('aggregateDatapointsSent')
         buffer.mark_inactive()
 
-      if buffer.interval < interval_threshold or buffer.updated < age_treshold :
+      if buffer.interval < interval_threshold or buffer.updated < age_threshold :
         del self.interval_buffers[buffer.interval]
         if not self.interval_buffers:
           self.close()

@@ -399,10 +399,23 @@ USE_FLOW_CONTROL = True
 # You shouldn't need to tune this unless you really know what you're doing.
 MAX_DATAPOINTS_PER_MESSAGE = 500
 
-# This defines how many datapoints the aggregator remembers for
-# each metric. Aggregation only happens for datapoints that fall in
-# the past MAX_AGGREGATION_INTERVALS * intervalSize seconds.
+# This defines how many aggregated datapoints the aggregator remembers for
+# each metric, in addition to aggregated datapoint for the most recent timestamp received.
+# An incoming datapoint will be aggregated if its timestamp is not older than 
+#   MAX_AGGREGATION_INTERVALS * intervalSize seconds
+# relative to most recent timestamp of the previous datapoints.
+# Increase this value if datapoints can arrive out-of-order with respect to their timestamp.
+# If datapoints always arrive strictly in order of their timestamp, this could be 0. 
 MAX_AGGREGATION_INTERVALS = 5
+
+# This defines how long aggregated data points are kept in memory when no new data is arriving. 
+# When zero or negative, the caches for aggregated datapoints are never removed because of age.
+# When positive, an aggregated datapoint for which no new data arrived during MAX_AGGREGATION_AGE * intervalSize seconds,
+# is removed from memory.
+# Increase this value (or leave 0) if a stream of datapoints can be stalled for a long period (e.g. in an intermediate queue).
+# Set this to a non-zero interval count if the collection of metrics is not stable: the memory for old, non-used metrics 
+# will be released.
+MAX_AGGREGATION_AGE = 0
 
 # By default (WRITE_BACK_FREQUENCY = 0), carbon-aggregator will write back
 # aggregated data points once every rule.frequency seconds, on a per-rule basis.

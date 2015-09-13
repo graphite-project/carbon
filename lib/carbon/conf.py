@@ -24,6 +24,7 @@ from ConfigParser import ConfigParser
 import whisper
 from carbon import log
 from carbon.exceptions import CarbonConfigException
+from carbon.hashing import KeyHashing
 
 from twisted.python import usage
 
@@ -585,4 +586,16 @@ def read_config(program, options, **kwargs):
             join(settings["PID_DIR"], '%s.pid' % program))
         settings["LOG_DIR"] = (options["logdir"] or settings["LOG_DIR"])
 
+
+    # Create KeyHashing objects for LINE_RECEIVER_KEY_TYPE and UDP_RECEIVER_KEY_TYPE
+    try:
+     settings["LINE_RECEIVER_KEY_TYPE"] = KeyHashing(settings["LINE_RECEIVER_KEY_TYPE"]) 
+    except KeyError:
+     settings["LINE_RECEIVER_KEY_TYPE"] = KeyHashing(None)
+
+    try:
+     settings["UDP_RECEIVER_KEY_TYPE"] = KeyHashing(settings["UDP_RECEIVER_KEY_TYPE"]) 
+    except KeyError:
+     settings["UDP_RECEIVER_KEY_TYPE"] = KeyHashing(None)
+     
     return settings

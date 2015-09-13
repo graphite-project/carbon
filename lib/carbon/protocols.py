@@ -1,4 +1,5 @@
 import time
+import hashlib
 
 from twisted.internet import reactor
 from twisted.internet.protocol import DatagramProtocol
@@ -70,13 +71,37 @@ class MetricReceiver(TimeoutMixin):
     events.metricReceived(metric, datapoint)
     self.resetTimeout()
 
+  def checkLineKey(self, keyname, peername, line):
+   key = settings.get(keyname, None)
+   keytype = settings.get((keyname + '_TYPE'), None)
+   if key is not None:
+    try:
+     linekey, linemetric, linevalue, linetimestamp = line.strip().split()
+    except ValueError:
+      log.listener('invalid key in line received from client %s, ignoring' % peername)
+      raise
+    hashed = keytype(key, linetimestamp)
+    if linemetric and linevalue and linetimestamp and hashed == linekey:
+     return linemetric, linevalue, linetimestamp
+    else:
+     log.listener('incorrect key or data in line received from client %s, ignoring' % peername)
+     raise ValueError
+   else:
+    try:
+     linemetric, linevalue, linetimestamp = line.strip().split()
+     if linemetric and linevalue and linetimestamp:
+      return linemetric, linevalue, linetimestamp
+     else:
+      log.listener('invalid line received from client %s, ignoring' % peername)
+      raise ValueError
+    except ValueError:
+     log.listener('invalid line received from client %s, ignoring' % peername)
+
 
 class MetricLineReceiver(MetricReceiver, LineOnlyReceiver):
-  delimiter = '\n'
-
   def lineReceived(self, line):
     try:
-      metric, value, timestamp = line.strip().split()
+      metric, value, timestamp = self.checkLineKey('LINE_RECEIVER_KEY', self.peerName, line)
       datapoint = (float(timestamp), float(value))
     except ValueError:
       if len(line) > 400:
@@ -91,9 +116,8 @@ class MetricDatagramReceiver(MetricReceiver, DatagramProtocol):
   def datagramReceived(self, data, (host, port)):
     for line in data.splitlines():
       try:
-        metric, value, timestamp = line.strip().split()
-        datapoint = ( float(timestamp), float(value) )
-
+        metric, value, timestamp = self.checkLineKey('UDP_RECEIVER_KEY', 'udp', line)
+        datapoint = (float(timestamp), float(value))
         self.metricReceived(metric, datapoint)
       except ValueError:
         if len(line) > 400:

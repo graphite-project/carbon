@@ -56,24 +56,25 @@ class ConsistentHashRing:
 
 class KeyHashing:
   def __init__(self, hashtype):
-   if hashtype is not None:
-    try:
-     hashfunc = getattr(hashlib, hashtype, None)  
-     if hashfunc is not None:
+    if hashtype is not None:
       try:
-       if hasattr(hashfunc('test'), 'hexdigest'):
-        self.do_hash = lambda input1, input2: hashfunc(input1+input2).hexdigest()
-       else:
-        raise CarbonConfigException("Requested hashing type of %s is invalid or can not be used" % hashtype)
+        hashfunc = getattr(hashlib, hashtype, None)  
+        if hashfunc is not None:
+          try:
+            if hasattr(hashfunc('test'), 'hexdigest'):
+              self.do_hash = lambda input1, input2: hashfunc(input1+input2).hexdigest()
+            else:
+              raise CarbonConfigException("Requested hashing type of %s is invalid or can not be used" % hashtype)
+          except (AttributeError, NameError, ValueError):
+            raise CarbonConfigException("Requested hashing type of %s is invalid or can not be used" % hashtype)
+        else:
+          raise CarbonConfigException("Requested hashing type of %s is invalid or can not be used" % hashtype)
       except (AttributeError, NameError, ValueError):
-       raise CarbonConfigException("Requested hashing type of %s is invalid or can not be used" % hashtype)
-     else:
-      raise CarbonConfigException("Requested hashing type of %s is invalid or can not be used" % hashtype)
-    except (AttributeError, NameError, ValueError):
-     raise CarbonConfigException("Requested hashing type of %s is invalid or can not be used" % hashtype)
+        raise CarbonConfigException("Requested hashing type of %s is invalid or can not be used" % hashtype)
+
   def __call__(self, input1, input2):
     if hasattr(self, 'do_hash'):
-     return self.do_hash(input1, input2)
+      return self.do_hash(input1, input2)
     else:
-     return input1
+      return input1
 

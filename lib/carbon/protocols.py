@@ -72,30 +72,30 @@ class MetricReceiver(TimeoutMixin):
     self.resetTimeout()
 
   def checkLineKey(self, keyname, peername, line):
-   key = settings.get(keyname, None)
-   keytype = settings.get((keyname + '_TYPE'), None)
-   if key is not None:
-    try:
-     linekey, linemetric, linevalue, linetimestamp = line.strip().split()
-    except ValueError:
-      log.listener('invalid key in line received from client %s, ignoring' % peername)
-      raise
-    hashed = keytype(key, linetimestamp)
-    if linemetric and linevalue and linetimestamp and hashed == linekey:
-     return linemetric, linevalue, linetimestamp
+    key = settings.get(keyname, None)
+    keytype = settings.get((keyname + '_TYPE'), None)
+    if key is not None:
+      try:
+        linekey, linemetric, linevalue, linetimestamp = line.strip().split()
+      except ValueError:
+        log.listener('invalid key in line received from client %s, ignoring' % peername)
+        raise
+      hashed = keytype(key, linetimestamp)
+      if linemetric and linevalue and linetimestamp and hashed == linekey:
+        return linemetric, linevalue, linetimestamp
+      else:
+        log.listener('incorrect key or data in line received from client %s, ignoring' % peername)
+        raise ValueError
     else:
-     log.listener('incorrect key or data in line received from client %s, ignoring' % peername)
-     raise ValueError
-   else:
-    try:
-     linemetric, linevalue, linetimestamp = line.strip().split()
-     if linemetric and linevalue and linetimestamp:
-      return linemetric, linevalue, linetimestamp
-     else:
-      log.listener('invalid line received from client %s, ignoring' % peername)
-      raise ValueError
-    except ValueError:
-     log.listener('invalid line received from client %s, ignoring' % peername)
+      try:
+        linemetric, linevalue, linetimestamp = line.strip().split()
+        if linemetric and linevalue and linetimestamp:
+          return linemetric, linevalue, linetimestamp
+        else:
+          log.listener('invalid line received from client %s, ignoring' % peername)
+          raise ValueError
+      except ValueError:
+        log.listener('invalid line received from client %s, ignoring' % peername)
 
 
 class MetricLineReceiver(MetricReceiver, LineOnlyReceiver):

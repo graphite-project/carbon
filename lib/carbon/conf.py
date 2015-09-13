@@ -589,13 +589,13 @@ def read_config(program, options, **kwargs):
 
     # Create KeyHashing objects for LINE_RECEIVER_KEY_TYPE and UDP_RECEIVER_KEY_TYPE
     try:
-     settings["LINE_RECEIVER_KEY_TYPE"] = KeyHashing(settings["LINE_RECEIVER_KEY_TYPE"]) 
+      settings["LINE_RECEIVER_KEY_TYPE"] = KeyHashing(settings["LINE_RECEIVER_KEY_TYPE"]) 
     except KeyError:
-     settings["LINE_RECEIVER_KEY_TYPE"] = KeyHashing(None)
+      settings["LINE_RECEIVER_KEY_TYPE"] = KeyHashing(None)
 
     try:
-     settings["UDP_RECEIVER_KEY_TYPE"] = KeyHashing(settings["UDP_RECEIVER_KEY_TYPE"]) 
+      settings["UDP_RECEIVER_KEY_TYPE"] = KeyHashing(settings["UDP_RECEIVER_KEY_TYPE"]) 
     except KeyError:
-     settings["UDP_RECEIVER_KEY_TYPE"] = KeyHashing(None)
+      settings["UDP_RECEIVER_KEY_TYPE"] = KeyHashing(None)
      
     return settings

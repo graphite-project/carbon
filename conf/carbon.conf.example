@@ -146,7 +146,54 @@ LOG_CACHE_QUEUE_SORTS = True
 # the OS's i/o scheduler is expected to compensate for the random write
 # pattern.
 #
+# tuned - Metrics will be flushed from the cache to disk in a tuned way.
+# Several steps are executed in this strategy in a looping way, that allow to choose which queues to flush
+# Each step can be controlled in duration or in number of queues to process (absolute or percent) and can be
+# individually disabled
+# step #1 : flush queues sorted by metric number (as the 'sorted' strategy). However, this allow to stop
+#           flushing the list before the end and let's process only queues with lots of metrics.
+#           Choosing these queues are usefull to decrease I/O, as this maximize the number of datapoints
+#           to write per whisper udpate_many()
+#           The 'max' strategy works in the same way, however, it is too CPU intensive with lot of queues
+#           This strategy tends to keep in memory queues with slow update rate, so it has to be used with
+#           the persitant cache procedure to prevent data lost if stopping process.
+#           CACHE_WRITE_TUNED_STRATEGY_LARGEST control this step
+#             CACHE_WRITE_TUNED_STRATEGY_LARGEST = 100% is equivalent to the 'sorted' strategy
+#             CACHE_WRITE_TUNED_STRATEGY_LARGEST = 1    is equivalent to the 'max' strategy
+# step #2 : queues to flush are choosen in a random way (as the 'naive' strategy).
+#           CACHE_WRITE_TUNED_STRATEGY_RANDOM control this step
+# step #3 : flush queues sorted by metric age. This step allow to control the time queues are keep in cache
+#           without being flushed (that could create problems in aggregation computation in whisper).
+#           CACHE_WRITE_TUNED_STRATEGY_OLDEST control this step
+# step #4 : flush queues by name. The configuration file 'flushlist.conf' contains regexp that describes
+#           queues to flush
+# This strategy could be usefull to use carbon cache with lots of metrics without a high perfomance 
+# storage backend. Using this strategy with a low MAX_UPDATES_PER_SECOND allow to process lots of metrics
+# and keep the system 'alive' (CPU, I/O...)
+# This require however much more memory as metrics are accumulated in memory for long time.
 CACHE_WRITE_STRATEGY = sorted
+
+# control the step #1 in tuned write stategy that flush queues with many metrics first.
+# Could be an absolute number of queues (ex : 100), a percent value of total number of queues (ex :1.5%)
+# or a time to process (ex : 60s) before cycling to next step. Default : 1%. 0 to disable this step
+CACHE_WRITE_TUNED_STRATEGY_LARGEST = 1%
+
+# control the step #2 in tuned write stategy that flush queues in random way
+# Could be an absolute number of queues (ex : 100), a percent value of total number of queues (ex :1.5%)
+# or a time to process (ex : 60s) before cycling to next step. Default : 60s. 0 to disable this step
+CACHE_WRITE_TUNED_STRATEGY_RANDOM = 60s
+
+# control the step #3 in tuned write stategy that flush queues with oldest metrics first.
+# Could be an absolute number of queues (ex : 100), a percent value of total number of queues (ex :1.5%)
+# or a time to process (ex : 60s) before cycling to next step. Default : 100. 0 to disable this step
+CACHE_WRITE_TUNED_STRATEGY_OLDEST = 100
+
+# Define the interval (in seconds) between each launch of cache persistance procedure.
+# Persistent cache is stored in a file (cache.persist) in the log directory of each carbon-cache instance
+# and is loaded at startup if file exists. This file is also created during process shutdown.
+# This file allow to not loose metrics if cache daemon is shutdown that are not yet flushed in whisper db
+# Set to 0 to disable (persistent file still be created at process shutdown)
+CACHE_PERSIST_INTERVAL = 1800
 
 # On some systems it is desirable for whisper to write synchronously.
 # Set this option to True if you'd like to try this. Basically it will

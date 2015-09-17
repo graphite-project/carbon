@@ -55,10 +55,29 @@ if settings.MAX_UPDATES_PER_SECOND != float('inf'):
   UPDATE_BUCKET = TokenBucket(capacity, fill_rate)
 
 
+def set_param_writer(key, value):
+  if key == "MAX_UPDATES_PER_SECOND":
+    try:
+      val = int(value) 
+      if UPDATE_BUCKET:
+        UPDATE_BUCKET.setCapacityAndFillRate(val, val)
+    except:
+      return dict(error="bad value")
+
+  else:
+    return dict(error="bad param")
+
+  return dict(status="ok")
+
 def optimalWriteOrder():
   """Generates metrics with the most cached values first and applies a soft
   rate limit on new metrics"""
   while MetricCache:
+
+    # if persist cache in enabled, do not flush on shutdown process
+    if not reactor.running and settings.CACHE_PERSIST_FILE is not None:
+      break
+
     (metric, datapoints) = MetricCache.pop()
     if state.cacheTooFull and MetricCache.size < CACHE_SIZE_LOW_WATERMARK:
       events.cacheSpaceAvailable()
@@ -80,12 +99,15 @@ def optimalWriteOrder():
 
     yield (metric, datapoints, dbFilePath, dbFileExists)
 
-
 def writeCachedDataPoints():
   "Write datapoints until the MetricCache is completely empty"
 
   while MetricCache:
     dataWritten = False
+
+    # if persist cache in enabled, do not flush on shutdown process
+    if not reactor.running and settings.CACHE_PERSIST_FILE is not None:
+      break
 
     for (metric, datapoints, dbFilePath, dbFileExists) in optimalWriteOrder():
       dataWritten = True
@@ -160,7 +182,6 @@ def writeForever():
       log.err()
     time.sleep(1)  # The writer thread only sleeps when the cache is empty or an error occurs
 
-
 def reloadStorageSchemas():
   global SCHEMAS
   try:
@@ -179,8 +200,17 @@ def reloadAggregationSchemas():
     log.err()
 
 
+def loadPersistCache():
+    MetricCache.loadPersistMetricCache()
+
+def savePersistCache():
+    MetricCache.savePersistMetricCache(flush = True)
+
 def shutdownModifyUpdateSpeed():
     try:
+        # inform class as some strategy (ex : tuned) do not garanty to flush all queues per cycle
+        MetricCache.shutdown()
+
         shut = settings.MAX_UPDATES_PER_SECOND_ON_SHUTDOWN
         if UPDATE_BUCKET:
           UPDATE_BUCKET.setCapacityAndFillRate(shut,shut)
@@ -196,6 +226,7 @@ class WriterService(Service):
     def __init__(self):
         self.storage_reload_task = LoopingCall(reloadStorageSchemas)
         self.aggregation_reload_task = LoopingCall(reloadAggregationSchemas)
+        self.persist_metric_cache = LoopingCall(MetricCache.savePersistMetricCache)
 
     def startService(self):
         if 'signal' in globals().keys():
@@ -203,7 +234,11 @@ class WriterService(Service):
           signal.signal(signal.SIGHUP, signal.SIG_IGN)
         self.storage_reload_task.start(60, False)
         self.aggregation_reload_task.start(60, False)
+        if settings.CACHE_PERSIST_INTERVAL > 0:
+          self.persist_metric_cache.start(settings.CACHE_PERSIST_INTERVAL, False)
         reactor.addSystemEventTrigger('before', 'shutdown', shutdownModifyUpdateSpeed)
+        reactor.addSystemEventTrigger('before', 'startup', loadPersistCache)
+        reactor.addSystemEventTrigger('after', 'shutdown', savePersistCache)
         reactor.callInThread(writeForever)
         Service.startService(self)
 

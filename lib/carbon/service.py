@@ -12,7 +12,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License."""
 
-from os.path import exists
+from os.path import exists, join
 
 from twisted.application.service import MultiService
 from twisted.application.internet import TCPServer, TCPClient, UDPServer
@@ -103,6 +103,9 @@ def createBaseService(config):
       from carbon.regexlist import WhiteList, BlackList
       WhiteList.read_from(settings["whitelist"])
       BlackList.read_from(settings["blacklist"])
+
+    from carbon.regexlist import FlushList
+    FlushList.read_from(join(settings["CONF_DIR"], settings.FLUSH_LIST))
 
     # Instantiate an instrumentation service that will record metrics about
     # this service.

@@ -4,9 +4,11 @@ from twisted.internet.protocol import DatagramProtocol
 from twisted.internet.error import ConnectionDone
 from twisted.protocols.basic import LineOnlyReceiver, Int32StringReceiver
 from carbon import log, events, state, management
+from carbon.cache import MetricCache
 from carbon.conf import settings
 from carbon.regexlist import WhiteList, BlackList
 from carbon.util import pickle, get_unpickler
+from carbon.writer import set_param_writer
 
 
 class MetricReceiver:
@@ -161,6 +163,50 @@ class CacheManagementHandler(Int32StringReceiver):
 
     elif request['type'] == 'set-metadata':
       result = management.setMetadata(request['metric'], request['key'], request['value'])
+
+    elif request['type'] == 'persist-cache':
+      MetricCache.savePersistMetricCache()
+      result = dict(status="started")
+
+    elif request['type'] == 'flush-cache':
+      MetricCache.start_flush(request.get('metric', None))
+      result = dict(status="started")
+
+    elif request['type'] == 'stop-flush-cache':
+      MetricCache.stop_flush(True)
+      result = dict(status="stopped")
+
+    elif request['type'] == 'set-param':
+
+      key = request.get('key', None)
+      value = request.get('value', None)
+
+      # list of supported param that can be setted online
+      # associated method to update (or None to just update settings.<key>)
+      ALLOWED = {
+        'CACHE_WRITE_STRATEGY'               : MetricCache.set_param,
+        'CACHE_WRITE_TUNED_STRATEGY_LARGEST' : None,
+        'CACHE_WRITE_TUNED_STRATEGY_RANDOM'  : None,
+        'CACHE_WRITE_TUNED_STRATEGY_OLDEST'  : None,
+        'CACHE_PERSIST_INTERVAL'             : None,
+        'MAX_UPDATES_PER_SECOND'             : set_param_writer,
+      }
+
+      if key is None or value is None:
+        result = dict(error="invalid call (missing args key/value)")
+      elif key not in ALLOWED:
+        result = dict(error="param '%s' not supported" % key)
+      else:
+
+        log.msg("Received set param %s=%s (previous:%s)" % (key, value, getattr(settings, key)))
+
+        if ALLOWED[key] == None:
+          setattr(settings, key, value)
+          result = dict(status="ok")
+        else:
+          # call to custom method
+          setattr(settings, key, value)
+          result = ALLOWED[key](key, value)
 
     else:
       result = dict(error="Invalid request type \"%s\"" % request['type'])

@@ -1,5 +1,5 @@
 import time
-from collections import deque
+from collections import defaultdict, deque
 from mocker import MockerTestCase
 from carbon.cache import MetricCache, _MetricCache
 from carbon.conf import read_config
@@ -50,9 +50,34 @@ class MetricCacheIntegrity(MockerTestCase):
                                ROOT_DIR="foo")
         cache = _MetricCache(method=settings.CACHE_WRITE_STRATEGY)
         self.assertEqual("naive", cache.method)
+        now = time.time()
+        datapoint1 = (now - 10, float(1))
+        datapoint2 = (now, float(2))
+
+        stored = (
+          ("d.e.f", datapoint1),
+          ("a.b.c", datapoint1),
+          ("a.b.c", datapoint2),
+          ("d.e.f", datapoint2),
+        )
+
+        expected = defaultdict(list)
+        for metric, datapoint in stored:
+          cache.store(metric, datapoint)
+          expected[metric].append(datapoint)
+
+        # we don't know which order we'll get metrics back in so we just need
+        # to pop twice, see what we get, and match it up with what we expect
+        # for that metric
+        (m, d) = cache.pop()
+        self.assertEqual(d, deque(expected[m]), m)
+        (m, d) = cache.pop()
+        self.assertEqual(d, deque(expected[m]), m)
+        # our cache should now be empty
+        self.assertEqual(0, cache.size)
 
     def test_write_strategy_max(self):
-        """Create a metric cache, insert metrics, ensure naive writes"""
+        """Create a metric cache, insert metrics, ensure max writes"""
         config = self.makeFile(content="[foo]\nCACHE_WRITE_STRATEGY = max")
         settings = read_config("carbon-foo",
                                FakeOptions(config=config, instance=None,

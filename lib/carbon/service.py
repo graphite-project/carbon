@@ -152,6 +152,9 @@ def setupReceivers(root_service, settings):
     amqp_vhost = settings.AMQP_VHOST
     amqp_spec = settings.AMQP_SPEC
     amqp_exchange_name = settings.AMQP_EXCHANGE
+    amqp_exchange_type = settings.get('AMQP_EXCHANGE_TYPE', 'topic')
+    # these are used only if the echange type is set to 'direct'
+    amqp_queue_name = settings.get('AMQP_QUEUE_NAME', 'metrics')
 
     factory = amqp_listener.createAMQPListener(
       amqp_user,
@@ -159,6 +162,7 @@ def setupReceivers(root_service, settings):
       vhost=amqp_vhost,
       spec=amqp_spec,
       exchange_name=amqp_exchange_name,
+      exchange_type=amqp_exchange_type,
       verbose=amqp_verbose)
     service = TCPClient(amqp_host, amqp_port, factory)
     service.setServiceParent(root_service)

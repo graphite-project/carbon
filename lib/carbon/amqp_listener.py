@@ -72,28 +72,37 @@ class AMQPGraphiteProtocol(AMQClient):
     @inlineCallbacks
     def setup(self):
         exchange = self.factory.exchange_name
+        exchange_type = self.factory.exchange_type
 
         yield self.authenticate(self.factory.username, self.factory.password)
         chan = yield self.channel(1)
         yield chan.channel_open()
 
         # declare the exchange and queue
-        yield chan.exchange_declare(exchange=exchange, type="topic",
+        yield chan.exchange_declare(exchange=exchange, type=exchange_type,
                                     durable=True, auto_delete=False)
 
-        # we use a private queue to avoid conflicting with existing bindings
-        reply = yield chan.queue_declare(exclusive=True)
-        my_queue = reply.queue
+        if exchange_type.lower() == 'direct':
+            reply = yield chan.queue_declare(queue=settings.AMQP_QUEUE_NAME)
+            my_queue = reply.queue
+            log.listener("binding exchange '%s' to queue '%s' consumer tag '%s'" \
+                         % (exchange, my_queue, self.consumer_tag))
+            yield chan.queue_bind(exchange=exchange, queue=my_queue)
+            yield chan.basic_consume(queue=my_queue, no_ack=True,
+                    consumer_tag=self.consumer_tag)
+        else:
+            # we use a private queue to avoid conflicting with existing bindings
+            reply = yield chan.queue_declare(exclusive=True)
+            my_queue = reply.queue
+            # bind each configured metric pattern
+            for bind_pattern in settings.BIND_PATTERNS:
+                log.listener("binding exchange '%s' to queue '%s' with pattern %s" \
+                    % (exchange, my_queue, bind_pattern))
+                yield chan.queue_bind(exchange=exchange, queue=my_queue,
+                    routing_key=bind_pattern)
+                yield chan.basic_consume(queue=my_queue, no_ack=True,
+                    consumer_tag=self.consumer_tag)
 
-        # bind each configured metric pattern
-        for bind_pattern in settings.BIND_PATTERNS:
-            log.listener("binding exchange '%s' to queue '%s' with pattern %s" \
-                         % (exchange, my_queue, bind_pattern))
-            yield chan.queue_bind(exchange=exchange, queue=my_queue,
-                                  routing_key=bind_pattern)
-
-        yield chan.basic_consume(queue=my_queue, no_ack=True,
-                                 consumer_tag=self.consumer_tag)
     @inlineCallbacks
     def receive_loop(self):
         queue = yield self.queue(self.consumer_tag)
@@ -142,7 +151,7 @@ class AMQPReconnectingFactory(ReconnectingClientFactory):
     protocol = AMQPGraphiteProtocol
 
     def __init__(self, username, password, delegate, vhost, spec, channel,
-                 exchange_name, verbose):
+                 exchange_name, exchange_type, verbose):
         self.username = username
         self.password = password
         self.delegate = delegate
@@ -150,6 +159,7 @@ class AMQPReconnectingFactory(ReconnectingClientFactory):
         self.spec = spec
         self.channel = channel
         self.exchange_name = exchange_name
+        self.exchange_type = exchange_type
         self.verbose = verbose
 
     def buildProtocol(self, addr):
@@ -159,7 +169,7 @@ class AMQPReconnectingFactory(ReconnectingClientFactory):
         return p
 
 
-def createAMQPListener(username, password, vhost, exchange_name,
+def createAMQPListener(username, password, vhost, exchange_name, exchange_type,
                        spec=None, channel=1, verbose=False):
     """
     Create an C{AMQPReconnectingFactory} configured with the specified options.
@@ -171,7 +181,7 @@ def createAMQPListener(username, password, vhost, exchange_name,
 
     delegate = TwistedDelegate()
     factory = AMQPReconnectingFactory(username, password, delegate, vhost,
-                                      spec, channel, exchange_name,
+                                      spec, channel, exchange_name, exchange_type,
                                       verbose=verbose)
     return factory
 

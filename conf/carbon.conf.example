@@ -78,6 +78,7 @@ MAX_CREATES_PER_MINUTE = 50
 # suitable complement for the "naive" CACHE_WRITE_STRATEGY.
 #
 # The default value for LOW_CACHE_SIZE is 80% of MAX_CACHE_SIZE.
+# Value for LOW_CACHE_SIZE must be less than 0.95 * MAX_CACHE_SIZE (which is the threshold for applying flow_control if enabled)  
 MIN_DATAPOINTS_PER_UPDATE = 1
 LOW_CACHE_SIZE = inf
 

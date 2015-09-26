@@ -76,8 +76,7 @@ class RandomStrategy(DrainStrategy):
   def choose_item(self, mdpu = 0):
     metric_name =  choice(self.cache.keys())
     if mdpu == 1:
-      count = 0.1 * len(self.cache) 
-      log.msg("Cache Queues: {0}".format(len(self.cache)))
+      count = 0.1 * len(self.cache)       
       while count > 0: 
         try:
           dbFilePath = getFilesystemPath(metric_name)

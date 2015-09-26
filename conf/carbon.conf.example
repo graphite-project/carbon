@@ -75,9 +75,10 @@ MAX_CREATES_PER_MINUTE = 50
 # carbon-cache instance getting a share of disk I/O.
 #
 # It helps to avoid a large number of small disk-writes as well, making it a
-# suitable complement for the "naive" CACHE_WRITE_STRATEGY.
+# suitable complement for the "random" CACHE_WRITE_STRATEGY.
 #
 # The default value for LOW_CACHE_SIZE is 80% of MAX_CACHE_SIZE.
+# Value for LOW_CACHE_SIZE must be less than 0.95 * MAX_CACHE_SIZE (which is the threshold for applying flow_control if enabled)  
 MIN_DATAPOINTS_PER_UPDATE = 1
 LOW_CACHE_SIZE = inf
 
@@ -140,7 +141,7 @@ LOG_CACHE_HITS = False
 # there are a large number of metrics which receive very frequent updates OR if
 # disk i/o is very slow.
 #
-# naive - Metrics will be flushed from the cache to disk in an unordered
+# random - Metrics will be flushed from the cache to disk in an unordered
 # fashion. This strategy may be desirable in situations where the storage for
 # whisper files is solid state, CPU resources are very limited or deference to
 # the OS's i/o scheduler is expected to compensate for the random write

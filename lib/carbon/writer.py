@@ -39,15 +39,11 @@ SCHEMAS = loadStorageSchemas()
 AGGREGATION_SCHEMAS = loadAggregationSchemas()
 CACHE_SIZE_LOW_WATERMARK = settings.MAX_CACHE_SIZE * 0.95
 
-flush = 0
 shuttingDown = 0
-
 if settings.LOW_CACHE_SIZE == float('inf'):
   LOW_CACHE_SIZE = 0.8 * settings.MAX_CACHE_SIZE
 else:
   LOW_CACHE_SIZE = settings.LOW_CACHE_SIZE
-
-
 
 # Inititalize token buckets so that we can enforce rate limits on creates and
 # updates if the config wants them.
@@ -68,12 +64,15 @@ def optimalWriteOrder():
   """Generates metrics with the most cached values first and applies a soft
   rate limit on new metrics"""
   while MetricCache:
-    (metric, datapoints) = MetricCache.drain_metric()
+    if (shuttingDown == 1) or (MetricCache.size >= LOW_CACHE_SIZE):
+      mdpu = 0
+    else:
+      mdpu = 1
+    (metric, datapoints) = MetricCache.drain_metric(mdpu)
+    if metric == None:
+      break; 
     if state.cacheTooFull and MetricCache.size < CACHE_SIZE_LOW_WATERMARK:
       events.cacheSpaceAvailable()
-    
-    if queueSize < settings.MIN_DATAPOINTS_PER_UPDATE and flush == 0:
-      break
 
     dbFilePath = getFilesystemPath(metric)
     dbFileExists = exists(dbFilePath)
@@ -96,15 +95,8 @@ def optimalWriteOrder():
 def writeCachedDataPoints():
   "Write datapoints until the MetricCache is completely empty"
 
-  global flush
-
   while MetricCache:
     dataWritten = False
-
-    if MetricCache.size >= LOW_CACHE_SIZE or shuttingDown == 1:
-      flush = 1
-    else:
-      flush = 0
 
     for (metric, datapoints, dbFilePath, dbFileExists) in optimalWriteOrder():
       dataWritten = True
@@ -199,8 +191,9 @@ def reloadAggregationSchemas():
 
 
 def shutdownModifyUpdateSpeed():
-    global shuttingDown 
+    global shuttingDown
     try:
+        shuttingDown = 1
         shut = settings.MAX_UPDATES_PER_SECOND_ON_SHUTDOWN
         if UPDATE_BUCKET:
           UPDATE_BUCKET.setCapacityAndFillRate(shut,shut)
@@ -209,7 +202,7 @@ def shutdownModifyUpdateSpeed():
         log.msg("Carbon shutting down.  Changed the update rate to: " + str(settings.MAX_UPDATES_PER_SECOND_ON_SHUTDOWN))
     except KeyError:
         log.msg("Carbon shutting down.  Update rate not changed")
-    shuttingDown = 1
+
 
 class WriterService(Service):
 

@@ -19,7 +19,8 @@ from random import choice
 from carbon.conf import settings
 from carbon import events, log
 from carbon.pipeline import Processor
-
+from carbon.storage import getFilesystemPath
+from os.path import exists
 
 
 def by_timestamp((timestamp, value)):  # useful sort key function
@@ -51,8 +52,18 @@ class MaxStrategy(DrainStrategy):
   that infrequently or irregularly updated metrics may not be written
   until shutdown """
   def choose_item(self, mdpu=0):
-    metric_name, size = max(self.cache.items(), key=lambda x: len(itemgetter(1)(x)))
+    metric_name, datapoints = max(self.cache.items(), key=lambda x: len(itemgetter(1)(x)))
+    size = len(datapoints) 
     if mdpu == 1:
+      try:
+        dbFilePath = getFilesystemPath(metric_name)
+        dbFileExists = exists(dbFilePath)
+        if not dbFileExists:
+          return metric_name
+      except Exception:
+        self.cache.pop(metric_name)
+        log.msg("Invalid Metric Name {0}".format(metric_name))
+        return None 
       if size >= settings.MIN_DATAPOINTS_PER_UPDATE:
         return metric_name
       else:
@@ -65,10 +76,27 @@ class RandomStrategy(DrainStrategy):
   def choose_item(self, mdpu = 0):
     metric_name =  choice(self.cache.keys())
     if mdpu == 1:
-      if len(self.cache.get(metric_name).items()) >= settings.MIN_DATAPOINTS_PER_UPDATE:
-        return metric_name
-      else:
-        return None   
+      count = 0.1 * len(self.cache) 
+      log.msg("Cache Queues: {0}".format(len(self.cache)))
+      while count > 0: 
+        try:
+          dbFilePath = getFilesystemPath(metric_name)
+          dbFileExists = exists(dbFilePath)
+          if not dbFileExists:
+            return metric_name
+          if len(self.cache.get(metric_name).items()) >= settings.MIN_DATAPOINTS_PER_UPDATE:
+            return metric_name
+        except Exception:
+          self.cache.pop(metric_name)
+          log.msg("Invalid Metric Name {0}".format(metric_name))
+          
+        count = count - 1
+        if self.cache:
+          metric_name =  choice(self.cache.keys())
+        else:
+          return None
+      return None 
+
     return metric_name
 
 class SortedStrategy(DrainStrategy):
@@ -87,11 +115,25 @@ class SortedStrategy(DrainStrategy):
           #yield itemgetter(0)(metric_counts.pop())
           (metric_name, numPoints) = metric_counts.pop()
           if self.mdpu_flag == 1:
-            if numPoints >= settings.MIN_DATAPOINTS_PER_UPDATE:
-              yield metric_name
-            else:
-              metric_counts = []
-              yield None
+            try:
+              dbFilePath = getFilesystemPath(metric_name)
+              dbFileExists = exists(dbFilePath)
+              if not dbFileExists:
+                yield metric_name
+              elif numPoints >= settings.MIN_DATAPOINTS_PER_UPDATE:
+                yield metric_name
+              else:
+                if metric_counts:
+                  continue
+                else:
+                  yield None
+            except Exception:
+              self.cache.pop(metric_name)
+              log.msg("Invalid Metric Name {0}".format(metric_name)) 
+              if metric_counts:
+                continue
+              else:
+                yield None
           else:
             yield metric_name
  

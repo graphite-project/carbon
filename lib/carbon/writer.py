@@ -73,9 +73,12 @@ def optimalWriteOrder():
       break; 
     if state.cacheTooFull and MetricCache.size < CACHE_SIZE_LOW_WATERMARK:
       events.cacheSpaceAvailable()
-
-    dbFilePath = getFilesystemPath(metric)
-    dbFileExists = exists(dbFilePath)
+    try:
+      dbFilePath = getFilesystemPath(metric)
+      dbFileExists = exists(dbFilePath)
+    except Exception:
+      log.msg("Invalid metric_name {0}".format(metric)) 
+      continue
 
     if not dbFileExists and CREATE_BUCKET:
       # If our tokenbucket has enough tokens available to create a new metric

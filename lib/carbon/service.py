@@ -24,9 +24,6 @@ from carbon import state, util, events
 from carbon.log import carbonLogObserver
 from carbon.exceptions import CarbonConfigException
 
-state.events = events
-
-
 class CarbonRootService(MultiService):
   """Root Service that properly configures twistd logging"""
 
@@ -38,10 +35,6 @@ class CarbonRootService(MultiService):
 
 def createBaseService(config):
     from carbon.conf import settings
-    from carbon import instrumentation
-
-    global state
-    state.instrumentation = instrumentation
 
     from carbon.protocols import (MetricLineReceiver, MetricPickleReceiver,
                                   MetricDatagramReceiver)

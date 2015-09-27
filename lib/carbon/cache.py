@@ -69,6 +69,10 @@ class _MetricCache(defaultdict):
       popped = super(_MetricCache, self).pop(metric)
       ordered = sorted(dict(popped).items(), key=lambda x: x[0])
       datapoints = (metric, deque(ordered))
+      # Adjust size counter if we've dropped multiple identical timestamps
+      dropped = len(popped) - len(datapoints[1])
+      if dropped > 0:
+        self.size -= dropped
     self.size -= len(datapoints[1])
     return datapoints
 

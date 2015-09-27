@@ -19,9 +19,6 @@ from random import choice
 from carbon.conf import settings
 from carbon import events, log
 from carbon.pipeline import Processor
-from carbon.storage import getFilesystemPath
-from os.path import exists
-
 
 def by_timestamp((timestamp, value)):  # useful sort key function
   return timestamp
@@ -55,15 +52,6 @@ class MaxStrategy(DrainStrategy):
     metric_name, datapoints = max(self.cache.items(), key=lambda x: len(itemgetter(1)(x)))
     size = len(datapoints) 
     if mdpu == 1:
-      try:
-        dbFilePath = getFilesystemPath(metric_name)
-        dbFileExists = exists(dbFilePath)
-        if not dbFileExists:
-          return metric_name
-      except Exception:
-        self.cache.pop(metric_name)
-        log.msg("Invalid Metric Name {0}".format(metric_name))
-        return None 
       if size >= settings.MIN_DATAPOINTS_PER_UPDATE:
         return metric_name
       else:
@@ -78,24 +66,11 @@ class RandomStrategy(DrainStrategy):
     if mdpu == 1:
       count = 0.1 * len(self.cache)       
       while count > 0: 
-        try:
-          dbFilePath = getFilesystemPath(metric_name)
-          dbFileExists = exists(dbFilePath)
-          if not dbFileExists:
-            return metric_name
-          if len(self.cache.get(metric_name).items()) >= settings.MIN_DATAPOINTS_PER_UPDATE:
-            return metric_name
-        except Exception:
-          self.cache.pop(metric_name)
-          log.msg("Invalid Metric Name {0}".format(metric_name))
-          
+        if len(self.cache.get(metric_name).items()) >= settings.MIN_DATAPOINTS_PER_UPDATE:
+          return metric_name
         count = count - 1
-        if self.cache:
-          metric_name =  choice(self.cache.keys())
-        else:
-          return None
-      return None 
-
+        metric_name =  choice(self.cache.keys())
+      return None
     return metric_name
 
 class SortedStrategy(DrainStrategy):
@@ -114,25 +89,11 @@ class SortedStrategy(DrainStrategy):
           #yield itemgetter(0)(metric_counts.pop())
           (metric_name, numPoints) = metric_counts.pop()
           if self.mdpu_flag == 1:
-            try:
-              dbFilePath = getFilesystemPath(metric_name)
-              dbFileExists = exists(dbFilePath)
-              if not dbFileExists:
-                yield metric_name
-              elif numPoints >= settings.MIN_DATAPOINTS_PER_UPDATE:
-                yield metric_name
-              else:
-                if metric_counts:
-                  continue
-                else:
-                  yield None
-            except Exception:
-              self.cache.pop(metric_name)
-              log.msg("Invalid Metric Name {0}".format(metric_name)) 
-              if metric_counts:
-                continue
-              else:
-                yield None
+            if numPoints >= settings.MIN_DATAPOINTS_PER_UPDATE:
+              yield metric_name
+            else:
+              metric_counts = []
+              yield None
           else:
             yield metric_name
  

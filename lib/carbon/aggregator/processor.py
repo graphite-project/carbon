@@ -18,20 +18,33 @@ class AggregationProcessor(Processor):
 
     aggregate_metrics = set()
 
-    for rule in RuleManager.rules:
-      aggregate_metric = rule.get_aggregate_metric(metric)
+    if settings.AGGREGATOR_RULE_METHOD == "rules":
+      for rule in RuleManager.rules:
+        aggregate_metric = rule.get_aggregate_metric(metric)
 
-      if aggregate_metric is None:
-        continue
-      else:
-        aggregate_metrics.add(aggregate_metric)
+        if aggregate_metric is None:
+          continue
+        else:
+          aggregate_metrics.add(aggregate_metric)
 
-      values_buffer = BufferManager.get_buffer(aggregate_metric)
+        values_buffer = BufferManager.get_buffer(aggregate_metric)
 
-      if not values_buffer.configured:
-        values_buffer.configure_aggregation(rule.frequency, rule.aggregation_func)
+        if not values_buffer.configured:
+          values_buffer.configure_aggregation(rule.frequency, rule.aggregation_func)
 
-      values_buffer.input(datapoint)
+        values_buffer.input(datapoint)
+    elfif settings.AGGREGATOR_RULE_METHOD == "sumall":
+      sum_index = metric.find(".sum.")
+      if sum_index != -1:
+        aggregate_metric = metric[:sum_index] + ".sum_all.hosts"
+        aggregate_metrics.append(aggregate_metric)
+
+        buffer = BufferManager.get_buffer(aggregate_metric)
+
+        if not buffer.configured:
+          buffer.configure_aggregatio(60, sum)
+
+        buffer.input(datapoint)
 
     for rule in RewriteRuleManager.rules(POST):
       metric = rule.apply(metric)

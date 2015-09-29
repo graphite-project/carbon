@@ -242,6 +242,13 @@ PICKLE_RECEIVER_PORT = 2014
 # instance.
 # Enable this for carbon-relays that send to a group of carbon-aggregators
 #RELAY_METHOD = aggregated-consistent-hashing
+#
+# Use consistent-hashing after removing a specified node from the metric. If
+# for example metrics have host name in them, you can remove it first without
+# having to use aggregation-rules so that metrics are sent to the same
+# carbon-aggregator instance.
+#RELAY_METHOD = remove-node-consistent-hashing
+#REMOVE_NODE_INDEX = 0
 RELAY_METHOD = rules
 
 # If you use consistent-hashing you can add redundancy by replicating every
@@ -316,6 +323,10 @@ USE_FLOW_CONTROL = True
 # In order to turn off logging of successful connections for the line
 # receiver, set this to False
 # LOG_LISTENER_CONN_SUCCESS = True
+#
+# To use our own "sumall" rule, set USE_RULE_MANAGER = sumall
+# To use aggregation-rules.conf, set USE_RULE_MANAGER = rules
+AGGREGATOR_RULE_METHOD = sumall
 
 # If you're connecting from the relay to a destination that's over the
 # internet or similarly iffy connection, a backlog can develop because

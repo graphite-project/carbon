@@ -248,6 +248,14 @@ RELAY_METHOD = rules
 # datapoint to more than one machine.
 REPLICATION_FACTOR = 1
 
+# If your REPLICATION_FACTOR >=2, and you are using more than one replica per server
+# and you want to be sure that every replica of data is located on different servers
+# please setup DIVERSE_REPLICAS to True.
+# Before carbon v0.9.14 it was not guaranteed!
+# Beware - it could breaks your _existing_ (pre v0.9.14) cluster routing!
+#
+#DIVERSE_REPLICAS = False
+
 # This is a list of carbon daemons we will send any relayed or
 # generated metrics to. The default provided would send to a single
 # carbon-cache instance on the default port. However if you

@@ -148,7 +148,7 @@ def createAggregatorService(config):
     root_service = createBaseService(config)
 
     # Configure application components
-    router = ConsistentHashingRouter(settings.REPLICATION_FACTOR)
+    router = ConsistentHashingRouter(settings.REPLICATION_FACTOR, diverse_replicas=settings.DIVERSE_REPLICAS)
     client_manager = CarbonClientManager(router)
     client_manager.setServiceParent(root_service)
 
@@ -180,7 +180,7 @@ def createRelayService(config):
     if settings.RELAY_METHOD == 'rules':
       router = RelayRulesRouter(settings["relay-rules"])
     elif settings.RELAY_METHOD == 'consistent-hashing':
-      router = ConsistentHashingRouter(settings.REPLICATION_FACTOR)
+      router = ConsistentHashingRouter(settings.REPLICATION_FACTOR, diverse_replicas=settings.DIVERSE_REPLICAS)
     elif settings.RELAY_METHOD == 'aggregated-consistent-hashing':
       from carbon.aggregator.rules import RuleManager
       RuleManager.read_from(settings["aggregation-rules"])

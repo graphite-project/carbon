@@ -248,6 +248,14 @@ RELAY_METHOD = rules
 # datapoint to more than one machine.
 REPLICATION_FACTOR = 1
 
+# For REPLICATION_FACTOR >=2, set DIVERSE_REPLICAS to True to guarantee replicas
+# across distributed hosts. With this setting disabled, it's possible that replicas
+# may be sent to different caches on the same host. This has been the default 
+# behavior since introduction of 'consistent-hashing' relay method.
+# Note that enabling this on an existing pre-0.9.14 cluster will require rebalancing
+# your metrics across the cluster nodes using a tool like Carbonate.
+#DIVERSE_REPLICAS = True
+
 # This is a list of carbon daemons we will send any relayed or
 # generated metrics to. The default provided would send to a single
 # carbon-cache instance on the default port. However if you

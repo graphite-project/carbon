@@ -19,12 +19,12 @@ conf_files = [ ('conf', glob('conf/*.example')) ]
 
 install_files = storage_dirs + conf_files
 
-# If we are building on RedHat, let's use the redhat init scripts.
-if platform.dist()[0] == 'redhat':
-    init_scripts = [ ('/etc/init.d', ['distro/redhat/init.d/carbon-cache',
+# Let's include redhat init scripts, despite build platform
+# but won't put them in /etc/init.d/ automatically anymore
+init_scripts = [ ('examples/init.d', ['distro/redhat/init.d/carbon-cache',
                                       'distro/redhat/init.d/carbon-relay',
                                       'distro/redhat/init.d/carbon-aggregator']) ]
-    install_files += init_scripts
+install_files += init_scripts
 
 
 setup(

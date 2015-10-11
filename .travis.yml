@@ -8,9 +8,9 @@ env:
     - TOXENV=ci
 
 install:
-    - pip install -r requirements.txt --use-mirrors
+    - pip install -r requirements.txt
     - python setup.py install --prefix=$VIRTUAL_ENV --install-lib=$VIRTUAL_ENV/lib/python$TRAVIS_PYTHON_VERSION/site-packages
-    - pip install tox --use-mirrors
+    - pip install tox
 
 script:
     - tox -e $TOXENV

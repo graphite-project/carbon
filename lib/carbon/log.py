@@ -1,5 +1,5 @@
+import os
 import time
-from os.path import exists
 from sys import stdout, stderr
 from zope.interface import implements
 from twisted.python.log import startLoggingWithObserver, textFromEventDict, msg, err, ILogObserver
@@ -15,6 +15,26 @@ class CarbonLogFile(DailyLogFile):
     from carbon.conf import settings
     self.enableRotation = settings.ENABLE_LOGROTATION
 
+  def _openFile(self):
+    """
+    Fix Umask Issue https://twistedmatrix.com/trac/ticket/7026
+    """
+    openMode = self.defaultMode or 0777
+    self._file = os.fdopen(os.open(
+      self.path, os.O_CREAT|os.O_RDWR, openMode), 'r+', 1)
+    self.closed = False
+    # Try our best to update permissions for files which already exist.
+    if self.defaultMode:
+      try:
+        os.chmod(self.path, self.defaultMode)
+      except OSError:
+        pass
+    # Seek is needed for uniformity of stream positioning
+    # for read and write between Linux and BSD systems due
+    # to differences in fopen() between operating systems.
+    self._file.seek(0, os.SEEK_END)
+    self.lastDate = self.toDate(os.stat(self.path)[8])
+
   def shouldRotate(self):
     if self.enableRotation:
       return DailyLogFile.shouldRotate(self)
@@ -23,7 +43,7 @@ class CarbonLogFile(DailyLogFile):
 
   def write(self, data):
     if not self.enableRotation:
-      if not exists(self.path):
+      if not os.path.exists(self.path):
         self.reopen()
     DailyLogFile.write(self, data)
 

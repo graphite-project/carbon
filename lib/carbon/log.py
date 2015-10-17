@@ -1,5 +1,5 @@
+import os
 import time
-from os.path import exists
 from sys import stdout, stderr
 from zope.interface import implements
 from twisted.python.log import startLoggingWithObserver, textFromEventDict, msg, err, ILogObserver
@@ -43,7 +43,7 @@ class CarbonLogFile(DailyLogFile):
 
   def write(self, data):
     if not self.enableRotation:
-      if not exists(self.path):
+      if not os.path.exists(self.path):
         self.reopen()
     DailyLogFile.write(self, data)
 

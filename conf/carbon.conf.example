@@ -59,14 +59,13 @@ MAX_UPDATES_PER_SECOND = 500
 # MAX_UPDATES_PER_SECOND_ON_SHUTDOWN = 1000
 
 # Softly limits the number of whisper files that get created each minute.
-# These are specifically new metric namespaces, not updates to existing.
-# Setting this value low (like at 50) is a good way to ensure your graphite
+# Setting this value low (e.g. 50) is a good way to ensure that your carbon
 # system will not be adversely impacted when a bunch of new metrics are
-# sent to it. The trade off is that it will take much longer for those metrics'
-# database files to all get created and thus longer until the data becomes usable.
-# Setting this value high (like "inf" for infinity) will cause graphite to create
-# the files quickly but at the risk of slowing I/O down considerably for a while.
-# New metrics submitted in excess of this number may end up being discarded.
+# sent to it. The trade off is that any metrics received in excess of this
+# value will be silently dropped, and the whisper file will not be created
+# until such point as a subsequent metric is received and fits within the
+# defined rate limit. Setting this value high (like "inf" for infinity) will
+# cause carbon to create the files quickly but at the risk of increased I/O.
 MAX_CREATES_PER_MINUTE = 50
 
 # Set the interface and port for the line (plain text) listener.  Setting the

@@ -38,4 +38,4 @@ resumeReceivingMetrics.addHandler(lambda: setattr(state, 'metricReceiversPaused'
 
 
 # Avoid import circularities
-from carbon import log
+from carbon import log, state

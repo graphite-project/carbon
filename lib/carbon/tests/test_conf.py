@@ -353,3 +353,59 @@ class ReadConfigTest(MockerTestCase):
                         pidfile=None, logdir=None),
             ROOT_DIR="foo")
         self.assertEqual("boo/carbon-foo-x", settings.LOG_DIR)
+
+    def test_pid_dir_depends_on_storage_dir(self):
+        """
+        Tests 'STORAGE_DIR' dependency 'PID_DIR'
+        """
+        config = self.makeFile(
+            content=("[foo]\n"
+                     "STORAGE_DIR = bar"))
+        settings = read_config(
+            "carbon-foo",
+            FakeOptions(config=config, instance=None,
+                        pidfile=None, logdir=None),
+            ROOT_DIR="foo")
+        self.assertEqual("bar", settings.PID_DIR)
+
+    def test_log_dir_depends_on_storage_dir(self):
+        """
+        Tests 'STORAGE_DIR' dependency 'LOG_DIR'
+        """
+        config = self.makeFile(
+            content=("[foo]\n"
+                     "STORAGE_DIR = bar"))
+        settings = read_config(
+            "carbon-foo",
+            FakeOptions(config=config, instance=None,
+                        pidfile=None, logdir=None),
+            ROOT_DIR="foo")
+        self.assertEqual(join("bar", "log", "carbon-foo"), settings.LOG_DIR)
+
+    def test_local_data_dir_depends_on_storage_dir(self):
+        """
+        Tests 'STORAGE_DIR' dependency 'LOCAL_DATA_DIR'
+        """
+        config = self.makeFile(
+            content=("[foo]\n"
+                     "STORAGE_DIR = bar"))
+        settings = read_config(
+            "carbon-foo",
+            FakeOptions(config=config, instance=None,
+                        pidfile=None, logdir=None),
+            ROOT_DIR="foo")
+        self.assertEqual(join("bar", "whisper"), settings.LOCAL_DATA_DIR)
+
+    def test_whitelists_dir_depends_on_storage_dir(self):
+        """
+        Tests 'STORAGE_DIR' dependency 'WHITELISTS_DIR'
+        """
+        config = self.makeFile(
+            content=("[foo]\n"
+                     "STORAGE_DIR = bar"))
+        settings = read_config(
+            "carbon-foo",
+            FakeOptions(config=config, instance=None,
+                        pidfile=None, logdir=None),
+            ROOT_DIR="foo")
+        self.assertEqual(join("bar", "lists"), settings.WHITELISTS_DIR)

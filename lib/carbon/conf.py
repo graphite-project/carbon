@@ -559,7 +559,6 @@ def read_config(program, options, **kwargs):
             "WHITELISTS_DIR", join(settings["STORAGE_DIR"], "lists"))
 
 
-    update_STORAGE_DIR_deps()
 
     # Read configuration options from program-specific section.
     section = program[len("carbon-"):]
@@ -570,6 +569,7 @@ def read_config(program, options, **kwargs):
 
     settings.readFrom(config, section)
     settings.setdefault("instance", options["instance"])
+    update_STORAGE_DIR_deps()
 
     # If a specific instance of the program is specified, augment the settings
     # with the instance-specific settings and provide sane defaults for

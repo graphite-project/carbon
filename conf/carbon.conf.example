@@ -105,10 +105,12 @@ USE_FLOW_CONTROL = True
 # metrics have been sent in specified time in seconds 
 #METRIC_CLIENT_IDLE_TIMEOUT = None
 
-# By default, carbon-cache will log every whisper update and cache hit. This can be excessive and
-# degrade performance if logging on the same volume as the whisper data is stored.
+# By default, carbon-cache will log every whisper update and cache hit.
+# This can be excessive and degrade performance if logging on the same
+# volume as the whisper data is stored.
 LOG_UPDATES = False
 LOG_CACHE_HITS = False
+LOG_CACHE_QUEUE_SORTS = False
 
 # The thread that writes metrics to disk can use on of the following strategies
 # determining the order in which metrics are removed from cache and flushed to

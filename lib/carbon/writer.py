@@ -134,7 +134,7 @@ def writeCachedDataPoints():
         UPDATE_BUCKET.drain(1, blocking=True)
       try:
         t1 = time.time()
-        whisper.update_many(dbFilePath, datapoints)
+        state.database.write(metric, datapoints)
         updateTime = time.time() - t1
       except Exception:
         log.msg("Error writing to %s" % (dbFilePath))

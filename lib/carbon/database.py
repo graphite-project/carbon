@@ -13,6 +13,7 @@ See the License for the specific language governing permissions and
 limitations under the License."""
 
 from carbon.util import PluginRegistrar
+from carbon.storage import getFilesystemPath
 from carbon import log
 
 
@@ -51,6 +52,7 @@ else:
     plugin_name = 'whisper'
 
     def __init__(self, settings):
+      self.data_dir = settings.LOCAL_DATA_DIR
       if settings.WHISPER_AUTOFLUSH:
         log.msg("Enabling Whisper autoflush")
         whisper.AUTOFLUSH = True
@@ -67,3 +69,7 @@ else:
           whisper.LOCK = True
         else:
           log.err("WHISPER_LOCK_WRITES is enabled but import of fcntl module failed.")
+
+    def write(self, metric, datapoints):
+      path = getFilesystemPath(metric)
+      whisper.update_many(path, datapoints)

@@ -92,3 +92,17 @@ else:
 
       whisper.create(path, retentions, xfilesfactor, aggregation_method,
                      self.sparse_create, self.fallocate_create)
+
+    def getMetadata(self, metric, key):
+      if key != 'aggregationMethod':
+        raise ValueError("Unsupported metadata key \"%s\"" % key)
+
+      wsp_path = getFilesystemPath(metric)
+      return whisper.info(wsp_path)['aggregationMethod']
+
+    def setMetadata(self, metric, key, value):
+      if key != 'aggregationMethod':
+        raise ValueError("Unsupported metadata key \"%s\"" % key)
+
+      wsp_path = getFilesystemPath(metric)
+      return whisper.setAggregationMethod(wsp_path, value)

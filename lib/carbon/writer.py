@@ -16,8 +16,7 @@ import time
 
 from carbon import state
 from carbon.cache import MetricCache
-from carbon.storage import getFilesystemPath, loadStorageSchemas,\
-    loadAggregationSchemas
+from carbon.storage import loadStorageSchemas, loadAggregationSchemas
 from carbon.conf import settings
 from carbon import log, events, instrumentation
 from carbon.util import TokenBucket
@@ -56,7 +55,6 @@ def optimalWriteOrder():
   rate limit on new metrics"""
   while MetricCache:
     (metric, datapoints) = MetricCache.drain_metric()
-    dbFilePath = getFilesystemPath(metric)
     dbFileExists = state.database.exists(metric)
 
     if not dbFileExists and CREATE_BUCKET:
@@ -68,10 +66,10 @@ def optimalWriteOrder():
       # when rate limitng unless our cache is too big or some other legit
       # reason.
       if CREATE_BUCKET.drain(1):
-        yield (metric, datapoints, dbFilePath, dbFileExists)
+        yield (metric, datapoints, dbFileExists)
       continue
 
-    yield (metric, datapoints, dbFilePath, dbFileExists)
+    yield (metric, datapoints, dbFileExists)
 
 
 def writeCachedDataPoints():
@@ -80,7 +78,7 @@ def writeCachedDataPoints():
   while MetricCache:
     dataWritten = False
 
-    for (metric, datapoints, dbFilePath, dbFileExists) in optimalWriteOrder():
+    for (metric, datapoints, dbFileExists) in optimalWriteOrder():
       dataWritten = True
 
       if not dbFileExists:
@@ -102,13 +100,13 @@ def writeCachedDataPoints():
         if not archiveConfig:
           raise Exception("No storage schema matched the metric '%s', check your storage-schemas.conf file." % metric)
 
-        log.creates("creating database file %s (archive=%s xff=%s agg=%s)" %
-                    (dbFilePath, archiveConfig, xFilesFactor, aggregationMethod))
+        log.creates("creating database metric %s (archive=%s xff=%s agg=%s)" %
+                    (metric, archiveConfig, xFilesFactor, aggregationMethod))
         try:
             state.database.create(metric, archiveConfig, xFilesFactor, aggregationMethod)
             instrumentation.increment('creates')
-        except Exception, e:
-            log.msg("Error creating %s: %s" % (dbFilePath, e))
+        except Exception:
+            log.msg("Error creating %s: %s" % (metric, e))
             continue
       # If we've got a rate limit configured lets makes sure we enforce it
       if UPDATE_BUCKET:
@@ -118,7 +116,7 @@ def writeCachedDataPoints():
         state.database.write(metric, datapoints)
         updateTime = time.time() - t1
       except Exception, e:
-        log.msg("Error writing to %s: %s" % (dbFilePath, e))
+        log.msg("Error writing to %s: %s" % (metric, e))
         instrumentation.increment('errors')
       else:
         pointCount = len(datapoints)

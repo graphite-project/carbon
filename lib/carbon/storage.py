@@ -28,10 +28,6 @@ STORAGE_AGGREGATION_CONFIG = join(settings.CONF_DIR, 'storage-aggregation.conf')
 STORAGE_LISTS_DIR = join(settings.CONF_DIR, 'lists')
 
 
-def getFilesystemPath(metric):
-  return state.database.getFilesystemPath(metric)
-
-
 class Schema:
   def test(self, metric):
     raise NotImplementedError()

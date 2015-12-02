@@ -13,6 +13,7 @@ See the License for the specific language governing permissions and
 limitations under the License."""
 
 from carbon.util import PluginRegistrar
+from carbon import log
 
 
 class TimeSeriesDatabase(object):
@@ -48,3 +49,21 @@ except ImportError:
 else:
   class WhisperDatabase(TimeSeriesDatabase):
     plugin_name = 'whisper'
+
+    def __init__(self, settings):
+      if settings.WHISPER_AUTOFLUSH:
+        log.msg("Enabling Whisper autoflush")
+        whisper.AUTOFLUSH = True
+
+      if settings.WHISPER_FALLOCATE_CREATE:
+        if whisper.CAN_FALLOCATE:
+          log.msg("Enabling Whisper fallocate support")
+        else:
+          log.err("WHISPER_FALLOCATE_CREATE is enabled but linking failed.")
+
+      if settings.WHISPER_LOCK_WRITES:
+        if whisper.CAN_LOCK:
+          log.msg("Enabling Whisper file locking")
+          whisper.LOCK = True
+        else:
+          log.err("WHISPER_LOCK_WRITES is enabled but import of fcntl module failed.")

@@ -12,7 +12,8 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License."""
 
-from os.path import exists
+import os
+from os.path import exists, dirname
 from carbon.util import PluginRegistrar
 from carbon.storage import getFilesystemPath
 from carbon import log
@@ -54,6 +55,8 @@ else:
 
     def __init__(self, settings):
       self.data_dir = settings.LOCAL_DATA_DIR
+      self.sparse_create = settings.WHISPER_SPARSE_CREATE
+      self.fallocate_create = settings.WHISPER_FALLOCATE_CREATE
       if settings.WHISPER_AUTOFLUSH:
         log.msg("Enabling Whisper autoflush")
         whisper.AUTOFLUSH = True
@@ -77,3 +80,15 @@ else:
 
     def exists(self, metric):
       return exists(getFilesystemPath(metric))
+
+    def create(self, metric, retentions, xfilesfactor, aggregation_method):
+      path = getFilesystemPath(metric)
+      directory = dirname(path)
+      try:
+        if not exists(directory):
+          os.makedirs(directory)
+      except OSError, e:
+        log.err("%s" % e)
+
+      whisper.create(path, retentions, xfilesfactor, aggregation_method,
+                     self.sparse_create, self.fallocate_create)

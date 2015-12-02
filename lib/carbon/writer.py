@@ -12,11 +12,8 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License."""
 
-import os
 import time
-from os.path import exists, dirname
 
-import whisper
 from carbon import state
 from carbon.cache import MetricCache
 from carbon.storage import getFilesystemPath, loadStorageSchemas,\
@@ -109,22 +106,10 @@ def writeCachedDataPoints():
         if not archiveConfig:
           raise Exception("No storage schema matched the metric '%s', check your storage-schemas.conf file." % metric)
 
-        dbDir = dirname(dbFilePath)
-        try:
-            if not exists(dbDir):
-                os.makedirs(dbDir)
-        except OSError, e:
-            log.err("%s" % e)
         log.creates("creating database file %s (archive=%s xff=%s agg=%s)" %
                     (dbFilePath, archiveConfig, xFilesFactor, aggregationMethod))
         try:
-            whisper.create(
-                dbFilePath,
-                archiveConfig,
-                xFilesFactor,
-                aggregationMethod,
-                settings.WHISPER_SPARSE_CREATE,
-                settings.WHISPER_FALLOCATE_CREATE)
+            state.database.create(metric, archiveConfig, xFilesFactor, aggregationMethod)
             instrumentation.increment('creates')
         except Exception:
             log.err("Error creating %s" % (dbFilePath))

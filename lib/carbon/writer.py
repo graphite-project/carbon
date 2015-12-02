@@ -64,7 +64,7 @@ def optimalWriteOrder():
       events.cacheSpaceAvailable()
 
     dbFilePath = getFilesystemPath(metric)
-    dbFileExists = exists(dbFilePath)
+    dbFileExists = state.database.exists(metric)
 
     if not dbFileExists and CREATE_BUCKET:
       # If our tokenbucket has enough tokens available to create a new metric

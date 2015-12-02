@@ -12,6 +12,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License."""
 
+from os.path import exists
 from carbon.util import PluginRegistrar
 from carbon.storage import getFilesystemPath
 from carbon import log
@@ -73,3 +74,6 @@ else:
     def write(self, metric, datapoints):
       path = getFilesystemPath(metric)
       whisper.update_many(path, datapoints)
+
+    def exists(self, metric):
+      return exists(getFilesystemPath(metric))

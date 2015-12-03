@@ -114,6 +114,53 @@ def parseDestinations(destination_strings):
   return destinations
 
 
+# Yes this is duplicated in whisper. Yes, duplication is bad.
+# But the code is needed in both places and we do not want to create
+# a dependency on whisper especiaily as carbon moves toward being a more
+# generic storage service that can use various backends.
+UnitMultipliers = {
+  's' : 1,
+  'm' : 60,
+  'h' : 60 * 60,
+  'd' : 60 * 60 * 24,
+  'w' : 60 * 60 * 24 * 7,
+  'y' : 60 * 60 * 24 * 365,
+}
+
+
+def getUnitString(s):
+  if s not in UnitMultipliers:
+    raise ValueError("Invalid unit '%s'" % s)
+  return s
+
+
+def parseRetentionDef(retentionDef):
+  import re
+  (precision, points) = retentionDef.strip().split(':')
+
+  if precision.isdigit():
+    precision = int(precision) * UnitMultipliers[getUnitString('s')]
+  else:
+    precision_re = re.compile(r'^(\d+)([a-z]+)$')
+    match = precision_re.match(precision)
+    if match:
+      precision = int(match.group(1)) * UnitMultipliers[getUnitString(match.group(2))]
+    else:
+      raise ValueError("Invalid precision specification '%s'" % precision)
+
+  if points.isdigit():
+    points = int(points)
+  else:
+    points_re = re.compile(r'^(\d+)([a-z]+)$')
+    match = points_re.match(points)
+    if match:
+      points = int(match.group(1)) * UnitMultipliers[getUnitString(match.group(2))] / precision
+    else:
+      raise ValueError("Invalid retention specification '%s'" % points)
+
+  return (precision, points)
+
+
 # This whole song & dance is due to pickle being insecure
 # yet performance critical for carbon. We leave the insecure
 # mode (which is faster) as an option (USE_INSECURE_UNPICKLER).

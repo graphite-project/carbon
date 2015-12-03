@@ -19,7 +19,7 @@ import whisper
 from os.path import join, exists
 from carbon.conf import OrderedConfigParser, settings
 from carbon.exceptions import CarbonConfigException
-from carbon.util import pickle
+from carbon.util import pickle, parseRetentionDef
 from carbon import log, state
 
 
@@ -72,7 +72,7 @@ class Archive:
 
   @staticmethod
   def fromString(retentionDef):
-    (secondsPerPoint, points) = whisper.parseRetentionDef(retentionDef)
+    (secondsPerPoint, points) = parseRetentionDef(retentionDef)
     return Archive(secondsPerPoint, points)
 
 

@@ -14,7 +14,6 @@ limitations under the License."""
 
 import os
 import re
-import whisper
 
 from os.path import join, exists
 from carbon.conf import OrderedConfigParser, settings
@@ -128,7 +127,7 @@ def loadAggregationSchemas():
         xFilesFactor = float(xFilesFactor)
         assert 0 <= xFilesFactor <= 1
       if aggregationMethod is not None:
-        assert aggregationMethod in whisper.aggregationMethods
+        assert aggregationMethod in state.database.aggregationMethods
     except ValueError:
       log.msg("Invalid schemas found in %s." % section)
       continue

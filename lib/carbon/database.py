@@ -13,9 +13,8 @@ See the License for the specific language governing permissions and
 limitations under the License."""
 
 import os
-from os.path import exists, dirname
+from os.path import exists, dirname, join, sep
 from carbon.util import PluginRegistrar
-from carbon.storage import getFilesystemPath
 from carbon import log
 
 
@@ -43,6 +42,10 @@ class TimeSeriesDatabase(object):
   def setMetadata(self, metric, key, value):
     "Modify metric metadata."
     raise NotImplemented()
+
+  def getFilesystemPath(self, metric):
+    "Return filesystem path for metric, defaults to None."
+    pass
 
 
 try:
@@ -75,14 +78,14 @@ else:
           log.err("WHISPER_LOCK_WRITES is enabled but import of fcntl module failed.")
 
     def write(self, metric, datapoints):
-      path = getFilesystemPath(metric)
+      path = self.getFilesystemPath(metric)
       whisper.update_many(path, datapoints)
 
     def exists(self, metric):
-      return exists(getFilesystemPath(metric))
+      return exists(self.getFilesystemPath(metric))
 
     def create(self, metric, retentions, xfilesfactor, aggregation_method):
-      path = getFilesystemPath(metric)
+      path = self.getFilesystemPath(metric)
       directory = dirname(path)
       try:
         if not exists(directory):
@@ -97,12 +100,16 @@ else:
       if key != 'aggregationMethod':
         raise ValueError("Unsupported metadata key \"%s\"" % key)
 
-      wsp_path = getFilesystemPath(metric)
+      wsp_path = self.getFilesystemPath(metric)
       return whisper.info(wsp_path)['aggregationMethod']
 
     def setMetadata(self, metric, key, value):
       if key != 'aggregationMethod':
         raise ValueError("Unsupported metadata key \"%s\"" % key)
 
-      wsp_path = getFilesystemPath(metric)
+      wsp_path = self.getFilesystemPath(metric)
       return whisper.setAggregationMethod(wsp_path, value)
+
+    def getFilesystemPath(self, metric):
+      metric_path = metric.replace('.', sep).lstrip(sep) + '.wsp'
+      return join(self.data_dir, metric_path)

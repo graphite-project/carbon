@@ -97,9 +97,9 @@ def loadStorageSchemas():
     archiveList = [a.getTuple() for a in archives]
 
     try:
-      whisper.validateArchiveList(archiveList)
+      state.database.validateArchiveList(archiveList)
       schemaList.append(mySchema)
-    except whisper.InvalidConfiguration, e:
+    except ValueError, e:
       log.msg("Invalid schemas found in %s: %s" % (section, e))
 
   schemaList.append(defaultSchema)

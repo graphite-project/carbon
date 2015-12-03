@@ -137,3 +137,51 @@ else:
         whisper.validateArchiveList(archiveList)
       except whisper.InvalidConfiguration, e:
         raise ValueError("%s" % e)
+
+
+try:
+  import ceres
+except ImportError:
+  pass
+else:
+  class CeresDatabase(TimeSeriesDatabase):
+    plugin_name = 'ceres'
+    aggregationMethods = ['average','sum','last','max','min']
+
+    def __init__(self, settings):
+      self.data_dir = settings.LOCAL_DATA_DIR
+      ceres.setDefaultSliceCachingBehavior(settings.CERES_SLICE_CACHING_BEHAVIOUR)
+      ceres.MAX_SLICE_GAP = int(settings.CERES_MAX_SLICE_GAP)
+
+      if settings.CERES_LOCK_WRITES:
+        if ceres.CAN_LOCK:
+          log.msg("Enabling Ceres file locking")
+          ceres.LOCK_WRITES = True
+        else:
+          log.err("CERES_LOCK_WRITES is enabled but import of fcntl module failed.")
+
+      self.tree = ceres.CeresTree(self.data_dir)
+
+    def write(self, metric, datapoints):
+      self.tree.store(metric, datapoints)
+
+    def exists(self, metric):
+      return self.tree.hasNode(metric)
+
+    def create(self, metric, retentions, xfilesfactor, aggregation_method):
+      self.tree.createNode(metric, retentions=retentions,
+                           timeStep=retentions[0][0],
+                           xFilesFactor=xfilesfactor,
+                           aggregationMethod=aggregation_method)
+
+    def getMetadata(self, metric, key):
+      return self.tree.getNode(metric).readMetadata()[key]
+
+    def setMetadata(self, metric, key, value):
+      node = self.tree.getNode(metric)
+      metadata = node.readMetadata()
+      metadata[key] = value
+      node.writeMetadata(metadata)
+
+    def getFilesystemPath(self, metric):
+      return self.tree.getFilesystemPath(metric)

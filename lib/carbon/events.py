@@ -29,7 +29,7 @@ cacheSpaceAvailable = Event('cacheSpaceAvailable')
 pauseReceivingMetrics = Event('pauseReceivingMetrics')
 resumeReceivingMetrics = Event('resumeReceivingMetrics')
 
-cacheFull.addHandler(lambda: carbon.instrumentation.increment('cache.overflow'))
+cacheFull.addHandler(lambda: state.instrumentation.increment('cache.overflow'))
 cacheFull.addHandler(lambda: setattr(state, 'cacheTooFull', True))
 cacheSpaceAvailable.addHandler(lambda: setattr(state, 'cacheTooFull', False))
 

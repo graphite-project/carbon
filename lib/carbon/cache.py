@@ -71,7 +71,8 @@ class SortedStrategy(DrainStrategy):
       while True:
         t = time.time()
         metric_counts = sorted(self.cache.counts, key=lambda x: x[1])
-        log.msg("Sorted %d cache queues in %.6f seconds" % (len(metric_counts), time.time() - t))
+        if settings.LOG_CACHE_QUEUE_SORTS:
+          log.msg("Sorted %d cache queues in %.6f seconds" % (len(metric_counts), time.time() - t))
         while metric_counts:
           yield itemgetter(0)(metric_counts.pop())
 

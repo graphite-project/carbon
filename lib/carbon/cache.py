@@ -44,6 +44,23 @@ class DrainStrategy(object):
     raise NotImplemented
 
 
+class NaiveStrategy(DrainStrategy):
+  """Pop points in an unordered fashion."""
+  def __init__(self, cache):
+    super(NaiveStrategy, self).__init__(cache)
+
+    def _generate_queue():
+      while True:
+        metric_names = self.cache.keys()
+        while metric_names:
+          yield metric_names.pop()
+
+    self.queue = _generate_queue()
+
+  def choose_item(self):
+    return self.queue.next()
+
+
 class MaxStrategy(DrainStrategy):
   """Always pop the metric with the greatest number of points stored.
   This method leads to less variance in pointsPerUpdate but may mean
@@ -150,6 +167,8 @@ class _MetricCache(dict):
 
 # Initialize a singleton cache instance
 write_strategy = None
+if settings.CACHE_WRITE_STRATEGY == 'naive':
+  write_strategy = NaiveStrategy
 if settings.CACHE_WRITE_STRATEGY == 'max':
   write_strategy = MaxStrategy
 if settings.CACHE_WRITE_STRATEGY == 'sorted':

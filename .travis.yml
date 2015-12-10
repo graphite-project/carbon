@@ -13,3 +13,5 @@ install:
 
 script:
     - tox -e $TOXENV
+
+sudo: false

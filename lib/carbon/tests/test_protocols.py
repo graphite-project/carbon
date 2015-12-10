@@ -1,4 +1,4 @@
-from unittest import TestCase, skip
+from unittest import TestCase
 from mock import Mock, patch
 from carbon.cache import _MetricCache
 
@@ -74,7 +74,6 @@ class TestCacheManagementHandler(TestCase):
     self.send_request('cache-query', metric='carbon.foo')
     self.assertEquals({'datapoints': []}, self.response)
 
-  @skip('XXX issue #360')
   def test_cache_query_returns_cached_datapoints_if_matches(self):
     self.cache.store('carbon.foo', (600, 1.0))
     self.send_request('cache-query', metric='carbon.foo')
@@ -92,7 +91,6 @@ class TestCacheManagementHandler(TestCase):
     self.send_request('cache-query-bulk', metrics=[])
     self.assertEquals({'datapointsByMetric': {}}, self.response)
 
-  @skip('XXX issue #360')
   def test_cache_bulk_query_response(self):
     self.cache.store('carbon.foo', (600, 1.0))
     self.cache.store('carbon.bar', (600, 2.0))

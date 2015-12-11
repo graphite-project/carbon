@@ -365,6 +365,11 @@ LINE_RECEIVER_PORT = 2023
 PICKLE_RECEIVER_INTERFACE = 0.0.0.0
 PICKLE_RECEIVER_PORT = 2024
 
+# If set true, metric received will be forwarded to DESTINATIONS in addition to
+# the output of the aggregation rules. If set false the carbon-aggregator will
+# only ever send the output of aggregation.
+FORWARD_ALL = True
+
 # Filenames of the configuration files to use for this instance of aggregator.
 # Filenames are relative to CONF_DIR.
 #

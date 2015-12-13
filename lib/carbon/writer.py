@@ -119,6 +119,10 @@ def writeCachedDataPoints():
         UPDATE_BUCKET.drain(1, blocking=True)
       try:
         t1 = time.time()
+        # If we have duplicated points, always pick the last. update_many()
+        # has no guaranted behavior for that, and in fact the current implementation
+        # will keep the first point in the list.
+        datapoints = dict(datapoints).items()
         state.database.write(metric, datapoints)
         updateTime = time.time() - t1
       except Exception:

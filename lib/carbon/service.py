@@ -41,8 +41,6 @@ def createBaseService(config, settings):
     root_service = CarbonRootService()
     root_service.setName(settings.program)
 
-    setupReceivers(root_service, settings)
-
     if settings.USE_WHITELIST:
       from carbon.regexlist import WhiteList, BlackList
       WhiteList.read_from(settings.whitelist)
@@ -101,6 +99,7 @@ def createCacheService(config):
 
   root_service = createBaseService(config, settings)
   setupPipeline(['write'], root_service, settings)
+  setupReceivers(root_service, settings)
 
   return root_service
 
@@ -111,6 +110,7 @@ def createAggregatorService(config):
   settings.RELAY_METHOD = 'consistent-hashing'
   root_service = createBaseService(config, settings)
   setupPipeline(['rewrite:pre', 'aggregate', 'rewrite:post', 'relay'], root_service, settings)
+  setupReceivers(root_service, settings)
 
   return root_service
 
@@ -120,6 +120,8 @@ def createRelayService(config):
 
   root_service = createBaseService(config, settings)
   setupPipeline(['relay'], root_service, settings)
+  setupReceivers(root_service, settings)
+
   return root_service
 
 

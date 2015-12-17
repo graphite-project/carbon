@@ -133,7 +133,6 @@ class CarbonClientManagerTest(TestCase):
     reactor.callLater(0.1, disconnect_deferred.callback, 0)
     self.factory_mock.return_value.disconnect.return_value = disconnect_deferred
     return self.client_mgr.stopService()
-  test_stop_service_waits_for_clients_to_disconnect.skip = "stopService not returning a deferred!"
 
   def test_start_client_instantiates_client_factory(self):
     dest = ('127.0.0.1', 2003, 'a')

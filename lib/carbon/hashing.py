@@ -42,6 +42,11 @@ class ConsistentHashRing:
 
   def get_nodes(self, key):
     assert self.ring
+    if len(self.nodes) == 1:
+      # short circuit in simple 1-node case
+      for node in self.nodes:
+        yield node
+        return
     nodes = set()
     position = self.compute_ring_position(key)
     search_entry = (position, None)

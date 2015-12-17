@@ -345,7 +345,7 @@ class CarbonClientManager(Service):
 
   def stopService(self):
     Service.stopService(self)
-    self.stopAllClients()
+    return self.stopAllClients()
 
   def startClient(self, destination):
     if destination in self.client_factories:

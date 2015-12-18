@@ -21,8 +21,8 @@ from os.path import join, dirname, normpath, exists, isdir
 from optparse import OptionParser
 from ConfigParser import ConfigParser
 
-import whisper
-from carbon import log
+from carbon import log, state
+from carbon.database import TimeSeriesDatabase
 from carbon.exceptions import CarbonConfigException
 
 from twisted.python import usage
@@ -45,6 +45,7 @@ defaults = dict(
   LOG_UPDATES=True,
   LOG_CACHE_HITS=True,
   LOG_CACHE_QUEUE_SORTS=True,
+  DATABASE='whisper',
   WHISPER_AUTOFLUSH=False,
   WHISPER_SPARSE_CREATE=False,
   WHISPER_FALLOCATE_CREATE=False,
@@ -237,22 +238,14 @@ class CarbonCacheOptions(usage.Options):
             print "Error: missing required config %s" % storage_schemas
             sys.exit(1)
 
-        if settings.WHISPER_AUTOFLUSH:
-            log.msg("Enabling Whisper autoflush")
-            whisper.AUTOFLUSH = True
+        # Database-specific settings
+        database = settings.DATABASE
+        if database not in TimeSeriesDatabase.plugins:
+            print "No database plugin implemented for '%s'" % database
+            raise SystemExit(1)
 
-        if settings.WHISPER_FALLOCATE_CREATE:
-            if whisper.CAN_FALLOCATE:
-                log.msg("Enabling Whisper fallocate support")
-            else:
-                log.err("WHISPER_FALLOCATE_CREATE is enabled but linking failed.")
-
-        if settings.WHISPER_LOCK_WRITES:
-            if whisper.CAN_LOCK:
-                log.msg("Enabling Whisper file locking")
-                whisper.LOCK = True
-            else:
-                log.err("WHISPER_LOCK_WRITES is enabled but import of fcntl module failed.")
+        database_class = TimeSeriesDatabase.plugins[database]
+        state.database = database_class(settings)
 
         if not "action" in self:
             self["action"] = "start"

@@ -16,6 +16,10 @@ import time
 from operator import itemgetter
 from random import choice
 from collections import defaultdict
+from threading import current_thread
+
+from twisted.internet import reactor
+from twisted.internet.threads import blockingCallFromThread
 
 from carbon.conf import settings
 from carbon import events, log
@@ -142,6 +146,11 @@ class _MetricCache(defaultdict):
     return sorted(self.get(metric, {}).items(), key=by_timestamp)
 
   def pop(self, metric):
+    if current_thread().name == 'MainThread':
+      return self._pop(metric)
+    return blockingCallFromThread(reactor, self._pop, metric)
+
+  def _pop(self, metric):
     datapoint_index = defaultdict.pop(self, metric)
     self.size -= len(datapoint_index)
     self._check_available_space()

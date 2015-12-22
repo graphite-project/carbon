@@ -15,6 +15,7 @@ limitations under the License."""
 import time
 from operator import itemgetter
 from random import choice
+from collections import defaultdict
 
 from carbon.conf import settings
 from carbon import events, log
@@ -99,16 +100,14 @@ class SortedStrategy(DrainStrategy):
     return self.queue.next()
 
 
-class _MetricCache(dict):
+class _MetricCache(defaultdict):
   """A Singleton dictionary of metric names and lists of their datapoints"""
   def __init__(self, strategy=None):
     self.size = 0
     self.strategy = None
     if strategy:
       self.strategy = strategy(self)
-
-  def __setitem__(self, key, value):
-    raise TypeError("Use store() method instead!")
+    super(_MetricCache, self).__init__(dict)
 
   @property
   def counts(self):
@@ -143,14 +142,13 @@ class _MetricCache(dict):
     return sorted(self.get(metric, {}).items(), key=by_timestamp)
 
   def pop(self, metric):
-    datapoint_index = dict.pop(self, metric)
+    datapoint_index = defaultdict.pop(self, metric)
     self.size -= len(datapoint_index)
     self._check_available_space()
 
     return sorted(datapoint_index.items(), key=by_timestamp)
 
   def store(self, metric, datapoint):
-    self.setdefault(metric, {})
     timestamp, value = datapoint
     if timestamp not in self[metric]:
       # Not a duplicate, hence process if cache is not full

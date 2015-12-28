@@ -247,6 +247,8 @@ class CarbonCacheOptions(usage.Options):
         database_class = TimeSeriesDatabase.plugins[database]
         state.database = database_class(settings)
 
+        settings.CACHE_SIZE_LOW_WATERMARK = settings.MAX_CACHE_SIZE * 0.95
+
         if not "action" in self:
             self["action"] = "start"
         self.handleAction()

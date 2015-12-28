@@ -123,7 +123,7 @@ class _MetricCache(dict):
 
   def _check_available_space(self):
     if state.cacheTooFull and self.size < settings.CACHE_SIZE_LOW_WATERMARK:
-      log.msg("cache size below watermark")
+      log.msg("MetricCache below watermark: self.size=%d" % self.size)
       events.cacheSpaceAvailable()
 
   def drain_metric(self):

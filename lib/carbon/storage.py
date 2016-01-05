@@ -96,7 +96,8 @@ def loadStorageSchemas():
     archiveList = [a.getTuple() for a in archives]
 
     try:
-      state.database.validateArchiveList(archiveList)
+      if state.database is not None:
+        state.database.validateArchiveList(archiveList)
       schemaList.append(mySchema)
     except ValueError, e:
       log.msg("Invalid schemas found in %s: %s" % (section, e))
@@ -127,7 +128,8 @@ def loadAggregationSchemas():
         xFilesFactor = float(xFilesFactor)
         assert 0 <= xFilesFactor <= 1
       if aggregationMethod is not None:
-        assert aggregationMethod in state.database.aggregationMethods
+        if state.database is not None:
+          assert aggregationMethod in state.database.aggregationMethods
     except ValueError:
       log.msg("Invalid schemas found in %s." % section)
       continue

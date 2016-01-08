@@ -91,6 +91,12 @@ UDP_RECEIVER_PORT = 2003
 PICKLE_RECEIVER_INTERFACE = 0.0.0.0
 PICKLE_RECEIVER_PORT = 2004
 
+# Limit the number of open connections the receiver can handle as any time.
+# Default is no limit. Setting up a limit for sites handling high volume
+# traffic may be recommended to avoid running out of TCP memory or having
+# thousands of TCP connections reduce the throughput of the service.
+#MAX_RECEIVER_CONNECTIONS = inf
+
 # Per security concerns outlined in Bug #817247 the pickle receiver
 # will use a more secure and slightly less efficient unpickler.
 # Set this to True to revert to the old-fashioned insecure unpickler.
@@ -293,6 +299,12 @@ MAX_QUEUE_SIZE = 10000
 # overloading on the receiving side after a disconnect.
 MAX_DATAPOINTS_PER_MESSAGE = 500
 
+# Limit the number of open connections the receiver can handle as any time.
+# Default is no limit. Setting up a limit for sites handling high volume
+# traffic may be recommended to avoid running out of TCP memory or having
+# thousands of TCP connections reduce the throughput of the service.
+#MAX_RECEIVER_CONNECTIONS = inf
+
 # This is the percentage that the queue must be empty before it will accept
 # more messages.  For a larger site, if the queue is very large it makes sense
 # to tune this to allow for incoming stats.  So if you have an average
@@ -423,6 +435,12 @@ MAX_DATAPOINTS_PER_MESSAGE = 500
 # each metric. Aggregation only happens for datapoints that fall in
 # the past MAX_AGGREGATION_INTERVALS * intervalSize seconds.
 MAX_AGGREGATION_INTERVALS = 5
+
+# Limit the number of open connections the receiver can handle as any time.
+# Default is no limit. Setting up a limit for sites handling high volume
+# traffic may be recommended to avoid running out of TCP memory or having
+# thousands of TCP connections reduce the throughput of the service.
+#MAX_RECEIVER_CONNECTIONS = inf
 
 # By default (WRITE_BACK_FREQUENCY = 0), carbon-aggregator will write back
 # aggregated data points once every rule.frequency seconds, on a per-rule basis.

@@ -193,7 +193,7 @@ class TokenBucket(object):
       if blocking:
         tokens_needed = cost - self._tokens
         seconds_per_token = 1 / self.fill_rate
-        seconds_left = seconds_per_token * self.fill_rate
+        seconds_left = seconds_per_token * tokens_needed
         sleep(self.timestamp + seconds_left - time())
         self._tokens -= cost
         return True

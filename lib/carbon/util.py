@@ -157,11 +157,11 @@ else:
       if not name in self.PICKLE_SAFE[module]:
         raise pickle.UnpicklingError('Attempting to unpickle unsafe class %s' % name)
       return getattr(mod, name)
- 
+
     @classmethod
     def loads(cls, pickle_string):
       return cls(StringIO(pickle_string)).load()
- 
+
 
 def get_unpickler(insecure=False):
   if insecure:
@@ -194,7 +194,9 @@ class TokenBucket(object):
         tokens_needed = cost - self._tokens
         seconds_per_token = 1 / self.fill_rate
         seconds_left = seconds_per_token * tokens_needed
-        sleep(self.timestamp + seconds_left - time())
+        time_to_sleep = self.timestamp + seconds_left - time()
+        if time_to_sleep > 0:
+            sleep(time_to_sleep)
         self._tokens -= cost
         return True
       return False

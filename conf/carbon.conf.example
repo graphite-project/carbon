@@ -116,7 +116,7 @@ LOG_UPDATES = False
 LOG_CACHE_HITS = False
 LOG_CACHE_QUEUE_SORTS = False
 
-# The thread that writes metrics to disk can use on of the following strategies
+# The thread that writes metrics to disk can use one of the following strategies
 # determining the order in which metrics are removed from cache and flushed to
 # disk. The default option preserves the same behavior as has been historically
 # available in version 0.9.10.

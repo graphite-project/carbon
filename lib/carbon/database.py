@@ -60,6 +60,9 @@ else:
       self.data_dir = settings.LOCAL_DATA_DIR
       self.sparse_create = settings.WHISPER_SPARSE_CREATE
       self.fallocate_create = settings.WHISPER_FALLOCATE_CREATE
+      if settings.WHISPER_CACHE_HEADERS:
+        log.msg("Enabling Whisper header cache")
+        whisper.CACHE_HEADERS = True
       if settings.WHISPER_AUTOFLUSH:
         log.msg("Enabling Whisper autoflush")
         whisper.AUTOFLUSH = True

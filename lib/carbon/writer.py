@@ -31,6 +31,18 @@ try:
 except ImportError:
     log.msg("Couldn't import signal module")
 
+try:
+    import whisper
+except ImportError:
+    log.msg("Could not import whisper module")
+
+def ageWhisperHeaderCache():
+    for (key, cachedEntry) in whisper.__headerCache:
+        if settings.WHISPER_HEADER_AGE_THRESHOLD > 0 and\
+                time.time() - cachedEntry.time >= \
+            settings.WHISPER_HEADER_AGE_THRESHOLD:
+                log.msg("Aging entry for {k}".format(k=key))
+                del whisper.__headerCache[key] 
 
 SCHEMAS = loadStorageSchemas()
 AGGREGATION_SCHEMAS = loadAggregationSchemas()

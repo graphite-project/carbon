@@ -192,6 +192,7 @@ class WriterService(Service):
     def __init__(self):
         self.storage_reload_task = LoopingCall(reloadStorageSchemas)
         self.aggregation_reload_task = LoopingCall(reloadAggregationSchemas)
+        self.age_header_task = LoopingCall(ageWhisperHeaderCache)
 
     def startService(self):
         if 'signal' in globals().keys():
@@ -201,9 +202,11 @@ class WriterService(Service):
         self.aggregation_reload_task.start(60, False)
         reactor.addSystemEventTrigger('before', 'shutdown', shutdownModifyUpdateSpeed)
         reactor.callInThread(writeForever)
+        self.age_header_task.start(60, False); # TODO should the interval come from settings
         Service.startService(self)
 
     def stopService(self):
+        self.age_header_task.stop()
         self.storage_reload_task.stop()
         self.aggregation_reload_task.stop()
         Service.stopService(self)

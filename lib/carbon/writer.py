@@ -39,9 +39,10 @@ except ImportError:
 def ageWhisperHeaderCache():
     if settings.WHISPER_HEADER_AGE_THRESHOLD > 0:
         entries_to_delete = [key for (key,val) in whisper.__headerCache if time.time() - cachedEntry.time >= settings.WHISPER_HEADER_AGE_THRESHOLD ]
-        log.msg("will age {count} entries".format(count=len(entries_to_delete)))
+        log.msg("Will age {count} header cache entries".format(count=len(entries_to_delete)))
         for entry in entries_to_delete:
             del whisper.__headerCache[entry]
+        log.msg("{count} surviving header cache entries remain".format(count=len(__headerCache.keys())))
 
 SCHEMAS = loadStorageSchemas()
 AGGREGATION_SCHEMAS = loadAggregationSchemas()

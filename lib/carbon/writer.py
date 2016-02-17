@@ -37,12 +37,11 @@ except ImportError:
     log.msg("Could not import whisper module")
 
 def ageWhisperHeaderCache():
-    for (key, cachedEntry) in whisper.__headerCache:
-        if settings.WHISPER_HEADER_AGE_THRESHOLD > 0 and\
-                time.time() - cachedEntry.time >= \
-            settings.WHISPER_HEADER_AGE_THRESHOLD:
-                log.msg("Aging entry for {k}".format(k=key))
-                del whisper.__headerCache[key] 
+    if settings.WHISPER_HEADER_AGE_THRESHOLD > 0:
+        entries_to_delete = [key for (key,val) in whisper.__headerCache if time.time() - cachedEntry.time >= settings.WHISPER_HEADER_AGE_THRESHOLD ]
+        log.msg("will age {count} entries".format(count=len(entries_to_delete)))
+        for entry in entries_to_delete:
+            del whisper.__headerCache[entry]
 
 SCHEMAS = loadStorageSchemas()
 AGGREGATION_SCHEMAS = loadAggregationSchemas()

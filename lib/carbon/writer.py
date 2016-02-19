@@ -37,7 +37,7 @@ except ImportError:
     log.msg("Could not import whisper module")
 
 def ageWhisperHeaderCache():
-    if settings.WHISPER_HEADER_AGE_THRESHOLD > 0 and WHISPER_CACHE_HEADERS is True:
+    if settings.WHISPER_HEADER_AGE_THRESHOLD > 0 and settings.WHISPER_CACHE_HEADERS is True:
         entries_to_delete = [key for (key,val) in whisper.__headerCache.items() if time.time() - val.time >= settings.WHISPER_HEADER_AGE_THRESHOLD ]
         log.msg("Will age {count} header cache entries".format(count=len(entries_to_delete)))
         for entry in entries_to_delete:

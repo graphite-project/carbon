@@ -76,6 +76,13 @@ class MetricCacheTest(TestCase):
       self.metric_cache.pop('foo')
       self.assertEqual(1, check_space_mock.call_count)
 
+  def test_pop_triggers_space_event(self):
+    with patch('carbon.state.cacheTooFull', new=Mock(return_value=True)):
+      with patch('carbon.cache.events') as events_mock:
+        self.metric_cache.store('foo', (123456, 1.0))
+        self.metric_cache.pop('foo')
+        events_mock.cacheSpaceAvailable.assert_called_with()
+
   def test_pop_returns_sorted_timestamps(self):
     self.metric_cache.store('foo', (123457, 2.0))
     self.metric_cache.store('foo', (123458, 3.0))

@@ -34,7 +34,6 @@ except ImportError:
 
 SCHEMAS = loadStorageSchemas()
 AGGREGATION_SCHEMAS = loadAggregationSchemas()
-CACHE_SIZE_LOW_WATERMARK = settings.MAX_CACHE_SIZE * 0.95
 
 
 # Inititalize token buckets so that we can enforce rate limits on creates and
@@ -57,9 +56,6 @@ def optimalWriteOrder():
   rate limit on new metrics"""
   while MetricCache:
     (metric, datapoints) = MetricCache.drain_metric()
-    if state.cacheTooFull and MetricCache.size < CACHE_SIZE_LOW_WATERMARK:
-      events.cacheSpaceAvailable()
-
     dbFilePath = getFilesystemPath(metric)
     dbFileExists = state.database.exists(metric)
 

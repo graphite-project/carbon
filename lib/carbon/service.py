@@ -28,6 +28,17 @@ state.events = events
 state.instrumentation = instrumentation
 
 
+class CarbonReceiverFactory(ServerFactory):
+  def buildProtocol(self, addr):
+    from carbon.conf import settings
+
+    # Don't establish the connection if we have reached the limit.
+    if len(state.connectedMetricReceiverProtocols) < settings.MAX_RECEIVER_CONNECTIONS:
+      return ServerFactory.buildProtocol(self, addr)
+    else:
+      return None
+
+
 class CarbonRootService(MultiService):
   """Root Service that properly configures twistd logging"""
 
@@ -133,7 +144,7 @@ def setupReceivers(root_service, settings):
       (MetricPickleReceiver, settings.PICKLE_RECEIVER_INTERFACE, settings.PICKLE_RECEIVER_PORT)
     ]:
     if port:
-      factory = ServerFactory()
+      factory = CarbonReceiverFactory()
       factory.protocol = protocol
       service = TCPServer(port, factory, interface=interface)
       service.setServiceParent(root_service)

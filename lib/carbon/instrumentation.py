@@ -135,6 +135,7 @@ def recordMetrics():
         myPriorStats[stat_name] = stat_value
 
   # common metrics
+  record('activeConnections', len(state.connectedMetricReceiverProtocols))
   record('metricsReceived', myStats.get('metricsReceived', 0))
   record('blacklistMatches', myStats.get('blacklistMatches', 0))
   record('whitelistRejects', myStats.get('whitelistRejects', 0))

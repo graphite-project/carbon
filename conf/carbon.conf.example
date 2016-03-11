@@ -228,7 +228,7 @@ WHISPER_AUTOFLUSH = False
 #PICKLE_RECEIVER_PORT = 2104
 #CACHE_QUERY_PORT = 7102
 # and any other settings you want to customize, defaults are inherited
-# from [carbon] section.
+# from the [cache] section.
 # You can then specify the --instance=b option to manage this instance
 #
 # In order to turn off logging of successful connections for the line

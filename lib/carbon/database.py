@@ -78,11 +78,14 @@ else:
           log.err("WHISPER_LOCK_WRITES is enabled but import of fcntl module failed.")
 
       if settings.WHISPER_FADVISE_RANDOM:
-        if whisper.CAN_FADVISE:
-          log.msg("Enabling Whisper fadvise_random support")
-          whisper.FADVISE_RANDOM = True
-        else:
-          log.err("WHISPER_FADVISE_RANDOM is enabled but import of ftools module failed.")
+        try:
+          if whisper.CAN_FADVISE:
+            log.msg("Enabling Whisper fadvise_random support")
+            whisper.FADVISE_RANDOM = True
+          else:
+            log.err("WHISPER_FADVISE_RANDOM is enabled but import of ftools module failed.")
+        except AttributeError:
+          log.err("WHISPER_FADVISE_RANDOM is enabled but skipped because it is not compatible with the version of Whisper.")
 
     def write(self, metric, datapoints):
       path = self.getFilesystemPath(metric)

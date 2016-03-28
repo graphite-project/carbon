@@ -72,7 +72,7 @@ class MetricReceiver(TimeoutMixin):
 
 
 class MetricLineReceiver(MetricReceiver, LineOnlyReceiver):
-  delimiter = '\n'
+  delimiter = '\t'
 
   def lineReceived(self, line):
     try:

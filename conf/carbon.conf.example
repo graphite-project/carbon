@@ -174,6 +174,12 @@ WHISPER_AUTOFLUSH = False
 # multiple carbon-cache daemons are writing to the same files
 # WHISPER_LOCK_WRITES = False
 
+# On systems which has a large number of metrics, an amount of Whisper write(2)'s
+# pageback sometimes cause disk thrashing due to memory shortage, so that abnormal
+# disk reads occur. Enabling this option makes it possible to decrease useless 
+# page cache memory by posix_fadvise(2) with POSIX_FADVISE_RANDOM option.
+# WHISPER_FADVISE_RANDOM = False
+
 # Set this to True to enable whitelisting and blacklisting of metrics in
 # CONF_DIR/whitelist.conf and CONF_DIR/blacklist.conf. If the whitelist is
 # missing or empty, all metrics will pass through

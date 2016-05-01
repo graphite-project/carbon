@@ -45,6 +45,12 @@ class CarbonLogFile(DailyLogFile):
     if not self.enableRotation:
       if not os.path.exists(self.path):
         self.reopen()
+      else:
+        path_stat = os.stat(self.path)
+        fd_stat = os.fstat(self._file.fileno())
+        if not (path_stat.st_ino == fd_stat.st_ino 
+            and path_stat.st_dev == fd_stat.st_dev):
+          self.reopen()
     DailyLogFile.write(self, data)
 
   # Backport from twisted >= 10

@@ -27,9 +27,10 @@ class RelayRulesRouter(DatapointRouter):
   plugin_name = 'rules'
 
   def __init__(self, settings):
+    # We need to import relayrules here to avoid circular dependencies.
     from carbon.relayrules import loadRelayRules
 
-    rules_path = settings['relay-rules']
+    rules_path = settings["relay-rules"]
 
     self.rules_path = rules_path
     self.rules = loadRelayRules(rules_path)
@@ -153,3 +154,58 @@ class AggregatedConsistentHashingRouter(DatapointRouter):
 
     for destination in destinations:
       yield destination
+
+try:
+  import mmh3
+except ImportError:
+  pass
+else:
+  class FastHashRing(object):
+    """A very fast hash 'ring'.
+
+    Instead of trying to avoid rebalancing data when changing
+    the list of nodes we try to making routing as fast as we
+    can. It's good enough because the current rebalancing
+    tools performances depend on the total number of metrics
+    and not the number of metrics to rebalance.
+    """
+
+    def __init__(self):
+      self.nodes = set()
+      self.sorted_nodes = []
+
+    def _hash(self, key):
+      return mmh3.hash(key)
+
+    def _update_nodes(self):
+      self.sorted_nodes = sorted(self.nodes)
+
+    def add_node(self, node):
+      self.nodes.add(node)
+      self._update_nodes()
+
+    def remove_node(self, node):
+      self.nodes.discard(node)
+      self._update_nodes()
+
+    def get_nodes(self, key):
+      seed = self._hash(key) % len(self.nodes)
+
+      for n in xrange(seed, seed + len(self.nodes)):
+        yield self.sorted_nodes[n % len(self.sorted_nodes)]
+
+  class FastHashingRouter(ConsistentHashingRouter):
+    """Same as ConsistentHashingRouter but using FastHashRing."""
+    plugin_name = 'fast-hashing'
+
+    def __init__(self, settings):
+      super(FastHashingRouter, self).__init__(settings)
+      self.ring = FastHashRing()
+
+  class FastAggregatedHashingRouter(AggregatedConsistentHashingRouter):
+    """Same as AggregatedConsistentHashingRouter but using FastHashRing."""
+    plugin_name = 'fast-aggregated-hashing'
+
+    def __init__(self, settings):
+      super(FastAggregatedHashingRouter, self).__init__(settings)
+      self.hash_router.ring = FastHashRing()

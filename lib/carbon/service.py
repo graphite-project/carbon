@@ -204,19 +204,11 @@ def setupRewriterProcessor(root_service, settings):
 
 
 def setupRelayProcessor(root_service, settings):
-  from carbon.routers import AggregatedConsistentHashingRouter, \
-      ConsistentHashingRouter, RelayRulesRouter
+  from carbon.routers import DatapointRouter
   from carbon.client import CarbonClientManager
 
-  if settings.RELAY_METHOD == 'consistent-hashing':
-    router = ConsistentHashingRouter(settings.REPLICATION_FACTOR, diverse_replicas=settings.DIVERSE_REPLICAS)
-  elif settings.RELAY_METHOD == 'aggregated-consistent-hashing':
-    from carbon.aggregator.rules import RuleManager
-    aggregation_rules_path = settings["aggregation-rules"]
-    RuleManager.read_from(aggregation_rules_path)
-    router = AggregatedConsistentHashingRouter(RuleManager, settings.REPLICATION_FACTOR, diverse_replicas=settings.DIVERSE_REPLICAS)
-  elif settings.RELAY_METHOD == 'rules':
-    router = RelayRulesRouter(settings["relay-rules"])
+  router_class = DatapointRouter.plugins[settings.RELAY_METHOD]
+  router = router_class(settings)
 
   state.client_manager = CarbonClientManager(router)
   state.client_manager.setServiceParent(root_service)

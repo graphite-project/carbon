@@ -23,7 +23,7 @@ from twisted.python.log import ILogObserver
 from carbon import state, events, instrumentation, util
 from carbon.exceptions import CarbonConfigException
 from carbon.log import carbonLogObserver
-from carbon.pipeline import Processor, run_pipeline
+from carbon.pipeline import Processor, run_pipeline, run_pipeline_generated
 state.events = events
 state.instrumentation = instrumentation
 
@@ -89,13 +89,12 @@ def setupPipeline(pipeline, root_service, settings):
     plugin_class = Processor.plugins[processor]
     state.pipeline_processors.append(plugin_class(*args))
 
-  events.metricReceived.addHandler(run_pipeline)
-  events.metricGenerated.addHandler(run_pipeline)
+    if processor == 'relay':
+      state.pipeline_processors_generated.append(plugin_class(*args))
 
-  #XXX This effectively reverts the desired behavior in b1a2aecb as I dont see a clear route to
-  # port to pipelines. Perhaps a use case for passing a metric metadata dict along the pipeline?
-  events.specialMetricReceived.addHandler(run_pipeline)
-  events.specialMetricGenerated.addHandler(run_pipeline)
+
+  events.metricReceived.addHandler(run_pipeline)
+  events.metricGenerated.addHandler(run_pipeline_generated)
 
   def activate_processors():
     for processor in state.pipeline_processors:

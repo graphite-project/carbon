@@ -129,6 +129,9 @@ def recordMetrics():
   # relay metrics
   else:
     record = relay_record
+
+  # shared relay stats for relays & aggregators
+  if settings.program in ['carbon-aggregator', 'carbon-relay']:
     prefix = 'destinations.'
     relay_stats =  [(k,v) for (k,v) in myStats.items() if k.startswith(prefix)]
     for stat_name, stat_value in relay_stats:

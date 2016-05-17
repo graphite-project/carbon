@@ -44,7 +44,7 @@ class RelayRulesRouter(DatapointRouter):
 
   def getDestinations(self, key):
     for rule in self.rules:
-       if rule.matches(key):
+      if rule.matches(key):
         for destination in rule.destinations:
           if destination in self.destinations:
             yield destination
@@ -178,7 +178,10 @@ else:
       return mmh3.hash(key)
 
     def _update_nodes(self):
-      self.sorted_nodes = sorted(self.nodes)
+      self.sorted_nodes = sorted(
+        [(self._hash(str(n)), n) for n in self.nodes],
+        key=lambda v: v[0]
+      )
 
     def add_node(self, node):
       self.nodes.add(node)
@@ -192,7 +195,7 @@ else:
       seed = self._hash(key) % len(self.nodes)
 
       for n in xrange(seed, seed + len(self.nodes)):
-        yield self.sorted_nodes[n % len(self.sorted_nodes)]
+        yield self.sorted_nodes[n % len(self.sorted_nodes)][1]
 
   class FastHashingRouter(ConsistentHashingRouter):
     """Same as ConsistentHashingRouter but using FastHashRing."""

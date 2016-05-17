@@ -1,12 +1,19 @@
 import os
-from unittest import TestCase
+import unittest
 
 from carbon import routers
 from carbon.util import parseDestinations
 from carbon.tests import util
 
 
-DESTINATIONS = ('foo:124:a', 'bar:423:b')
+DESTINATIONS = (
+    'foo:124:a',
+    'foo:125:b',
+    'foo:126:c',
+    'bar:423:a',
+    'bar:424:b',
+    'bar:425:c',
+)
 
 
 def createSettings():
@@ -24,7 +31,7 @@ def parseDestination(destination):
     return parseDestinations([destination])[0]
 
 
-class TestRelayRulesRouter(TestCase):
+class TestRelayRulesRouter(unittest.TestCase):
     def testBasic(self):
         router = routers.RelayRulesRouter(createSettings())
         for destination in DESTINATIONS:
@@ -32,7 +39,7 @@ class TestRelayRulesRouter(TestCase):
         self.assertEquals(len(list(router.getDestinations('foo.bar'))), 1)
 
 
-class TestOtherRouters(TestCase):
+class TestOtherRouters(unittest.TestCase):
     def testBasic(self):
         settings = createSettings()
         for plugin in routers.DatapointRouter.plugins:

@@ -7,7 +7,7 @@ from test_routers import createSettings
 
 REPLICATION_FACTORS = [1, 4]
 DIVERSE_REPLICAS = [True, False]
-N_DESTINATIONS = [1, 16, 48]
+N_DESTINATIONS = [1, 16, 32, 48]
 
 
 def print_stats(r, t):
@@ -28,7 +28,7 @@ def generateDestinations(n):
     for i in xrange(n):
         host_id = i % 10
         instance_id = i
-        port = i
+        port = 2000 + i
         yield ('carbon%d' %  host_id, port, instance_id)
 
 

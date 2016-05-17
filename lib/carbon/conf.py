@@ -436,8 +436,8 @@ class CarbonRelayOptions(CarbonCacheOptions):
 
         router = settings["RELAY_METHOD"]
         if router not in DatapointRouter.plugins:
-            print "No router plugin implemented for '%s'" % router
-            print "Available plugins: '%s'" % ', '.join(DatapointRouter.plugins)
+            print ("In carbon.conf, RELAY_METHOD must be one of %s. "
+                   "Invalid value: '%s'" % (', '.join(DatapointRouter.plugins), router))
             raise SystemExit(1)
 
 

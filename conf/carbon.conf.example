@@ -39,7 +39,7 @@ DATABASE = whisper
 ENABLE_LOGROTATION = True
 
 # Specify the user to drop privileges to
-# If this is blank carbon runs as the user that invokes it
+# If this is blank carbon-cache runs as the user that invokes it
 # This user must have write access to the local data directory
 USER =
 
@@ -311,6 +311,10 @@ MAX_DATAPOINTS_PER_MESSAGE = 500
 # thousands of TCP connections reduce the throughput of the service.
 #MAX_RECEIVER_CONNECTIONS = inf
 
+# Specify the user to drop privileges to
+# If this is blank carbon-relay runs as the user that invokes it
+# USER =
+
 # This is the percentage that the queue must be empty before it will accept
 # more messages.  For a larger site, if the queue is very large it makes sense
 # to tune this to allow for incoming stats.  So if you have an average
@@ -474,3 +478,7 @@ MAX_AGGREGATION_INTERVALS = 5
 # In order to turn off logging of metrics with no corresponding
 # aggregation rules receiver, set this to False
 # LOG_AGGREGATOR_MISSES = False
+
+# Specify the user to drop privileges to
+# If this is blank carbon-aggregator runs as the user that invokes it
+# USER =

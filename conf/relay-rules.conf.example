@@ -10,7 +10,7 @@
 #  name: Arbitrary unique name to identify the rule
 #  pattern: Regex pattern to match against the metric name
 #  destinations: Comma-separated list of destinations.
-#    ex: 127.0.0.1, 10.1.2.3:2004, 10.1.2.4:2004:a, myserver.mydomain.com
+#    ex: 127.0.0.1:2004:a, 10.1.2.4:2004, myserver.mydomain.com:2004
 #  continue: Continue processing rules if this rule matches (default: False)
 
 # You must have exactly one section with 'default = true'

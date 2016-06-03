@@ -29,7 +29,7 @@ class RuleManager:
     # Only read if the rules file has been modified
     try:
       mtime = getmtime(self.rules_file)
-    except:
+    except OSError:
       log.err("Failed to get mtime of %s" % self.rules_file)
       return
     if mtime <= self.rules_last_read:
@@ -59,7 +59,7 @@ class RuleManager:
       frequency = int( frequency.lstrip('(').rstrip(')') )
       return AggregationRule(input_pattern, output_pattern, method, frequency)
 
-    except:
+    except ValueError:
       log.err("Failed to parse line: %s" % line)
       raise
 
@@ -90,10 +90,11 @@ class AggregationRule:
       extracted_fields = match.groupdict()
       try:
         result = self.output_template % extracted_fields
-      except:
+      except TypeError:
         log.err("Failed to interpolate template %s with fields %s" % (self.output_template, extracted_fields))
 
-    self.cache[metric_path] = result
+    if result:
+      self.cache[metric_path] = result
     return result
 
   def build_regex(self):
@@ -124,7 +125,7 @@ class AggregationRule:
 
       regex_pattern_parts.append(regex_part)
 
-    regex_pattern = '\\.'.join(regex_pattern_parts) + '$'
+    regex_pattern = '\\.'.join(regex_pattern_parts)
     self.regex = re.compile(regex_pattern)
 
   def build_template(self):
@@ -135,16 +136,12 @@ def avg(values):
   if values:
     return float( sum(values) ) / len(values)
 
-def count(values):
-  if values:
-    return len(values)
 
 AGGREGATION_METHODS = {
-  'sum'   : sum,
-  'avg'   : avg,
-  'min'   : min,
-  'max'   : max,
-  'count' : count
+  'sum' : sum,
+  'avg' : avg,
+  'min' : min,
+  'max' : max,
 }
 
 # Importable singleton

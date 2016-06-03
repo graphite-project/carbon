@@ -1,6 +1,5 @@
 import time
 
-from twisted.internet import reactor
 from twisted.internet.protocol import DatagramProtocol
 from twisted.internet.error import ConnectionDone
 from twisted.protocols.basic import LineOnlyReceiver, Int32StringReceiver
@@ -16,16 +15,15 @@ class MetricReceiver:
   """
   def connectionMade(self):
     self.peerName = self.getPeerName()
-    if settings.LOG_LISTENER_CONN_SUCCESS:
+    if settings.LOG_LISTENER_CONNECTIONS:
       log.listener("%s connection with %s established" % (self.__class__.__name__, self.peerName))
 
     if state.metricReceiversPaused:
       self.pauseReceiving()
 
     state.connectedMetricReceiverProtocols.add(self)
-    if settings.USE_FLOW_CONTROL:
-      events.pauseReceivingMetrics.addHandler(self.pauseReceiving)
-      events.resumeReceivingMetrics.addHandler(self.resumeReceiving)
+    events.pauseReceivingMetrics.addHandler(self.pauseReceiving)
+    events.resumeReceivingMetrics.addHandler(self.resumeReceiving)
 
   def getPeerName(self):
     if hasattr(self.transport, 'getPeer'):
@@ -42,16 +40,14 @@ class MetricReceiver:
 
   def connectionLost(self, reason):
     if reason.check(ConnectionDone):
-      if settings.LOG_LISTENER_CONN_SUCCESS:
+      if settings.LOG_LISTENER_CONNECTIONS:
         log.listener("%s connection with %s closed cleanly" % (self.__class__.__name__, self.peerName))
-
     else:
       log.listener("%s connection with %s lost: %s" % (self.__class__.__name__, self.peerName, reason.value))
 
     state.connectedMetricReceiverProtocols.remove(self)
-    if settings.USE_FLOW_CONTROL:
-      events.pauseReceivingMetrics.removeHandler(self.pauseReceiving)
-      events.resumeReceivingMetrics.removeHandler(self.resumeReceiving)
+    events.pauseReceivingMetrics.removeHandler(self.pauseReceiving)
+    events.resumeReceivingMetrics.removeHandler(self.resumeReceiving)
 
   def metricReceived(self, metric, datapoint):
     if BlackList and metric in BlackList:
@@ -60,11 +56,11 @@ class MetricReceiver:
     if WhiteList and metric not in WhiteList:
       instrumentation.increment('whitelistRejects')
       return
-    if datapoint[1] != datapoint[1]: # filter out NaN values
+    if datapoint[1] != datapoint[1]:  # filter out NaN values
       return
-    if int(datapoint[0]) == -1: # use current time if none given: https://github.com/graphite-project/carbon/issues/54
+    if int(datapoint[0]) == -1:  # use current time if none given
       datapoint = (time.time(), datapoint[1])
-    
+
     events.metricReceived(metric, datapoint)
 
 
@@ -74,9 +70,9 @@ class MetricLineReceiver(MetricReceiver, LineOnlyReceiver):
   def lineReceived(self, line):
     try:
       metric, value, timestamp = line.strip().split()
-      datapoint = ( float(timestamp), float(value) )
-    except:
-      log.listener('invalid line (%s) received from client %s, ignoring' % (line.strip(), self.peerName))
+      datapoint = (float(timestamp), float(value))
+    except ValueError:
+      log.listener('invalid line (%s) received from client %s, ignoring' % (line, self.peerName))
       return
 
     self.metricReceived(metric, datapoint)
@@ -87,10 +83,10 @@ class MetricDatagramReceiver(MetricReceiver, DatagramProtocol):
     for line in data.splitlines():
       try:
         metric, value, timestamp = line.strip().split()
-        datapoint = ( float(timestamp), float(value) )
+        datapoint = (float(timestamp), float(value))
 
         self.metricReceived(metric, datapoint)
-      except:
+      except ValueError:
         log.listener('invalid line (%s) received from %s, ignoring' % (line, host))
 
 
@@ -104,14 +100,18 @@ class MetricPickleReceiver(MetricReceiver, Int32StringReceiver):
   def stringReceived(self, data):
     try:
       datapoints = self.unpickler.loads(data)
-    except:
+    except pickle.UnpicklingError:
       log.listener('invalid pickle received from %s, ignoring' % self.peerName)
       return
 
-    for (metric, datapoint) in datapoints:
+    for raw in datapoints:
       try:
-        datapoint = ( float(datapoint[0]), float(datapoint[1]) ) #force proper types
-      except:
+        (metric, (value, timestamp)) = raw
+      except Exception, e:
+        log.listener('Error decoding pickle: %s' % e)
+      try:
+        datapoint = (float(value), float(timestamp))  # force proper types
+      except ValueError:
         continue
 
       self.metricReceived(metric, datapoint)

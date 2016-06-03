@@ -353,3 +353,16 @@ class ReadConfigTest(MockerTestCase):
                         pidfile=None, logdir=None),
             ROOT_DIR="foo")
         self.assertEqual("boo/carbon-foo-x", settings.LOG_DIR)
+
+    def test_cache_write_strategy_from_config(self):
+        """
+        Providing a 'CACHE_WRITE_STRATEGY' in the configuration file overrides
+        the 'sorted' default.
+        """
+        config = self.makeFile(content="[foo]\nCACHE_WRITE_STRATEGY = naive")
+        settings = read_config(
+            "carbon-foo",
+            FakeOptions(config=config, instance=None,
+                        pidfile=None, logdir=None),
+            ROOT_DIR="foo")
+        self.assertEqual("naive", settings.CACHE_WRITE_STRATEGY)

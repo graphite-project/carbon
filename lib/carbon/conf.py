@@ -32,27 +32,32 @@ defaults = dict(
   USER="",
   MAX_CACHE_SIZE=float('inf'),
   MAX_UPDATES_PER_SECOND=500,
+  MAX_UPDATES_PER_SECOND_ON_SHUTDOWN=1000,
   MAX_CREATES_PER_MINUTE=float('inf'),
   LINE_RECEIVER_INTERFACE='0.0.0.0',
   LINE_RECEIVER_PORT=2003,
+  LINE_RECEIVER_BACKLOG=1024,
   ENABLE_UDP_LISTENER=False,
   UDP_RECEIVER_INTERFACE='0.0.0.0',
   UDP_RECEIVER_PORT=2003,
   PICKLE_RECEIVER_INTERFACE='0.0.0.0',
   PICKLE_RECEIVER_PORT=2004,
+  PICKLE_RECEIVER_BACKLOG=1024,
   CACHE_QUERY_INTERFACE='0.0.0.0',
   CACHE_QUERY_PORT=7002,
+  CACHE_QUERY_BACKLOG=1024,
   LOG_UPDATES=True,
   LOG_CACHE_HITS=True,
+  LOG_CACHE_QUEUE_SORTS=True,
   WHISPER_AUTOFLUSH=False,
   WHISPER_SPARSE_CREATE=False,
   WHISPER_FALLOCATE_CREATE=False,
   WHISPER_LOCK_WRITES=False,
   MAX_DATAPOINTS_PER_MESSAGE=500,
   MAX_AGGREGATION_INTERVALS=5,
+  FORWARD_ALL=False,
   MAX_QUEUE_SIZE=1000,
-  QUEUE_LOW_WATERMARK_PCT=0.8,
-  TIME_TO_DEFER_SENDING=0.0001,
+  QUEUE_LOW_WATERMARK_PCT = 0.8,
   ENABLE_AMQP=False,
   AMQP_VERBOSE=False,
   BIND_PATTERNS=['#'],
@@ -63,26 +68,22 @@ defaults = dict(
   MANHOLE_PUBLIC_KEY="",
   RELAY_METHOD='rules',
   REPLICATION_FACTOR=1,
+  DIVERSE_REPLICAS=False,
   DESTINATIONS=[],
   USE_FLOW_CONTROL=True,
   USE_INSECURE_UNPICKLER=False,
   USE_WHITELIST=False,
   CARBON_METRIC_PREFIX='carbon',
   CARBON_METRIC_INTERVAL=60,
+  CACHE_WRITE_STRATEGY='sorted',
   WRITE_BACK_FREQUENCY=None,
-  MIN_RESET_STAT_FLOW=1000,
-  MIN_RESET_RATIO=0.9,
-  MIN_RESET_INTERVAL=121,
-  USE_RATIO_RESET=False,
-  LOG_LISTENER_CONN_SUCCESS=True,
+  ENABLE_LOGROTATION=True,
+  LOG_LISTENER_CONNECTIONS=True,
   AGGREGATION_RULES='aggregation-rules.conf',
   REWRITE_RULES='rewrite-rules.conf',
   RELAY_RULES='relay-rules.conf',
 )
 
-
-def _umask(value):
-    return int(value, 8)
 
 def _process_alive(pid):
     if exists("/proc"):
@@ -113,14 +114,14 @@ class OrderedConfigParser(ConfigParser):
       line = line.strip()
 
       if line.startswith('[') and line.endswith(']'):
-        sections.append( line[1:-1] )
+        sections.append(line[1:-1])
 
     self._ordered_sections = sections
 
     return result
 
   def sections(self):
-    return list( self._ordered_sections ) # return a copy for safety
+    return list(self._ordered_sections)  # return a copy for safety
 
 
 class Settings(dict):
@@ -138,17 +139,17 @@ class Settings(dict):
     if not parser.has_section(section):
       return
 
-    for key,value in parser.items(section):
+    for key, value in parser.items(section):
       key = key.upper()
 
       # Detect type from defaults dict
       if key in defaults:
-        valueType = type( defaults[key] )
+        valueType = type(defaults[key])
       else:
         valueType = str
 
       if valueType is list:
-        value = [ v.strip() for v in value.split(',') ]
+        value = [v.strip() for v in value.split(',')]
 
       elif valueType is bool:
         value = parser.getboolean(section, key)
@@ -157,10 +158,10 @@ class Settings(dict):
         # Attempt to figure out numeric types automatically
         try:
           value = int(value)
-        except:
+        except ValueError:
           try:
             value = float(value)
-          except:
+          except ValueError:
             pass
 
       self[key] = value
@@ -174,7 +175,7 @@ class CarbonCacheOptions(usage.Options):
 
     optFlags = [
         ["debug", "", "Run in debug mode."],
-        ]
+    ]
 
     optParameters = [
         ["config", "c", None, "Use the given config file."],
@@ -182,7 +183,7 @@ class CarbonCacheOptions(usage.Options):
         ["logdir", "", None, "Write logs to the given directory."],
         ["whitelist", "", None, "List of metric patterns to allow."],
         ["blacklist", "", None, "List of metric patterns to disallow."],
-        ]
+    ]
 
     def postOptions(self):
         global settings
@@ -205,14 +206,6 @@ class CarbonCacheOptions(usage.Options):
         program_settings = read_config(program, self)
         settings.update(program_settings)
         settings["program"] = program
-
-        # Normalize and expand paths
-        settings["STORAGE_DIR"] = os.path.normpath(os.path.expanduser(settings["STORAGE_DIR"]))
-        settings["LOCAL_DATA_DIR"] = os.path.normpath(os.path.expanduser(settings["LOCAL_DATA_DIR"]))
-        settings["WHITELISTS_DIR"] = os.path.normpath(os.path.expanduser(settings["WHITELISTS_DIR"]))
-        settings["PID_DIR"] = os.path.normpath(os.path.expanduser(settings["PID_DIR"]))
-        settings["LOG_DIR"] = os.path.normpath(os.path.expanduser(settings["LOG_DIR"]))
-        settings["pidfile"] = os.path.normpath(os.path.expanduser(settings["pidfile"]))
 
         # Set process uid/gid by changing the parent config, if a user was
         # provided in the configuration file.
@@ -246,6 +239,12 @@ class CarbonCacheOptions(usage.Options):
             else:
                 log.err("WHISPER_LOCK_WRITES is enabled but import of fcntl module failed.")
 
+        if settings.CACHE_WRITE_STRATEGY not in ('sorted', 'max', 'naive'):
+            log.err("%s is not a valid value for CACHE_WRITE_STRATEGY, defaulting to %s" %
+                    (settings.CACHE_WRITE_STRATEGY, defaults['CACHE_WRITE_STRATEGY']))
+        else:
+            log.msg("Using %s write strategy for cache" %
+                    settings.CACHE_WRITE_STRATEGY)
         if not "action" in self:
             self["action"] = "start"
         self.handleAction()
@@ -302,7 +301,7 @@ class CarbonCacheOptions(usage.Options):
             try:
                 pid = int(pf.read().strip())
                 pf.close()
-            except:
+            except IOError:
                 print "Could not read pidfile %s" % pidfile
                 raise SystemExit(1)
             print "Sending kill signal to pid %d" % pid
@@ -324,7 +323,7 @@ class CarbonCacheOptions(usage.Options):
             try:
                 pid = int(pf.read().strip())
                 pf.close()
-            except:
+            except IOError:
                 print "Failed to read pid from %s" % pidfile
                 raise SystemExit(1)
 
@@ -342,7 +341,7 @@ class CarbonCacheOptions(usage.Options):
                 try:
                     pid = int(pf.read().strip())
                     pf.close()
-                except:
+                except IOError:
                     print "Could not read pidfile %s" % pidfile
                     raise SystemExit(1)
                 if _process_alive(pid):
@@ -353,20 +352,8 @@ class CarbonCacheOptions(usage.Options):
                     print "Removing stale pidfile %s" % pidfile
                     try:
                         os.unlink(pidfile)
-                    except:
+                    except IOError:
                         print "Could not remove pidfile %s" % pidfile
-            # Try to create the PID directory
-            else:
-                if not os.path.exists(settings["PID_DIR"]):
-                    try:
-                        os.makedirs(settings["PID_DIR"])
-                    except OSError as exc: # Python >2.5
-                        if exc.errno == errno.EEXIST and os.path.isdir(settings["PID_DIR"]):
-                           pass
-                        else:
-                           raise
-
-
 
             print "Starting %s (instance %s)" % (program, instance)
 
@@ -409,8 +396,8 @@ class CarbonRelayOptions(CarbonCacheOptions):
         settings["relay-rules"] = self["rules"]
 
         if self["aggregation-rules"] is None:
-            self["rules"] = join(settings["CONF_DIR"], settings['AGGREGATION_RULES'])
-        settings["aggregation-rules"] = self["rules"]
+            self["aggregation-rules"] = join(settings["CONF_DIR"], settings['AGGREGATION_RULES'])
+        settings["aggregation-rules"] = self["aggregation-rules"]
 
         if settings["RELAY_METHOD"] not in ("rules", "consistent-hashing", "aggregated-consistent-hashing"):
             print ("In carbon.conf, RELAY_METHOD must be either 'rules' or "
@@ -426,11 +413,17 @@ def get_default_parser(usage="%prog [options] <start|stop|status>"):
         "--debug", action="store_true",
         help="Run in the foreground, log to stdout")
     parser.add_option(
+        "--syslog", action="store_true",
+        help="Write logs to syslog")
+    parser.add_option(
         "--nodaemon", action="store_true",
         help="Run in the foreground")
     parser.add_option(
         "--profile",
         help="Record performance profile data to the given file")
+    parser.add_option(
+        "--profiler",
+        help="Specify the profiler to use")
     parser.add_option(
         "--pidfile", default=None,
         help="Write pid to the given file")
@@ -568,7 +561,7 @@ def read_config(program, options, **kwargs):
                  (program, options["instance"])))
         settings["LOG_DIR"] = (options["logdir"] or
                               join(settings["LOG_DIR"],
-                                "%s-%s" % (program ,options["instance"])))
+                                "%s-%s" % (program, options["instance"])))
     else:
         settings["pidfile"] = (
             options["pidfile"] or

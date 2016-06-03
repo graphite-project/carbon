@@ -48,6 +48,7 @@ option_parser.add_option('--keyfunc', help="Use a custom key function (path/to/m
 option_parser.add_option('--replication', type='int', default=1, help='Replication factor')
 option_parser.add_option('--routing', default='consistent-hashing',
   help='Routing method: "consistent-hashing" (default) or "relay"')
+option_parser.add_option('--diverse-replicas', action='store_true', help="Spread replicas across diff. servers")
 option_parser.add_option('--relayrules', default=default_relayrules,
   help='relay-rules.conf file to use for relay routing')
 
@@ -81,7 +82,7 @@ if options.debug:
   defer.setDebugging(True)
 
 if options.routing == 'consistent-hashing':
-  router = ConsistentHashingRouter(options.replication)
+  router = ConsistentHashingRouter(options.replication, diverse_replicas=options.diverse_replicas)
 elif options.routing == 'relay':
   if exists(options.relayrules):
     router = RelayRulesRouter(options.relayrules)
@@ -109,7 +110,7 @@ class StdinMetricsReader(LineReceiver):
       datapoint = (float(timestamp), float(value))
       assert datapoint[1] == datapoint[1] # filter out NaNs
       client_manager.sendDatapoint(metric, datapoint)
-    except:
+    except ValueError:
       log.err(None, 'Dropping invalid line: %s' % line)
 
   def connectionLost(self, reason):

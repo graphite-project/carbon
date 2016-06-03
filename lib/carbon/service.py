@@ -20,12 +20,9 @@ from twisted.internet.protocol import ServerFactory
 from twisted.python.components import Componentized
 from twisted.python.log import ILogObserver
 # Attaching modules to the global state module simplifies import order hassles
-from carbon import util, state, events, instrumentation
+from carbon import state, util, events
 from carbon.log import carbonLogObserver
 from carbon.exceptions import CarbonConfigException
-state.events = events
-state.instrumentation = instrumentation
-
 
 class CarbonRootService(MultiService):
   """Root Service that properly configures twistd logging"""
@@ -36,9 +33,9 @@ class CarbonRootService(MultiService):
       parent.setComponent(ILogObserver, carbonLogObserver)
 
 
-
 def createBaseService(config):
     from carbon.conf import settings
+
     from carbon.protocols import (MetricLineReceiver, MetricPickleReceiver,
                                   MetricDatagramReceiver)
 
@@ -53,22 +50,23 @@ def createBaseService(config):
         amqp_port = settings.get("AMQP_PORT", 5672)
         amqp_user = settings.get("AMQP_USER", "guest")
         amqp_password = settings.get("AMQP_PASSWORD", "guest")
-        amqp_verbose  = settings.get("AMQP_VERBOSE", False)
-        amqp_vhost    = settings.get("AMQP_VHOST", "/")
-        amqp_spec     = settings.get("AMQP_SPEC", None)
+        amqp_verbose = settings.get("AMQP_VERBOSE", False)
+        amqp_vhost = settings.get("AMQP_VHOST", "/")
+        amqp_spec = settings.get("AMQP_SPEC", None)
         amqp_exchange_name = settings.get("AMQP_EXCHANGE", "graphite")
 
-
-    for interface, port, protocol in ((settings.LINE_RECEIVER_INTERFACE,
-                                       settings.LINE_RECEIVER_PORT,
-                                       MetricLineReceiver),
-                                      (settings.PICKLE_RECEIVER_INTERFACE,
-                                       settings.PICKLE_RECEIVER_PORT,
-                                       MetricPickleReceiver)):
+    for interface, port, backlog, protocol in ((settings.LINE_RECEIVER_INTERFACE,
+                                                settings.LINE_RECEIVER_PORT,
+                                                settings.LINE_RECEIVER_BACKLOG,
+                                                MetricLineReceiver),
+                                               (settings.PICKLE_RECEIVER_INTERFACE,
+                                                settings.PICKLE_RECEIVER_PORT,
+                                                settings.PICKLE_RECEIVER_BACKLOG,
+                                                MetricPickleReceiver)):
         if port:
             factory = ServerFactory()
             factory.protocol = protocol
-            service = TCPServer(int(port), factory, interface=interface)
+            service = TCPServer(int(port), factory, interface=interface, backlog=backlog)
             service.setServiceParent(root_service)
 
     if settings.ENABLE_UDP_LISTENER:
@@ -95,7 +93,7 @@ def createBaseService(config):
         service.setServiceParent(root_service)
 
     if settings.USE_WHITELIST:
-      from carbon.regexlist import WhiteList,BlackList
+      from carbon.regexlist import WhiteList, BlackList
       WhiteList.read_from(settings["whitelist"])
       BlackList.read_from(settings["blacklist"])
 
@@ -121,7 +119,8 @@ def createCacheService(config):
     factory = ServerFactory()
     factory.protocol = CacheManagementHandler
     service = TCPServer(int(settings.CACHE_QUERY_PORT), factory,
-                        interface=settings.CACHE_QUERY_INTERFACE)
+                        interface=settings.CACHE_QUERY_INTERFACE,
+                        backlog=settings.CACHE_QUERY_BACKLOG)
     service.setServiceParent(root_service)
 
     # have to import this *after* settings are defined
@@ -149,7 +148,7 @@ def createAggregatorService(config):
     root_service = createBaseService(config)
 
     # Configure application components
-    router = ConsistentHashingRouter(settings.REPLICATION_FACTOR)
+    router = ConsistentHashingRouter(settings.REPLICATION_FACTOR, diverse_replicas=settings.DIVERSE_REPLICAS)
     client_manager = CarbonClientManager(router)
     client_manager.setServiceParent(root_service)
 
@@ -181,7 +180,7 @@ def createRelayService(config):
     if settings.RELAY_METHOD == 'rules':
       router = RelayRulesRouter(settings["relay-rules"])
     elif settings.RELAY_METHOD == 'consistent-hashing':
-      router = ConsistentHashingRouter(settings.REPLICATION_FACTOR)
+      router = ConsistentHashingRouter(settings.REPLICATION_FACTOR, diverse_replicas=settings.DIVERSE_REPLICAS)
     elif settings.RELAY_METHOD == 'aggregated-consistent-hashing':
       from carbon.aggregator.rules import RuleManager
       RuleManager.read_from(settings["aggregation-rules"])
@@ -192,8 +191,6 @@ def createRelayService(config):
 
     events.metricReceived.addHandler(client_manager.sendDatapoint)
     events.metricGenerated.addHandler(client_manager.sendDatapoint)
-    events.specialMetricReceived.addHandler(client_manager.sendHighPriorityDatapoint)
-    events.specialMetricGenerated.addHandler(client_manager.sendHighPriorityDatapoint)
 
     if not settings.DESTINATIONS:
       raise CarbonConfigException("Required setting DESTINATIONS is missing from carbon.conf")

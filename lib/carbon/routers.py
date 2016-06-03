@@ -41,34 +41,46 @@ class RelayRulesRouter(DatapointRouter):
 
 
 class ConsistentHashingRouter(DatapointRouter):
-  def __init__(self, replication_factor=1):
+  def __init__(self, replication_factor=1, diverse_replicas=False):
     self.replication_factor = int(replication_factor)
-    self.instance_ports = {} # { (server, instance) : port }
+    self.diverse_replicas = diverse_replicas
+    self.instance_ports = {}  # { (server, instance) : port }
     self.ring = ConsistentHashRing([])
 
   def addDestination(self, destination):
     (server, port, instance) = destination
     if (server, instance) in self.instance_ports:
       raise Exception("destination instance (%s, %s) already configured" % (server, instance))
-    self.instance_ports[ (server, instance) ] = port
-    self.ring.add_node( (server, instance) )
+    self.instance_ports[(server, instance)] = port
+    self.ring.add_node((server, instance))
 
   def removeDestination(self, destination):
     (server, port, instance) = destination
     if (server, instance) not in self.instance_ports:
       raise Exception("destination instance (%s, %s) not configured" % (server, instance))
-    del self.instance_ports[ (server, instance) ]
-    self.ring.remove_node( (server, instance) )
+    del self.instance_ports[(server, instance)]
+    self.ring.remove_node((server, instance))
 
   def getDestinations(self, metric):
     key = self.getKey(metric)
-
-    for count,node in enumerate(self.ring.get_nodes(key)):
-      if count == self.replication_factor:
-        return
-      (server, instance) = node
-      port = self.instance_ports[ (server, instance) ]
-      yield (server, port, instance)
+    if self.diverse_replicas:
+      used_servers = set()
+      for (server, instance) in self.ring.get_nodes(key):
+        if server in used_servers:
+          continue
+        else:
+          used_servers.add(server)
+          port = self.instance_ports[(server, instance)]
+          yield (server, port, instance)
+        if len(used_servers) >= self.replication_factor:
+          return
+    else:
+      for (count, node) in enumerate(self.ring.get_nodes(key)):
+        if count == self.replication_factor:
+          return
+        (server, instance) = node
+        port = self.instance_ports[(server, instance)]
+        yield (server, port, instance)
 
   def getKey(self, metric):
     return metric
@@ -85,8 +97,8 @@ class ConsistentHashingRouter(DatapointRouter):
     self.setKeyFunction(keyfunc)
 
 class AggregatedConsistentHashingRouter(DatapointRouter):
-  def __init__(self, agg_rules_manager, replication_factor=1):
-    self.hash_router = ConsistentHashingRouter(replication_factor)
+  def __init__(self, agg_rules_manager, replication_factor=1, diverse_replicas=False):
+    self.hash_router = ConsistentHashingRouter(replication_factor, diverse_replicas=diverse_replicas)
     self.agg_rules_manager = agg_rules_manager
 
   def addDestination(self, destination):

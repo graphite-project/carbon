@@ -9,7 +9,6 @@ from carbon.conf import settings
 
 
 stats = {}
-prior_stats = {}
 HOSTNAME = socket.gethostname().replace('.','_')
 PAGESIZE = os.sysconf('SC_PAGESIZE')
 rusage = getrusage(RUSAGE_SELF)
@@ -72,9 +71,7 @@ def getMemUsage():
 
 def recordMetrics():
   global lastUsage
-  global prior_stats
   myStats = stats.copy()
-  myPriorStats = {}
   stats.clear()
 
   # cache metrics
@@ -83,12 +80,18 @@ def recordMetrics():
     updateTimes = myStats.get('updateTimes', [])
     committedPoints = myStats.get('committedPoints', 0)
     creates = myStats.get('creates', 0)
-    droppedCreates = myStats.get('droppedCreates', 0)
     errors = myStats.get('errors', 0)
     cacheQueries = myStats.get('cacheQueries', 0)
     cacheBulkQueries = myStats.get('cacheBulkQueries', 0)
     cacheOverflow = myStats.get('cache.overflow', 0)
     cacheBulkQuerySizes = myStats.get('cacheBulkQuerySize', [])
+
+    # Calculate cache-data-structure-derived metrics prior to storing anything
+    # in the cache itself -- which would otherwise affect said metrics.
+    cache_size = cache.MetricCache.size
+    cache_queues = len(cache.MetricCache)
+    record('cache.size', cache_size)
+    record('cache.queues', cache_queues)
 
     if updateTimes:
       avgUpdateTime = sum(updateTimes) / len(updateTimes)
@@ -105,16 +108,14 @@ def recordMetrics():
     record('updateOperations', len(updateTimes))
     record('committedPoints', committedPoints)
     record('creates', creates)
-    record('droppedCreates', droppedCreates)
     record('errors', errors)
     record('cache.queries', cacheQueries)
     record('cache.bulk_queries', cacheBulkQueries)
-    record('cache.queues', len(cache.MetricCache))
-    record('cache.size', cache.MetricCache.size)
     record('cache.overflow', cacheOverflow)
 
   # aggregator metrics
   elif settings.program == 'carbon-aggregator':
+    from carbon.aggregator.buffers import BufferManager
     record = aggregator_record
     record('allocatedBuffers', len(BufferManager))
     record('bufferedDatapoints',
@@ -128,26 +129,15 @@ def recordMetrics():
     relay_stats =  [(k,v) for (k,v) in myStats.items() if k.startswith(prefix)]
     for stat_name, stat_value in relay_stats:
       record(stat_name, stat_value)
-      # Preserve the count of sent metrics so that the ratio of
-      # received : sent can be checked per-relay to determine the
-      # health of the destination.
-      if stat_name.endswith('.sent'):
-        myPriorStats[stat_name] = stat_value
 
   # common metrics
   record('metricsReceived', myStats.get('metricsReceived', 0))
   record('blacklistMatches', myStats.get('blacklistMatches', 0))
   record('whitelistRejects', myStats.get('whitelistRejects', 0))
   record('cpuUsage', getCpuUsage())
-
-  # And here preserve count of messages received in the prior periiod
-  myPriorStats['metricsReceived'] = myStats.get('metricsReceived', 0)
-  prior_stats.clear()
-  prior_stats.update(myPriorStats)
-
   try: # This only works on Linux
     record('memUsage', getMemUsage())
-  except:
+  except Exception:
     pass
 
 
@@ -182,6 +172,8 @@ def aggregator_record(metric, value):
 class InstrumentationService(Service):
     def __init__(self):
         self.record_task = LoopingCall(recordMetrics)
+        # Default handlers
+        events.metricReceived.addHandler(lambda metric, datapoint: increment('metricsReceived'))
 
     def startService(self):
         if settings.CARBON_METRIC_INTERVAL > 0:
@@ -196,4 +188,3 @@ class InstrumentationService(Service):
 
 # Avoid import circularities
 from carbon import state, events, cache
-from carbon.aggregator.buffers import BufferManager

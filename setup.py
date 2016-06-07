@@ -78,6 +78,16 @@ try:
       package_data={ 'carbon' : ['*.xml'] },
       data_files=install_files,
       install_requires=['Twisted', 'txAMQP'],
+      classifiers=(
+        'Intended Audience :: Developers',
+        'Natural Language :: English',
+        'License :: OSI Approved :: Apache Software License',
+        'Programming Language :: Python',
+        'Programming Language :: Python :: 2',
+        'Programming Language :: Python :: 2.7',
+        'Programming Language :: Python :: 2 :: Only',
+      ),
+
       **setup_kwargs
     )
 finally:

@@ -20,9 +20,10 @@ from twisted.internet.protocol import ServerFactory
 from twisted.python.components import Componentized
 from twisted.python.log import ILogObserver
 # Attaching modules to the global state module simplifies import order hassles
-from carbon import state, util, events
+from carbon import state, util, events, instrumentation
 from carbon.log import carbonLogObserver
 from carbon.exceptions import CarbonConfigException
+state.instrumentation = instrumentation
 
 class CarbonRootService(MultiService):
   """Root Service that properly configures twistd logging"""

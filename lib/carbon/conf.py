@@ -270,7 +270,8 @@ class CarbonCacheOptions(usage.Options):
         # are set to log to syslog, then use that instead.
         if not self["debug"]:
             if self.parent.get("syslog", None):
-                log.logToSyslog(self.parent["prefix"])
+                prefix = "%s-%s[%d]" % (program, self["instance"], os.getpid())
+                log.logToSyslog(prefix)
             elif not self.parent["nodaemon"]:
                 logdir = settings.LOG_DIR
                 if not isdir(logdir):

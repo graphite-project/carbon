@@ -36,7 +36,7 @@ else:
         pass
     if not cf.has_option('install', 'prefix'):
         cf.set('install', 'prefix', '/opt/graphite')
-    if not cf.has_options('install', 'install-lib'):
+    if not cf.has_option('install', 'install-lib'):
         cf.set('install', 'install-lib', '%(prefix)s/lib')
 
 with open('setup.cfg', 'wb') as f:

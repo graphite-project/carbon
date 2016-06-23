@@ -94,6 +94,7 @@ def loadStorageSchemas():
       mySchema = PatternSchema(section, pattern, archives)
     else:
       log.err("Section missing 'pattern': %s" % section)
+      continue
 
     archiveList = [a.getTuple() for a in archives]
 
@@ -140,6 +141,7 @@ def loadAggregationSchemas():
       mySchema = PatternSchema(section, pattern, archives)
     else:
       log.err("Section missing 'pattern': %s" % section)
+      continue
 
     schemaList.append(mySchema)
 

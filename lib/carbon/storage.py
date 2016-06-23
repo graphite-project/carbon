@@ -60,37 +60,6 @@ class PatternSchema(Schema):
     return self.regex.search(metric)
 
 
-class ListSchema(Schema):
-
-  def __init__(self, name, listName, archives):
-    self.name = name
-    self.listName = listName
-    self.archives = archives
-    self.path = join(settings.WHITELISTS_DIR, listName)
-
-    if exists(self.path):
-      self.mtime = os.stat(self.path).st_mtime
-      fh = open(self.path, 'rb')
-      self.members = pickle.load(fh)
-      fh.close()
-
-    else:
-      self.mtime = 0
-      self.members = frozenset()
-
-  def test(self, metric):
-    if exists(self.path):
-      current_mtime = os.stat(self.path).st_mtime
-
-      if current_mtime > self.mtime:
-        self.mtime = current_mtime
-        fh = open(self.path, 'rb')
-        self.members = pickle.load(fh)
-        fh.close()
-
-    return metric in self.members
-
-
 class Archive:
 
   def __init__(self,secondsPerPoint,points):
@@ -98,7 +67,7 @@ class Archive:
     self.points = int(points)
 
   def __str__(self):
-    return "Archive = (Seconds per point: %d, Datapoints to save: %d)" % (self.secondsPerPoint, self.points) 
+    return "Archive = (Seconds per point: %d, Datapoints to save: %d)" % (self.secondsPerPoint, self.points)
 
   def getTuple(self):
     return (self.secondsPerPoint,self.points)
@@ -116,22 +85,17 @@ def loadStorageSchemas():
 
   for section in config.sections():
     options = dict( config.items(section) )
-    matchAll = options.get('match-all')
     pattern = options.get('pattern')
-    listName = options.get('list')
 
     retentions = options['retentions'].split(',')
     archives = [ Archive.fromString(s) for s in retentions ]
-    
-    if matchAll:
-      mySchema = DefaultSchema(section, archives)
 
-    elif pattern:
+    if pattern:
       mySchema = PatternSchema(section, pattern, archives)
+    else:
+      log.err("Section missing 'pattern': %s" % section)
+      continue
 
-    elif listName:
-      mySchema = ListSchema(section, listName, archives)
-    
     archiveList = [a.getTuple() for a in archives]
 
     try:
@@ -139,7 +103,7 @@ def loadStorageSchemas():
       schemaList.append(mySchema)
     except whisper.InvalidConfiguration, e:
       log.msg("Invalid schemas found in %s: %s" % (section, e) )
-  
+
   schemaList.append(defaultSchema)
   return schemaList
 
@@ -156,9 +120,7 @@ def loadAggregationSchemas():
 
   for section in config.sections():
     options = dict( config.items(section) )
-    matchAll = options.get('match-all')
     pattern = options.get('pattern')
-    listName = options.get('list')
 
     xFilesFactor = options.get('xfilesfactor')
     aggregationMethod = options.get('aggregationmethod')
@@ -175,14 +137,11 @@ def loadAggregationSchemas():
 
     archives = (xFilesFactor, aggregationMethod)
 
-    if matchAll:
-      mySchema = DefaultSchema(section, archives)
-
-    elif pattern:
+    if pattern:
       mySchema = PatternSchema(section, pattern, archives)
-
-    elif listName:
-      mySchema = ListSchema(section, listName, archives)
+    else:
+      log.err("Section missing 'pattern': %s" % section)
+      continue
 
     schemaList.append(mySchema)
 

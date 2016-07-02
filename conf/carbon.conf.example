@@ -181,8 +181,8 @@ WHISPER_AUTOFLUSH = False
 # WHISPER_FADVISE_RANDOM = False
 
 # Set this to True to enable control over what metrics are allowed to be handled
-# CONF_DIR/allowed_metrics.conf and CONF_DIR/blacklist.conf. If the allowed list
-# is missing or empty, all metrics will pass through
+# CONF_DIR/allowed_metrics.conf and CONF_DIR/blocked_metrics.conf. If the
+# allowed list is missing or empty, all metrics will pass through.
 # USE_METRICSLIST = False
 
 # By default, carbon itself will log statistics (such as a count,
@@ -340,8 +340,8 @@ USE_FLOW_CONTROL = True
 #METRIC_CLIENT_IDLE_TIMEOUT = None
 
 # Set this to True to enable control over what metrics are allowed to be handled
-# CONF_DIR/allowed_metrics.conf and CONF_DIR/blacklist.conf. If the allowed list
-# is missing or empty, all metrics will pass through
+# CONF_DIR/allowed_metrics.conf and CONF_DIR/blocked_metrics.conf. If the
+# allowed list is missing or empty, all metrics will pass through.
 # USE_METRICSLIST = False
 
 # By default, carbon itself will log statistics (such as a count,
@@ -461,8 +461,8 @@ MAX_AGGREGATION_INTERVALS = 5
 # WRITE_BACK_FREQUENCY = 0
 
 # Set this to True to enable control over what metrics are allowed to be handled
-# CONF_DIR/allowed_metrics.conf and CONF_DIR/blacklist.conf. If the allowed list
-# is missing or empty, all metrics will pass through
+# CONF_DIR/allowed_metrics.conf and CONF_DIR/blocked_metrics.conf. If the 
+# allowed list is missing or empty, all metrics will pass through.
 # USE_METRICSLIST = False
 
 # By default, carbon itself will log statistics (such as a count,

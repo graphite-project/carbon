@@ -6,7 +6,7 @@ from twisted.internet.task import LoopingCall
 
 
 class RegexList:
-  """ Maintain a list of regex for matching whitelist and blacklist """
+  """ Maintain a list of regex for matching allowed and blocked metrics. """
 
   def __init__(self):
     self.regex_list = []
@@ -58,5 +58,9 @@ class RegexList:
     return bool(self.regex_list)
 
 
-WhiteList = RegexList()
-BlackList = RegexList()
+"""
+##DEPRECATION: These were originally called `WhiteList` and `BlackList`.  The
+new names might fail some styleguide opinions.  We can change them later.
+"""
+allowed_metrics = RegexList()
+blocked_metrics = RegexList()

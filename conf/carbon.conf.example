@@ -16,7 +16,7 @@
 #
 #   STORAGE_DIR     = $GRAPHITE_STORAGE_DIR
 #   LOCAL_DATA_DIR  = %(STORAGE_DIR)s/whisper/
-#   USE_METRICSLIST = %(STORAGE_DIR)s/lists/
+#   USE_METRIC_FILTERS = %(STORAGE_DIR)s/lists/
 #   CONF_DIR        = %(STORAGE_DIR)s/conf/
 #   LOG_DIR         = %(STORAGE_DIR)s/log/
 #   PID_DIR         = %(STORAGE_DIR)s/
@@ -183,7 +183,7 @@ WHISPER_AUTOFLUSH = False
 # Set this to True to enable control over what metrics are allowed to be handled
 # CONF_DIR/allowed_metrics.conf and CONF_DIR/blocked_metrics.conf. If the
 # allowed list is missing or empty, all metrics will pass through.
-# USE_METRICSLIST = False
+# USE_METRIC_FILTERS = False
 
 # By default, carbon itself will log statistics (such as a count,
 # metricsReceived) with the top level prefix of 'carbon' at an interval of 60
@@ -342,7 +342,7 @@ USE_FLOW_CONTROL = True
 # Set this to True to enable control over what metrics are allowed to be handled
 # CONF_DIR/allowed_metrics.conf and CONF_DIR/blocked_metrics.conf. If the
 # allowed list is missing or empty, all metrics will pass through.
-# USE_METRICSLIST = False
+# USE_METRIC_FILTERS = False
 
 # By default, carbon itself will log statistics (such as a count,
 # metricsReceived) with the top level prefix of 'carbon' at an interval of 60
@@ -461,9 +461,9 @@ MAX_AGGREGATION_INTERVALS = 5
 # WRITE_BACK_FREQUENCY = 0
 
 # Set this to True to enable control over what metrics are allowed to be handled
-# CONF_DIR/allowed_metrics.conf and CONF_DIR/blocked_metrics.conf. If the 
+# CONF_DIR/allowed_metrics.conf and CONF_DIR/blocked_metrics.conf. If the
 # allowed list is missing or empty, all metrics will pass through.
-# USE_METRICSLIST = False
+# USE_METRIC_FILTERS = False
 
 # By default, carbon itself will log statistics (such as a count,
 # metricsReceived) with the top level prefix of 'carbon' at an interval of 60

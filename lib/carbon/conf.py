@@ -73,7 +73,7 @@ defaults = dict(
   DESTINATIONS=[],
   USE_FLOW_CONTROL=True,
   USE_INSECURE_UNPICKLER=False,
-  USE_METRICSLIST=False,
+  USE_METRIC_FILTERS=False,
   CARBON_METRIC_PREFIX='carbon',
   CARBON_METRIC_INTERVAL=60,
   CACHE_WRITE_STRATEGY='sorted',
@@ -220,7 +220,7 @@ class CarbonCacheOptions(usage.Options):
         # Normalize and expand paths
         settings["STORAGE_DIR"] = os.path.normpath(os.path.expanduser(settings["STORAGE_DIR"]))
         settings["LOCAL_DATA_DIR"] = os.path.normpath(os.path.expanduser(settings["LOCAL_DATA_DIR"]))
-        settings["METRICSLIST_DIR"] = os.path.normpath(os.path.expanduser(settings["METRICSLIST_DIR"]))
+        settings["METRIC_FILTERS_DIR"] = os.path.normpath(os.path.expanduser(settings["METRIC_FILTERS_DIR"]))
         settings["PID_DIR"] = os.path.normpath(os.path.expanduser(settings["PID_DIR"]))
         settings["LOG_DIR"] = os.path.normpath(os.path.expanduser(settings["LOG_DIR"]))
         settings["pidfile"] = os.path.normpath(os.path.expanduser(settings["pidfile"]))
@@ -563,7 +563,7 @@ def read_config(program, options, **kwargs):
     settings.setdefault(
         "LOCAL_DATA_DIR", join(settings["STORAGE_DIR"], "whisper"))
     settings.setdefault(
-        "METRICSLIST_DIR", join(settings["STORAGE_DIR"], "lists"))
+        "METRIC_FILTERS_DIR", join(settings["STORAGE_DIR"], "lists"))
 
     # Read configuration options from program-specific section.
     section = program[len("carbon-"):]

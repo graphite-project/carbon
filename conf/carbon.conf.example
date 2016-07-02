@@ -14,12 +14,12 @@
 # To change other directory paths, add settings to this file. The following
 # configuration variables are available with these default values:
 #
-#   STORAGE_DIR     = $GRAPHITE_STORAGE_DIR
-#   LOCAL_DATA_DIR  = %(STORAGE_DIR)s/whisper/
+#   STORAGE_DIR        = $GRAPHITE_STORAGE_DIR
+#   LOCAL_DATA_DIR     = %(STORAGE_DIR)s/whisper/
 #   USE_METRIC_FILTERS = %(STORAGE_DIR)s/lists/
-#   CONF_DIR        = %(STORAGE_DIR)s/conf/
-#   LOG_DIR         = %(STORAGE_DIR)s/log/
-#   PID_DIR         = %(STORAGE_DIR)s/
+#   CONF_DIR           = %(STORAGE_DIR)s/conf/
+#   LOG_DIR            = %(STORAGE_DIR)s/log/
+#   PID_DIR            = %(STORAGE_DIR)s/
 #
 # For FHS style directory structures, use:
 #

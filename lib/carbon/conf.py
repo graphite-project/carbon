@@ -461,11 +461,11 @@ def get_default_parser(usage="%prog [options] <start|stop|status>"):
       default=None,
       help="Use the given blocked_metrics file")
     parser.add_option(
-      "--whitelist",
+      "--whitelist",    ##DEPRECATED
       default=None,
       help="DEPRECATED: Use the '--allowed_metrics' option")
     parser.add_option(
-      "--blacklist",
+      "--blacklist",    ##DEPRECATED
       default=None,
       help="DEPRECATED: Use the ''--blocked_metrics' option")
     parser.add_option(

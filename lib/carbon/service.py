@@ -52,10 +52,21 @@ def createBaseService(config, settings):
     root_service = CarbonRootService()
     root_service.setName(settings.program)
 
-    if settings.USE_WHITELIST:
-      from carbon.regexlist import WhiteList, BlackList
-      WhiteList.read_from(settings.whitelist)
-      BlackList.read_from(settings.blacklist)
+    if settings.USE_WHITELIST:  # DEPRECATING per https://github.com/graphite-project/carbon/issues/567
+        settings.USE_METRIC_FILTERS = True
+        log.msg("NOTE: 'USE_WHITELIST' is being deprecated in favor of 'USE_METRIC_FILTERS'.")
+        WhiteList.read_from(settings.whitelist)     #DEPRECATING
+        BlackList.read_from(settings.blacklist)     #DEPRECATING
+
+    if settings.USE_METRIC_FILTERS:
+        from carbon.regexlist import allowed_metrics, blocked_metrics
+        allowed_metrics.read_from(settings.allowed_metrics)
+        blocked_metrics.read_from(settings.blocked_metrics)
+        # I hope that this does what I think.
+        if WhiteList:                               #DEPRECATING
+            allowed_metrics.update(WhiteList)       #DEPRECATING
+        if BlackList:                               #DEPRECATING
+            blocked_metrics.update(BlackList)       #DEPRECATING
 
     # Instantiate an instrumentation service that will record metrics about
     # this service.

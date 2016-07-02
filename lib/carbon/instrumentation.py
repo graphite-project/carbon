@@ -137,8 +137,8 @@ def recordMetrics():
   # common metrics
   record('activeConnections', len(state.connectedMetricReceiverProtocols))
   record('metricsReceived', myStats.get('metricsReceived', 0))
-  record('blacklistMatches', myStats.get('blacklistMatches', 0))
-  record('whitelistRejects', myStats.get('whitelistRejects', 0))
+  record('blocked_metricsMatches', myStats.get('blocked_metricsMatches', 0))
+  record('allowed_metricsRejects', myStats.get('allowed_metricsRejects', 0))
   record('cpuUsage', getCpuUsage())
 
   # And here preserve count of messages received in the prior periiod

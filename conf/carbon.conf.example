@@ -14,12 +14,12 @@
 # To change other directory paths, add settings to this file. The following
 # configuration variables are available with these default values:
 #
-#   STORAGE_DIR    = $GRAPHITE_STORAGE_DIR
-#   LOCAL_DATA_DIR = %(STORAGE_DIR)s/whisper/
-#   WHITELISTS_DIR = %(STORAGE_DIR)s/lists/
-#   CONF_DIR       = %(STORAGE_DIR)s/conf/
-#   LOG_DIR        = %(STORAGE_DIR)s/log/
-#   PID_DIR        = %(STORAGE_DIR)s/
+#   STORAGE_DIR        = $GRAPHITE_STORAGE_DIR
+#   LOCAL_DATA_DIR     = %(STORAGE_DIR)s/whisper/
+#   USE_METRIC_FILTERS = %(STORAGE_DIR)s/lists/
+#   CONF_DIR           = %(STORAGE_DIR)s/conf/
+#   LOG_DIR            = %(STORAGE_DIR)s/log/
+#   PID_DIR            = %(STORAGE_DIR)s/
 #
 # For FHS style directory structures, use:
 #
@@ -112,7 +112,7 @@ CACHE_QUERY_PORT = 7002
 USE_FLOW_CONTROL = True
 
 # If enabled this setting is used to timeout metric client connection if no
-# metrics have been sent in specified time in seconds 
+# metrics have been sent in specified time in seconds
 #METRIC_CLIENT_IDLE_TIMEOUT = None
 
 # By default, carbon-cache will log every whisper update and cache hit.
@@ -176,14 +176,14 @@ WHISPER_AUTOFLUSH = False
 
 # On systems which has a large number of metrics, an amount of Whisper write(2)'s
 # pageback sometimes cause disk thrashing due to memory shortage, so that abnormal
-# disk reads occur. Enabling this option makes it possible to decrease useless 
+# disk reads occur. Enabling this option makes it possible to decrease useless
 # page cache memory by posix_fadvise(2) with POSIX_FADVISE_RANDOM option.
 # WHISPER_FADVISE_RANDOM = False
 
-# Set this to True to enable whitelisting and blacklisting of metrics in
-# CONF_DIR/whitelist.conf and CONF_DIR/blacklist.conf. If the whitelist is
-# missing or empty, all metrics will pass through
-# USE_WHITELIST = False
+# Set this to True to enable control over what metrics are allowed to be handled
+# CONF_DIR/allowed_metrics.conf and CONF_DIR/blocked_metrics.conf. If the
+# allowed list is missing or empty, all metrics will pass through.
+# USE_METRIC_FILTERS = False
 
 # By default, carbon itself will log statistics (such as a count,
 # metricsReceived) with the top level prefix of 'carbon' at an interval of 60
@@ -269,7 +269,7 @@ REPLICATION_FACTOR = 1
 
 # For REPLICATION_FACTOR >=2, set DIVERSE_REPLICAS to True to guarantee replicas
 # across distributed hosts. With this setting disabled, it's possible that replicas
-# may be sent to different caches on the same host. This has been the default 
+# may be sent to different caches on the same host. This has been the default
 # behavior since introduction of 'consistent-hashing' relay method.
 # Note that enabling this on an existing pre-0.9.14 cluster will require rebalancing
 # your metrics across the cluster nodes using a tool like Carbonate.
@@ -336,13 +336,13 @@ TIME_TO_DEFER_SENDING = 0.0001
 USE_FLOW_CONTROL = True
 
 # If enabled this setting is used to timeout metric client connection if no
-# metrics have been sent in specified time in seconds 
+# metrics have been sent in specified time in seconds
 #METRIC_CLIENT_IDLE_TIMEOUT = None
 
-# Set this to True to enable whitelisting and blacklisting of metrics in
-# CONF_DIR/whitelist.conf and CONF_DIR/blacklist.conf. If the whitelist is
-# missing or empty, all metrics will pass through
-# USE_WHITELIST = False
+# Set this to True to enable control over what metrics are allowed to be handled
+# CONF_DIR/allowed_metrics.conf and CONF_DIR/blocked_metrics.conf. If the
+# allowed list is missing or empty, all metrics will pass through.
+# USE_METRIC_FILTERS = False
 
 # By default, carbon itself will log statistics (such as a count,
 # metricsReceived) with the top level prefix of 'carbon' at an interval of 60
@@ -434,7 +434,7 @@ MAX_QUEUE_SIZE = 10000
 USE_FLOW_CONTROL = True
 
 # If enabled this setting is used to timeout metric client connection if no
-# metrics have been sent in specified time in seconds 
+# metrics have been sent in specified time in seconds
 #METRIC_CLIENT_IDLE_TIMEOUT = None
 
 # This defines the maximum "message size" between carbon daemons.
@@ -460,10 +460,10 @@ MAX_AGGREGATION_INTERVALS = 5
 # having to first wait rule.frequency seconds.
 # WRITE_BACK_FREQUENCY = 0
 
-# Set this to True to enable whitelisting and blacklisting of metrics in
-# CONF_DIR/whitelist.conf and CONF_DIR/blacklist.conf. If the whitelist is
-# missing or empty, all metrics will pass through
-# USE_WHITELIST = False
+# Set this to True to enable control over what metrics are allowed to be handled
+# CONF_DIR/allowed_metrics.conf and CONF_DIR/blocked_metrics.conf. If the
+# allowed list is missing or empty, all metrics will pass through.
+# USE_METRIC_FILTERS = False
 
 # By default, carbon itself will log statistics (such as a count,
 # metricsReceived) with the top level prefix of 'carbon' at an interval of 60

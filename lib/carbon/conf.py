@@ -73,7 +73,7 @@ defaults = dict(
   DESTINATIONS=[],
   USE_FLOW_CONTROL=True,
   USE_INSECURE_UNPICKLER=False,
-  USE_WHITELIST=False,
+  USE_METRIC_FILTERS=False,
   CARBON_METRIC_PREFIX='carbon',
   CARBON_METRIC_INTERVAL=60,
   CACHE_WRITE_STRATEGY='sorted',
@@ -191,8 +191,8 @@ class CarbonCacheOptions(usage.Options):
         ["config", "c", None, "Use the given config file."],
         ["instance", "", "a", "Manage a specific carbon instance."],
         ["logdir", "", None, "Write logs to the given directory."],
-        ["whitelist", "", None, "List of metric patterns to allow."],
-        ["blacklist", "", None, "List of metric patterns to disallow."],
+        ["allowed_metrics", "", None, "List of metric patterns to allow."],
+        ["blocked_metrics", "", None, "List of metric patterns to disallow."],
         ]
 
     def postOptions(self):
@@ -220,7 +220,7 @@ class CarbonCacheOptions(usage.Options):
         # Normalize and expand paths
         settings["STORAGE_DIR"] = os.path.normpath(os.path.expanduser(settings["STORAGE_DIR"]))
         settings["LOCAL_DATA_DIR"] = os.path.normpath(os.path.expanduser(settings["LOCAL_DATA_DIR"]))
-        settings["WHITELISTS_DIR"] = os.path.normpath(os.path.expanduser(settings["WHITELISTS_DIR"]))
+        settings["METRIC_FILTERS_DIR"] = os.path.normpath(os.path.expanduser(settings["METRIC_FILTERS_DIR"]))
         settings["PID_DIR"] = os.path.normpath(os.path.expanduser(settings["PID_DIR"]))
         settings["LOG_DIR"] = os.path.normpath(os.path.expanduser(settings["LOG_DIR"]))
         settings["pidfile"] = os.path.normpath(os.path.expanduser(settings["pidfile"]))
@@ -272,13 +272,13 @@ class CarbonCacheOptions(usage.Options):
                         os.chown(logdir, self.parent["uid"], self.parent["gid"])
                 log.logToDir(logdir)
 
-        if self["whitelist"] is None:
-            self["whitelist"] = join(settings["CONF_DIR"], "whitelist.conf")
-        settings["whitelist"] = self["whitelist"]
+        if self["allowed_metrics"] is None:
+            self["allowed_metrics"] = join(settings["CONF_DIR"], "allowed_metrics.conf")
+        settings["allowed_metrics"] = self["allowed_metrics"]
 
-        if self["blacklist"] is None:
-            self["blacklist"] = join(settings["CONF_DIR"], "blacklist.conf")
-        settings["blacklist"] = self["blacklist"]
+        if self["blocked_metrics"] is None:
+            self["blocked_metrics"] = join(settings["CONF_DIR"], "blocked_metrics.conf")
+        settings["blocked_metrics"] = self["blocked_metrics"]
 
     def parseArgs(self, *action):
         """If an action was provided, store it for further processing."""
@@ -453,13 +453,21 @@ def get_default_parser(usage="%prog [options] <start|stop|status>"):
         default=None,
         help="Use the given config file")
     parser.add_option(
-      "--whitelist",
+      "--allowed_metrics",
       default=None,
-      help="Use the given whitelist file")
+      help="Use the given allowed_metrics file")
     parser.add_option(
-      "--blacklist",
+      "--blocked_metrics",
       default=None,
-      help="Use the given blacklist file")
+      help="Use the given blocked_metrics file")
+    parser.add_option(
+      "--whitelist",    ##DEPRECATED
+      default=None,
+      help="DEPRECATED: Use the '--allowed_metrics' option")
+    parser.add_option(
+      "--blacklist",    ##DEPRECATED
+      default=None,
+      help="DEPRECATED: Use the ''--blocked_metrics' option")
     parser.add_option(
         "--logdir",
         default=None,
@@ -555,7 +563,7 @@ def read_config(program, options, **kwargs):
     settings.setdefault(
         "LOCAL_DATA_DIR", join(settings["STORAGE_DIR"], "whisper"))
     settings.setdefault(
-        "WHITELISTS_DIR", join(settings["STORAGE_DIR"], "lists"))
+        "METRIC_FILTERS_DIR", join(settings["STORAGE_DIR"], "lists"))
 
     # Read configuration options from program-specific section.
     section = program[len("carbon-"):]

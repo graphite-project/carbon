@@ -64,3 +64,5 @@ new names might fail some styleguide opinions.  We can change them later.
 """
 allowed_metrics = RegexList()
 blocked_metrics = RegexList()
+WhiteList = RegexList()     ##DEPRECATING
+BlackList = RegexList()     ##DEPRECATING

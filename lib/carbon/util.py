@@ -1,9 +1,10 @@
 import sys
 import os
 import pwd
+import imp
 import __builtin__
 
-from os.path import abspath, basename, dirname, join
+from os.path import abspath, basename, dirname, join, splitext
 try:
   from cStringIO import StringIO
 except ImportError:
@@ -157,11 +158,11 @@ else:
       if not name in self.PICKLE_SAFE[module]:
         raise pickle.UnpicklingError('Attempting to unpickle unsafe class %s' % name)
       return getattr(mod, name)
- 
+
     @classmethod
     def loads(cls, pickle_string):
       return cls(StringIO(pickle_string)).load()
- 
+
 
 def get_unpickler(insecure=False):
   if insecure:

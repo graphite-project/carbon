@@ -1,6 +1,5 @@
 import time
 
-#from twisted.internet import reactor
 from twisted.internet.protocol import DatagramProtocol
 from twisted.internet.error import ConnectionDone
 from twisted.protocols.basic import LineOnlyReceiver, Int32StringReceiver
@@ -115,9 +114,14 @@ class MetricPickleReceiver(MetricReceiver, Int32StringReceiver):
       log.listener('invalid pickle received from %s, ignoring' % self.peerName)
       return
 
-    for (metric, datapoint) in datapoints:
+    for raw in datapoints:
       try:
-        datapoint = (float(datapoint[0]), float(datapoint[1]))  #force proper types
+        (metric, (value, timestamp)) = raw
+      except Exception, e:
+        log.listener('Error decoding pickle: %s' % e)
+
+      try:
+        datapoint = (float(value), float(timestamp))  # force proper types
       except ValueError:
         continue
 

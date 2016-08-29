@@ -228,14 +228,3 @@ class PluginRegistrar(type):
     super(PluginRegistrar, classObj).__init__(name, bases, members)
     if hasattr(classObj, 'plugin_name'):
       classObj.plugins[classObj.plugin_name] = classObj
-
-
-def load_module(module_path, member=None):
-  module_name = splitext(basename(module_path))[0]
-  module_file = open(module_path, 'U')
-  description = ('.py', 'U', imp.PY_SOURCE)
-  module = imp.load_module(module_name, module_file, module_path, description)
-  if member:
-    return getattr(module, member)
-  else:
-    return module

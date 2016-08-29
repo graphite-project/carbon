@@ -237,6 +237,29 @@ class CarbonCacheOptions(usage.Options):
             print "Error: missing required config %s" % storage_schemas
             sys.exit(1)
 
+        if settings.WHISPER_AUTOFLUSH:
+            log.msg("Enabling Whisper autoflush")
+            whisper.AUTOFLUSH = True
+
+        if settings.WHISPER_FALLOCATE_CREATE:
+            if whisper.CAN_FALLOCATE:
+                log.msg("Enabling Whisper fallocate support")
+            else:
+                log.err("WHISPER_FALLOCATE_CREATE is enabled but linking failed.")
+
+        if settings.WHISPER_LOCK_WRITES:
+            if whisper.CAN_LOCK:
+                log.msg("Enabling Whisper file locking")
+                whisper.LOCK = True
+            else:
+                log.err("WHISPER_LOCK_WRITES is enabled but import of fcntl module failed.")
+
+        if settings.CACHE_WRITE_STRATEGY not in ('sorted', 'max', 'naive'):
+            log.err("%s is not a valid value for CACHE_WRITE_STRATEGY, defaulting to %s" %
+                    (settings.CACHE_WRITE_STRATEGY, defaults['CACHE_WRITE_STRATEGY']))
+        else:
+            log.msg("Using %s write strategy for cache" % settings.CACHE_WRITE_STRATEGY)
+
         # Database-specific settings
         database = settings.DATABASE
         if database not in TimeSeriesDatabase.plugins:

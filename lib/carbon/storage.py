@@ -12,7 +12,8 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License."""
 
-import os, re
+import os
+import re
 import whisper
 
 from os.path import join, exists
@@ -26,6 +27,7 @@ STORAGE_SCHEMAS_CONFIG = join(settings.CONF_DIR, 'storage-schemas.conf')
 STORAGE_AGGREGATION_CONFIG = join(settings.CONF_DIR, 'storage-aggregation.conf')
 STORAGE_LISTS_DIR = join(settings.CONF_DIR, 'lists')
 
+
 def getFilesystemPath(metric):
   return state.database.getFilesystemPath(metric)
 
@@ -35,7 +37,7 @@ class Schema:
     raise NotImplementedError()
 
   def matches(self, metric):
-    return bool( self.test(metric) )
+    return bool(self.test(metric))
 
 
 class DefaultSchema(Schema):
@@ -62,7 +64,7 @@ class PatternSchema(Schema):
 
 class Archive:
 
-  def __init__(self,secondsPerPoint,points):
+  def __init__(self, secondsPerPoint, points):
     self.secondsPerPoint = int(secondsPerPoint)
     self.points = int(points)
 
@@ -70,7 +72,7 @@ class Archive:
     return "Archive = (Seconds per point: %d, Datapoints to save: %d)" % (self.secondsPerPoint, self.points)
 
   def getTuple(self):
-    return (self.secondsPerPoint,self.points)
+    return (self.secondsPerPoint, self.points)
 
   @staticmethod
   def fromString(retentionDef):
@@ -84,11 +86,11 @@ def loadStorageSchemas():
   config.read(STORAGE_SCHEMAS_CONFIG)
 
   for section in config.sections():
-    options = dict( config.items(section) )
+    options = dict(config.items(section))
     pattern = options.get('pattern')
 
     retentions = options['retentions'].split(',')
-    archives = [ Archive.fromString(s) for s in retentions ]
+    archives = [Archive.fromString(s) for s in retentions]
 
     if pattern:
       mySchema = PatternSchema(section, pattern, archives)
@@ -102,7 +104,7 @@ def loadStorageSchemas():
       whisper.validateArchiveList(archiveList)
       schemaList.append(mySchema)
     except whisper.InvalidConfiguration, e:
-      log.msg("Invalid schemas found in %s: %s" % (section, e) )
+      log.msg("Invalid schemas found in %s: %s" % (section, e))
 
   schemaList.append(defaultSchema)
   return schemaList
@@ -119,7 +121,7 @@ def loadAggregationSchemas():
     log.msg("%s not found or wrong perms, ignoring." % STORAGE_AGGREGATION_CONFIG)
 
   for section in config.sections():
-    options = dict( config.items(section) )
+    options = dict(config.items(section))
     pattern = options.get('pattern')
 
     xFilesFactor = options.get('xfilesfactor')
@@ -148,6 +150,6 @@ def loadAggregationSchemas():
   schemaList.append(defaultAggregation)
   return schemaList
 
-defaultArchive = Archive(60, 60 * 24 * 7) #default retention for unclassified data (7 days of minutely data)
+defaultArchive = Archive(60, 60 * 24 * 7)  # default retention for unclassified data (7 days of minutely data)
 defaultSchema = DefaultSchema('default', [defaultArchive])
 defaultAggregation = DefaultSchema('default', (None, None))

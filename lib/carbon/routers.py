@@ -51,15 +51,15 @@ class ConsistentHashingRouter(DatapointRouter):
     (server, port, instance) = destination
     if (server, instance) in self.instance_ports:
       raise Exception("destination instance (%s, %s) already configured" % (server, instance))
-    self.instance_ports[ (server, instance) ] = port
-    self.ring.add_node( (server, instance) )
+    self.instance_ports[(server, instance)] = port
+    self.ring.add_node((server, instance))
 
   def removeDestination(self, destination):
     (server, port, instance) = destination
     if (server, instance) not in self.instance_ports:
       raise Exception("destination instance (%s, %s) not configured" % (server, instance))
-    del self.instance_ports[ (server, instance) ]
-    self.ring.remove_node( (server, instance) )
+    del self.instance_ports[(server, instance)]
+    self.ring.remove_node((server, instance))
 
   def getDestinations(self, metric):
     key = self.getKey(metric)

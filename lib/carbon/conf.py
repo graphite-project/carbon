@@ -92,9 +92,6 @@ defaults = dict(
 )
 
 
-def _umask(value):
-    return int(value, 8)
-
 def _process_alive(pid):
     if exists("/proc"):
         return exists("/proc/%d" % pid)
@@ -124,14 +121,14 @@ class OrderedConfigParser(ConfigParser):
       line = line.strip()
 
       if line.startswith('[') and line.endswith(']'):
-        sections.append( line[1:-1] )
+        sections.append(line[1:-1])
 
     self._ordered_sections = sections
 
     return result
 
   def sections(self):
-    return list( self._ordered_sections ) # return a copy for safety
+    return list(self._ordered_sections)  # return a copy for safety
 
 
 class Settings(dict):
@@ -149,17 +146,17 @@ class Settings(dict):
     if not parser.has_section(section):
       return
 
-    for key,value in parser.items(section):
+    for key, value in parser.items(section):
       key = key.upper()
 
       # Detect type from defaults dict
       if key in defaults:
-        valueType = type( defaults[key] )
+        valueType = type(defaults[key])
       else:
         valueType = str
 
       if valueType is list:
-        value = [ v.strip() for v in value.split(',') ]
+        value = [v.strip() for v in value.split(',')]
 
       elif valueType is bool:
         value = parser.getboolean(section, key)
@@ -185,7 +182,7 @@ class CarbonCacheOptions(usage.Options):
 
     optFlags = [
         ["debug", "", "Run in debug mode."],
-        ]
+    ]
 
     optParameters = [
         ["config", "c", None, "Use the given config file."],
@@ -193,7 +190,7 @@ class CarbonCacheOptions(usage.Options):
         ["logdir", "", None, "Write logs to the given directory."],
         ["whitelist", "", None, "List of metric patterns to allow."],
         ["blacklist", "", None, "List of metric patterns to disallow."],
-        ]
+    ]
 
     def postOptions(self):
         global settings
@@ -579,7 +576,7 @@ def read_config(program, options, **kwargs):
                  (program, options["instance"])))
         settings["LOG_DIR"] = (options["logdir"] or
                               join(settings["LOG_DIR"],
-                                "%s-%s" % (program ,options["instance"])))
+                                "%s-%s" % (program, options["instance"])))
     else:
         settings["pidfile"] = (
             options["pidfile"] or

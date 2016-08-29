@@ -567,15 +567,18 @@ def read_config(program, options, **kwargs):
                         os.environ.get("GRAPHITE_STORAGE_DIR",
                                        join(graphite_root, "storage")))
 
-    # By default, everything is written to subdirectories of the storage dir.
-    settings.setdefault(
-        "PID_DIR", settings["STORAGE_DIR"])
-    settings.setdefault(
-        "LOG_DIR", join(settings["STORAGE_DIR"], "log", program))
-    settings.setdefault(
-        "LOCAL_DATA_DIR", join(settings["STORAGE_DIR"], "whisper"))
-    settings.setdefault(
-        "WHITELISTS_DIR", join(settings["STORAGE_DIR"], "lists"))
+    def update_STORAGE_DIR_deps():
+        # By default, everything is written to subdirectories of the storage dir.
+        settings.setdefault(
+            "PID_DIR", settings["STORAGE_DIR"])
+        settings.setdefault(
+            "LOG_DIR", join(settings["STORAGE_DIR"], "log", program))
+        settings.setdefault(
+            "LOCAL_DATA_DIR", join(settings["STORAGE_DIR"], "whisper"))
+        settings.setdefault(
+            "WHITELISTS_DIR", join(settings["STORAGE_DIR"], "lists"))
+
+
 
     # Read configuration options from program-specific section.
     section = program[len("carbon-"):]
@@ -586,6 +589,7 @@ def read_config(program, options, **kwargs):
 
     settings.readFrom(config, section)
     settings.setdefault("instance", options["instance"])
+    update_STORAGE_DIR_deps()
 
     # If a specific instance of the program is specified, augment the settings
     # with the instance-specific settings and provide sane defaults for
@@ -606,4 +610,5 @@ def read_config(program, options, **kwargs):
             join(settings["PID_DIR"], '%s.pid' % program))
         settings["LOG_DIR"] = (options["logdir"] or settings["LOG_DIR"])
 
+    update_STORAGE_DIR_deps()
     return settings

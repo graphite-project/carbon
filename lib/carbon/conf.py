@@ -27,6 +27,7 @@ from carbon.exceptions import CarbonConfigException
 
 from twisted.python import usage
 
+import whisper
 
 defaults = dict(
   USER="",

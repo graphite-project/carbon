@@ -21,13 +21,13 @@ from os.path import join, dirname, normpath, exists, isdir
 from optparse import OptionParser
 from ConfigParser import ConfigParser
 
+import whisper
 from carbon import log, state
 from carbon.database import TimeSeriesDatabase
 from carbon.exceptions import CarbonConfigException
 
 from twisted.python import usage
 
-import whisper
 
 defaults = dict(
   USER="",

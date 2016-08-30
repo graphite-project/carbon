@@ -21,7 +21,6 @@ from carbon.conf import settings
 from carbon import events, log
 from carbon.pipeline import Processor
 
-
 def by_timestamp((timestamp, value)):  # useful sort key function
   return timestamp
 
@@ -41,7 +40,7 @@ class DrainStrategy(object):
   def __init__(self, cache):
     self.cache = cache
 
-  def choose_item(self):
+  def choose_item(self, mdpu):
     raise NotImplemented
 
 
@@ -67,16 +66,30 @@ class MaxStrategy(DrainStrategy):
   This method leads to less variance in pointsPerUpdate but may mean
   that infrequently or irregularly updated metrics may not be written
   until shutdown """
-  def choose_item(self):
-    metric_name, size = max(self.cache.items(), key=lambda x: len(itemgetter(1)(x)))
+  def choose_item(self, mdpu=0):
+    metric_name, datapoints = max(self.cache.items(), key=lambda x: len(itemgetter(1)(x)))
+    size = len(datapoints) 
+    if mdpu == 1:
+      if size >= settings.MIN_DATAPOINTS_PER_UPDATE:
+        return metric_name
+      else:
+        return None
     return metric_name
 
 
 class RandomStrategy(DrainStrategy):
   """Pop points randomly"""
-  def choose_item(self):
-    return choice(self.cache.keys())
-
+  def choose_item(self, mdpu = 0):
+    metric_name =  choice(self.cache.keys())
+    if mdpu == 1:
+      count = 0.1 * len(self.cache)       
+      while count > 0: 
+        if len(self.cache.get(metric_name).items()) >= settings.MIN_DATAPOINTS_PER_UPDATE:
+          return metric_name
+        count = count - 1
+        metric_name =  choice(self.cache.keys())
+      return None
+    return metric_name
 
 class SortedStrategy(DrainStrategy):
   """ The default strategy which prefers metrics with a greater number
@@ -84,7 +97,7 @@ class SortedStrategy(DrainStrategy):
   a loop of the cache """
   def __init__(self, cache):
     super(SortedStrategy, self).__init__(cache)
-
+    self.mdpu_flag = 0
     def _generate_queue():
       while True:
         t = time.time()
@@ -92,11 +105,22 @@ class SortedStrategy(DrainStrategy):
         if settings.LOG_CACHE_QUEUE_SORTS:
           log.msg("Sorted %d cache queues in %.6f seconds" % (len(metric_counts), time.time() - t))
         while metric_counts:
-          yield itemgetter(0)(metric_counts.pop())
-
+          #yield itemgetter(0)(metric_counts.pop())
+          (metric_name, numPoints) = metric_counts.pop()
+          if self.mdpu_flag == 1:
+            if numPoints >= settings.MIN_DATAPOINTS_PER_UPDATE:
+              yield metric_name
+            else:
+              metric_counts = []
+              yield None
+          else:
+            yield metric_name
+ 
     self.queue = _generate_queue()
+    
 
-  def choose_item(self):
+  def choose_item(self, mdpu = 0):
+    self.mdpu_flag = mdpu
     return self.queue.next()
 
 
@@ -125,16 +149,18 @@ class _MetricCache(defaultdict):
       log.msg("MetricCache below watermark: self.size=%d" % self.size)
       events.cacheSpaceAvailable()
 
-  def drain_metric(self):
+  def drain_metric(self, mdpu = 0):
     """Returns a metric and it's datapoints in order determined by the
     `DrainStrategy`_"""
     if not self:
       return (None, [])
     if self.strategy:
-      metric = self.strategy.choose_item()
+      metric = self.strategy.choose_item(mdpu)
     else:
       # Avoid .keys() as it dumps the whole list
       metric = self.iterkeys().next()
+    if metric == None:
+      return (None, None) 
     return (metric, self.pop(metric))
 
   def get_datapoints(self, metric):

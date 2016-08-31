@@ -65,7 +65,7 @@ class MetricReceiver(TimeoutMixin):
       return
     if int(datapoint[0]) == -1:  # use current time if none given: https://github.com/graphite-project/carbon/issues/54
       datapoint = (time.time(), datapoint[1])
-    
+
     events.metricReceived(metric, datapoint)
     self.resetTimeout()
 
@@ -134,14 +134,16 @@ class CacheManagementHandler(Int32StringReceiver):
   def connectionMade(self):
     peer = self.transport.getPeer()
     self.peerAddr = "%s:%d" % (peer.host, peer.port)
-    log.query("%s connected" % self.peerAddr)
+    if settings.LOG_CACHE_HITS:
+        log.query("%s connected" % self.peerAddr)
     self.unpickler = get_unpickler(insecure=settings.USE_INSECURE_UNPICKLER)
 
   def connectionLost(self, reason):
-    if reason.check(ConnectionDone):
-      log.query("%s disconnected" % self.peerAddr)
-    else:
-      log.query("%s connection lost: %s" % (self.peerAddr, reason.value))
+    if settings.LOG_CACHE_HITS:
+        if reason.check(ConnectionDone):
+            log.query("%s disconnected" % self.peerAddr)
+        else:
+            log.query("%s connection lost: %s" % (self.peerAddr, reason.value))
 
   def stringReceived(self, rawRequest):
     request = self.unpickler.loads(rawRequest)

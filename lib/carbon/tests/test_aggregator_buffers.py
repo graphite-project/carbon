@@ -9,6 +9,11 @@ from carbon.tests.util import TestSettings
 
 
 class AggregationBufferManagerTest(TestCase):
+  def setUp(self):
+    from carbon import state, instrumentation, events
+    state.instrumentation = instrumentation
+    state.events = events
+
   def tearDown(self):
     BufferManager.clear()
 

@@ -13,6 +13,7 @@ See the License for the specific language governing permissions and
 limitations under the License."""
 
 import time
+import threading
 from operator import itemgetter
 from random import choice
 from collections import defaultdict
@@ -103,6 +104,7 @@ class SortedStrategy(DrainStrategy):
 class _MetricCache(defaultdict):
   """A Singleton dictionary of metric names and lists of their datapoints"""
   def __init__(self, strategy=None):
+    self.lock = threading.Lock()
     self.size = 0
     self.strategy = None
     if strategy:
@@ -142,8 +144,9 @@ class _MetricCache(defaultdict):
     return sorted(self.get(metric, {}).items(), key=by_timestamp)
 
   def pop(self, metric):
-    datapoint_index = defaultdict.pop(self, metric)
-    self.size -= len(datapoint_index)
+    with self.lock:
+      datapoint_index = defaultdict.pop(self, metric)
+      self.size -= len(datapoint_index)
     self._check_available_space()
 
     return sorted(datapoint_index.items(), key=by_timestamp)
@@ -156,8 +159,9 @@ class _MetricCache(defaultdict):
         log.msg("MetricCache is full: self.size=%d" % self.size)
         events.cacheFull()
       else:
-        self.size += 1
-        self[metric][timestamp] = value
+        with self.lock:
+          self.size += 1
+          self[metric][timestamp] = value
     else:
       # Updating a duplicate does not increase the cache size
       self[metric][timestamp] = value

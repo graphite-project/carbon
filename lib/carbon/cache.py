@@ -79,7 +79,7 @@ class MaxStrategy(DrainStrategy):
 
 class RandomStrategy(DrainStrategy):
   """Pop points randomly"""
-  def choose_item(self, mdpu = 0):
+  def choose_item(self, mdpu=0):
     metric_name =  choice(self.cache.keys())
     if mdpu == 1:
       count = 0.1 * len(self.cache)       
@@ -105,7 +105,6 @@ class SortedStrategy(DrainStrategy):
         if settings.LOG_CACHE_QUEUE_SORTS:
           log.msg("Sorted %d cache queues in %.6f seconds" % (len(metric_counts), time.time() - t))
         while metric_counts:
-          #yield itemgetter(0)(metric_counts.pop())
           (metric_name, numPoints) = metric_counts.pop()
           if self.mdpu_flag == 1:
             if numPoints >= settings.MIN_DATAPOINTS_PER_UPDATE:
@@ -119,7 +118,7 @@ class SortedStrategy(DrainStrategy):
     self.queue = _generate_queue()
     
 
-  def choose_item(self, mdpu = 0):
+  def choose_item(self, mdpu=0):
     self.mdpu_flag = mdpu
     return self.queue.next()
 
@@ -149,7 +148,7 @@ class _MetricCache(defaultdict):
       log.msg("MetricCache below watermark: self.size=%d" % self.size)
       events.cacheSpaceAvailable()
 
-  def drain_metric(self, mdpu = 0):
+  def drain_metric(self, mdpu=0):
     """Returns a metric and it's datapoints in order determined by the
     `DrainStrategy`_"""
     if not self:

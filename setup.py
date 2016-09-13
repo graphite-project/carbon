@@ -67,8 +67,8 @@ install_files += init_scripts
 try:
     setup(
       name='carbon',
-      version='0.9.10',
-      url='https://launchpad.net/graphite',
+      version='0.10.0-rc1',
+      url='http://graphiteapp.org/',
       author='Chris Davis',
       author_email='chrismd@gmail.com',
       license='Apache Software License 2.0',

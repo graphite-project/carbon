@@ -107,8 +107,8 @@ def writeCachedDataPoints():
         try:
             state.database.create(metric, archiveConfig, xFilesFactor, aggregationMethod)
             instrumentation.increment('creates')
-        except Exception:
-            log.err("Error creating %s" % (dbFilePath))
+        except Exception, e:
+            log.msg("Error creating %s: %s" % (dbFilePath, e))
             continue
       # If we've got a rate limit configured lets makes sure we enforce it
       if UPDATE_BUCKET:
@@ -117,9 +117,8 @@ def writeCachedDataPoints():
         t1 = time.time()
         state.database.write(metric, datapoints)
         updateTime = time.time() - t1
-      except Exception:
-        log.msg("Error writing to %s" % (dbFilePath))
-        log.err()
+      except Exception, e:
+        log.msg("Error writing to %s: %s" % (dbFilePath, e))
         instrumentation.increment('errors')
       else:
         pointCount = len(datapoints)
@@ -146,18 +145,16 @@ def reloadStorageSchemas():
   global SCHEMAS
   try:
     SCHEMAS = loadStorageSchemas()
-  except Exception:
-    log.msg("Failed to reload storage SCHEMAS")
-    log.err()
+  except Exception, e:
+    log.msg("Failed to reload storage SCHEMAS: %s" % (e))
 
 
 def reloadAggregationSchemas():
   global AGGREGATION_SCHEMAS
   try:
     AGGREGATION_SCHEMAS = loadAggregationSchemas()
-  except Exception:
-    log.msg("Failed to reload aggregation SCHEMAS")
-    log.err()
+  except Exception, e:
+    log.msg("Failed to reload aggregation SCHEMAS: %s" % (e))
 
 
 def shutdownModifyUpdateSpeed():

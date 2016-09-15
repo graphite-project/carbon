@@ -396,9 +396,9 @@ class ReadConfigTest(MockerTestCase):
             ROOT_DIR="foo")
         self.assertEqual(join("bar", "whisper"), settings.LOCAL_DATA_DIR)
 
-    def test_whitelists_dir_depends_on_storage_dir(self):
+    def test_metric_filters_dir_depends_on_storage_dir(self):
         """
-        Tests 'STORAGE_DIR' dependency 'WHITELISTS_DIR'
+        Tests 'STORAGE_DIR' dependency 'METRIC_FILTERS_DIR'
         """
         config = self.makeFile(
             content=("[foo]\n"
@@ -408,4 +408,4 @@ class ReadConfigTest(MockerTestCase):
             FakeOptions(config=config, instance=None,
                         pidfile=None, logdir=None),
             ROOT_DIR="foo")
-        self.assertEqual(join("bar", "lists"), settings.WHITELISTS_DIR)
+        self.assertEqual(join("bar", "lists"), settings.METRIC_FILTERS_DIR)

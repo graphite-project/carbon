@@ -191,7 +191,7 @@ class CarbonCacheOptions(usage.Options):
         ["instance", "", "a", "Manage a specific carbon instance."],
         ["logdir", "", None, "Write logs to the given directory."],
         ["allowed_metrics", "", None, "List of metric patterns to allow."],
-        ["blocked_metrics", "", None, "List of metric patterns to disallow."],
+        ["blocked_metrics", "", None, "List of metric patterns to block."],
     ]
 
     def postOptions(self):

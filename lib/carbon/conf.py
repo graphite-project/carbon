@@ -295,11 +295,11 @@ class CarbonCacheOptions(usage.Options):
                 log.logToDir(logdir)
 
         if self["allowed_metrics"] is None:
-            self["allowed_metrics"] = join(settings["CONF_DIR"], "allowed_metrics.conf")
+            self["allowed_metrics"] = join(settings["METRIC_FILTERS_DIR"], "allowed_metrics.conf")
         settings["allowed_metrics"] = self["allowed_metrics"]
 
         if self["blocked_metrics"] is None:
-            self["blocked_metrics"] = join(settings["CONF_DIR"], "blocked_metrics.conf")
+            self["blocked_metrics"] = join(settings["METRIC_FILTERS_DIR"], "blocked_metrics.conf")
         settings["blocked_metrics"] = self["blocked_metrics"]
 
     def parseArgs(self, *action):

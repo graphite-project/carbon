@@ -35,6 +35,11 @@ except ImportError:
 SCHEMAS = loadStorageSchemas()
 AGGREGATION_SCHEMAS = loadAggregationSchemas()
 
+shuttingDown = 0
+if settings.LOW_CACHE_SIZE == float('inf'):
+  LOW_CACHE_SIZE = 0.8 * settings.MAX_CACHE_SIZE
+else:
+  LOW_CACHE_SIZE = settings.LOW_CACHE_SIZE
 
 # Inititalize token buckets so that we can enforce rate limits on creates and
 # updates if the config wants them.
@@ -55,9 +60,21 @@ def optimalWriteOrder():
   """Generates metrics with the most cached values first and applies a soft
   rate limit on new metrics"""
   while MetricCache:
-    (metric, datapoints) = MetricCache.drain_metric()
-    dbFilePath = getFilesystemPath(metric)
-    dbFileExists = state.database.exists(metric)
+    if (shuttingDown == 1) or (MetricCache.size >= LOW_CACHE_SIZE):
+      mdpu = 0
+    else:
+      mdpu = 1
+    (metric, datapoints) = MetricCache.drain_metric(mdpu)
+    if metric == None:
+      break; 
+    if state.cacheTooFull and MetricCache.size < CACHE_SIZE_LOW_WATERMARK:
+      events.cacheSpaceAvailable()
+    try:
+      dbFilePath = getFilesystemPath(metric)
+      dbFileExists = state.database.exists(dbFilePath)
+    except Exception:
+      log.msg("Invalid metric_name {0}".format(metric)) 
+      continue
 
     if not dbFileExists and CREATE_BUCKET:
       # If our tokenbucket has enough tokens available to create a new metric
@@ -158,7 +175,9 @@ def reloadAggregationSchemas():
 
 
 def shutdownModifyUpdateSpeed():
+    global shuttingDown
     try:
+        shuttingDown = 1
         shut = settings.MAX_UPDATES_PER_SECOND_ON_SHUTDOWN
         if UPDATE_BUCKET:
           UPDATE_BUCKET.setCapacityAndFillRate(shut,shut)

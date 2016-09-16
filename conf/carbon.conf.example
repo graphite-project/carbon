@@ -72,6 +72,21 @@ MAX_UPDATES_PER_SECOND = 500
 # cause carbon to create the files quickly but at the risk of increased I/O.
 MAX_CREATES_PER_MINUTE = 50
 
+# The datapoints for a metric would be written to disk only if the number of
+# datapoints in memory for that metric is greater than or equal to MIN_DATAPOINTS_PER_UPDATE. 
+# However this constraint is lifted if the cache size grows beyond LOW_CACHE_SIZE.
+# The default value for MIN_DATAPOINTS_PER_UPDATE is 1. Increase it to get a more
+# predictable write pattern across multiple carbon-cache instances, i.e. every
+# carbon-cache instance getting a share of disk I/O.
+#
+# It helps to avoid a large number of small disk-writes as well, making it a
+# suitable complement for the "random" CACHE_WRITE_STRATEGY.
+#
+# The default value for LOW_CACHE_SIZE is 80% of MAX_CACHE_SIZE.
+# Value for LOW_CACHE_SIZE must be less than 0.95 * MAX_CACHE_SIZE (which is the threshold for applying flow_control if enabled)  
+MIN_DATAPOINTS_PER_UPDATE = 1
+LOW_CACHE_SIZE = inf
+
 # Set the interface and port for the line (plain text) listener.  Setting the
 # interface to 0.0.0.0 listens on all interfaces.  Port can be set to 0 to
 # disable this listener if it is not required.
@@ -139,7 +154,7 @@ LOG_CACHE_QUEUE_SORTS = False
 # there are a large number of metrics which receive very frequent updates OR if
 # disk i/o is very slow.
 #
-# naive - Metrics will be flushed from the cache to disk in an unordered
+# random - Metrics will be flushed from the cache to disk in an unordered
 # fashion. This strategy may be desirable in situations where the storage for
 # whisper files is solid state, CPU resources are very limited or deference to
 # the OS's i/o scheduler is expected to compensate for the random write

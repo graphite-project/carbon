@@ -14,22 +14,17 @@ limitations under the License."""
 
 import os
 import re
-import whisper
 
 from os.path import join, exists
 from carbon.conf import OrderedConfigParser, settings
 from carbon.exceptions import CarbonConfigException
-from carbon.util import pickle
+from carbon.util import pickle, parseRetentionDef
 from carbon import log, state
 
 
 STORAGE_SCHEMAS_CONFIG = join(settings.CONF_DIR, 'storage-schemas.conf')
 STORAGE_AGGREGATION_CONFIG = join(settings.CONF_DIR, 'storage-aggregation.conf')
 STORAGE_LISTS_DIR = join(settings.CONF_DIR, 'lists')
-
-
-def getFilesystemPath(metric):
-  return state.database.getFilesystemPath(metric)
 
 
 class Schema:
@@ -76,7 +71,7 @@ class Archive:
 
   @staticmethod
   def fromString(retentionDef):
-    (secondsPerPoint, points) = whisper.parseRetentionDef(retentionDef)
+    (secondsPerPoint, points) = parseRetentionDef(retentionDef)
     return Archive(secondsPerPoint, points)
 
 
@@ -101,9 +96,10 @@ def loadStorageSchemas():
     archiveList = [a.getTuple() for a in archives]
 
     try:
-      whisper.validateArchiveList(archiveList)
+      if state.database is not None:
+        state.database.validateArchiveList(archiveList)
       schemaList.append(mySchema)
-    except whisper.InvalidConfiguration, e:
+    except ValueError, e:
       log.msg("Invalid schemas found in %s: %s" % (section, e))
 
   schemaList.append(defaultSchema)
@@ -132,7 +128,8 @@ def loadAggregationSchemas():
         xFilesFactor = float(xFilesFactor)
         assert 0 <= xFilesFactor <= 1
       if aggregationMethod is not None:
-        assert aggregationMethod in whisper.aggregationMethods
+        if state.database is not None:
+          assert aggregationMethod in state.database.aggregationMethods
     except ValueError:
       log.msg("Invalid schemas found in %s." % section)
       continue

@@ -23,6 +23,9 @@ class TimeSeriesDatabase(object):
   __metaclass__ = PluginRegistrar
   plugins = {}
 
+  "List of supported aggregation methods for the database."
+  aggregationMethods = []
+
   def write(self, metric, datapoints):
     "Persist datapoints in the database for metric."
     raise NotImplemented()
@@ -47,6 +50,10 @@ class TimeSeriesDatabase(object):
     "Return filesystem path for metric, defaults to None."
     pass
 
+  def validateArchiveList(self, archiveList):
+    "Validate that the database can handle the given archiveList."
+    pass
+
 
 try:
   import whisper
@@ -55,6 +62,7 @@ except ImportError:
 else:
   class WhisperDatabase(TimeSeriesDatabase):
     plugin_name = 'whisper'
+    aggregationMethods = whisper.aggregationMethods
 
     def __init__(self, settings):
       self.data_dir = settings.LOCAL_DATA_DIR
@@ -123,3 +131,9 @@ else:
     def getFilesystemPath(self, metric):
       metric_path = metric.replace('.', sep).lstrip(sep) + '.wsp'
       return join(self.data_dir, metric_path)
+
+    def validateArchiveList(self, archiveList):
+      try:
+        whisper.validateArchiveList(archiveList)
+      except whisper.InvalidConfiguration, e:
+        raise ValueError("%s" % e)

@@ -5,6 +5,7 @@ from mock import patch
 from carbon.tests.util import TestSettings
 from carbon.database import WhisperDatabase
 
+
 # class NoConfigSchemaLoadingTest(TestCase):
 
 #     def setUp(self):
@@ -35,13 +36,16 @@ class ExistingConfigSchemaLoadingTest(TestCase):
 
     def setUp(self):
         test_directory = os.path.dirname(os.path.realpath(__file__))
-        settings = {
-            'CONF_DIR': os.path.join(test_directory, 'data', 'conf-directory'),
-        }
-        self._settings_patch = patch.dict('carbon.conf.settings', settings)
+        settings = TestSettings()
+        settings['CONF_DIR'] = os.path.join(test_directory, 'data', 'conf-directory')
+        settings['LOCAL_DATA_DIR'] = ''
+        self._settings_patch = patch('carbon.conf.settings', settings)
         self._settings_patch.start()
+        self._database_patch = patch('carbon.state.database', new=WhisperDatabase(settings))
+        self._database_patch.start()
 
     def tearDown(self):
+        self._database_patch.stop()
         self._settings_patch.stop()
 
     def test_loadStorageSchemas_return_schemas(self):
@@ -85,23 +89,3 @@ class ExistingConfigSchemaLoadingTest(TestCase):
         schema_list = loadAggregationSchemas()
         last_schema = schema_list[-1]
         self.assertEquals(last_schema, defaultAggregation)
-
-
-class getFilesystemPathTest(TestCase):
-
-    def setUp(self):
-        self._sep_patch = patch.object(os.path, 'sep', "/")
-        self._sep_patch.start()
-        settings = TestSettings()
-        settings['LOCAL_DATA_DIR'] = '/tmp/'
-        self._database_patch = patch('carbon.state.database', new=WhisperDatabase(settings))
-        self._database_patch.start()
-
-    def tearDown(self):
-        self._database_patch.stop()
-        self._sep_patch.stop()
-
-    def test_getFilesystemPath(self):
-        from carbon.storage import getFilesystemPath
-        result = getFilesystemPath('stats.example.counts')
-        self.assertEquals(result, '/tmp/stats/example/counts.wsp')

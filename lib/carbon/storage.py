@@ -84,13 +84,17 @@ def loadStorageSchemas():
     options = dict(config.items(section))
     pattern = options.get('pattern')
 
-    retentions = options['retentions'].split(',')
-    archives = [Archive.fromString(s) for s in retentions]
+    try:
+      retentions = options['retentions'].split(',')
+      archives = [Archive.fromString(s) for s in retentions]
+    except KeyError:
+      log.err("Schema %s missing 'retentions', skipping" % section)
+      continue
 
     if pattern:
       mySchema = PatternSchema(section, pattern, archives)
     else:
-      log.err("Section missing 'pattern': %s" % section)
+      log.err("Schema %s missing 'pattern', skipping" % section)
       continue
 
     archiveList = [a.getTuple() for a in archives]

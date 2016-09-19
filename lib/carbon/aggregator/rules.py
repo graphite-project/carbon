@@ -60,7 +60,7 @@ class RuleManager:
       return AggregationRule(input_pattern, output_pattern, method, frequency)
 
     except ValueError:
-      log.err("Failed to parse line: %s" % line)
+      log.err("Failed to parse rule in %s, line: %s" % (self.rules_file, line))
       raise
 
 

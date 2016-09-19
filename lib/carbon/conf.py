@@ -329,6 +329,9 @@ class CarbonCacheOptions(usage.Options):
             try:
                 pid = int(pf.read().strip())
                 pf.close()
+            except ValueError:
+                print "Failed to parse pid from pidfile %s" % pidfile
+                raise SystemExit(1)
             except IOError:
                 print "Could not read pidfile %s" % pidfile
                 raise SystemExit(1)
@@ -351,6 +354,9 @@ class CarbonCacheOptions(usage.Options):
             try:
                 pid = int(pf.read().strip())
                 pf.close()
+            except ValueError:
+                print "Failed to parse pid from pidfile %s" % pidfile
+                raise SystemExit(1)
             except IOError:
                 print "Failed to read pid from %s" % pidfile
                 raise SystemExit(1)
@@ -369,6 +375,9 @@ class CarbonCacheOptions(usage.Options):
                 try:
                     pid = int(pf.read().strip())
                     pf.close()
+                except ValueError:
+                    print "Failed to parse pid from pidfile %s" % pidfile
+                    SystemExit(1)
                 except IOError:
                     print "Could not read pidfile %s" % pidfile
                     raise SystemExit(1)

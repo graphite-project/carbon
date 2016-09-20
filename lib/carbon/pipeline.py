@@ -14,6 +14,12 @@ class Processor(object):
     raise NotImplemented()
 
 
+def run_pipeline_generated(metric, datapoint):
+  # For generated points, use a special pipeline to avoid points
+  # infinitely being trapped.
+  run_pipeline(metric, datapoint, state.pipeline_processors_generated)
+
+
 def run_pipeline(metric, datapoint, processors=None):
   if processors is None:
     processors = state.pipeline_processors

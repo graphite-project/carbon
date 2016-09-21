@@ -1,3 +1,4 @@
 Twisted>=13.2.0
+git+git://github.com/graphite-project/ceres.git#egg=ceres
 git+git://github.com/graphite-project/whisper.git#egg=whisper
 mocker==1.1.1

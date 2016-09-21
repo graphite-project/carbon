@@ -170,7 +170,7 @@ WHISPER_FALLOCATE_CREATE = True
 
 # Enabling this option will cause Whisper to lock each Whisper file it writes
 # to with an exclusive lock (LOCK_EX, see: man 2 flock). This is useful when
-# multiple carbon-cache daemons are writing to the same files
+# multiple carbon-cache daemons are writing to the same files.
 # WHISPER_LOCK_WRITES = False
 
 # On systems which has a large number of metrics, an amount of Whisper write(2)'s
@@ -178,6 +178,38 @@ WHISPER_FALLOCATE_CREATE = True
 # disk reads occur. Enabling this option makes it possible to decrease useless 
 # page cache memory by posix_fadvise(2) with POSIX_FADVISE_RANDOM option.
 # WHISPER_FADVISE_RANDOM = False
+
+# Ceres nodes can have many slices and caching the right ones can improve
+# performance dramatically. Note that there are many trade-offs to tinkering
+# with this, and unless you are a ceres developer you *really* should not
+# mess with this. Valid values are:
+#    latest - only the most recent slice is cached
+#       all - all slices are cached
+#      none - slice caching is disabled
+# CERES_SLICE_CACHING_BEHAVIOUR = latest
+
+# If a Ceres node accumulates too many slices, performance can suffer.
+# This can be caused by intermittently reported data. To mitigate
+# slice fragmentation there is a tolerance for how much space can be
+# wasted within a slice file to avoid creating a new one. That tolerance
+# level is determined by MAX_SLICE_GAP, which is the number of consecutive
+# null datapoints allowed in a slice file.
+# If you set this very low, you will waste less of the *tiny* bit disk space
+# that this feature wastes, and you will be prone to performance problems
+# caused by slice fragmentation, which can be pretty severe.
+# If you set this really high, you will waste a bit more disk space (each
+# null datapoint wastes 8 bytes, but keep in mind your filesystem's block
+# size). If you suffer slice fragmentation issues, you should increase this or
+# run the ceres-maintenance defrag plugin more often. However you should not
+# set it to be huge because then if a large but allowed gap occurs it has to
+# get filled in, which means instead of a simple 8-byte write to a new file we
+# could end up doing an (8 * MAX_SLICE_GAP)-byte write to the latest slice.
+# CERES_MAX_SLICE_GAP = 80
+
+# Enabling this option will cause Ceres to lock each Ceres file it writes to
+# to with an exclusive lock (LOCK_EX, see: man 2 flock). This is useful when
+# multiple carbon-cache daemons are writing to the same files
+# CERES_LOCK_WRITES = False
 
 # Set this to True to enable whitelisting and blacklisting of metrics in
 # CONF_DIR/whitelist.conf and CONF_DIR/blacklist.conf. If the whitelist is

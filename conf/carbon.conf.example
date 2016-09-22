@@ -186,7 +186,7 @@ WHISPER_FALLOCATE_CREATE = True
 #    latest - only the most recent slice is cached
 #       all - all slices are cached
 #      none - slice caching is disabled
-# CERES_SLICE_CACHING_BEHAVIOUR = latest
+# CERES_SLICE_CACHING_BEHAVIOR = latest
 
 # If a Ceres node accumulates too many slices, performance can suffer.
 # This can be caused by intermittently reported data. To mitigate
@@ -208,7 +208,7 @@ WHISPER_FALLOCATE_CREATE = True
 
 # Enabling this option will cause Ceres to lock each Ceres file it writes to
 # to with an exclusive lock (LOCK_EX, see: man 2 flock). This is useful when
-# multiple carbon-cache daemons are writing to the same files
+# multiple carbon-cache daemons are writing to the same files.
 # CERES_LOCK_WRITES = False
 
 # Set this to True to enable whitelisting and blacklisting of metrics in

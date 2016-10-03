@@ -21,7 +21,6 @@ from os.path import join, dirname, normpath, exists, isdir
 from optparse import OptionParser
 from ConfigParser import ConfigParser
 
-import whisper
 from carbon import log, state
 from carbon.database import TimeSeriesDatabase
 from carbon.exceptions import CarbonConfigException
@@ -241,23 +240,6 @@ class CarbonCacheOptions(usage.Options):
         if not exists(storage_schemas):
             print "Error: missing required config %s" % storage_schemas
             sys.exit(1)
-
-        if settings.WHISPER_AUTOFLUSH:
-            log.msg("Enabling Whisper autoflush")
-            whisper.AUTOFLUSH = True
-
-        if settings.WHISPER_FALLOCATE_CREATE:
-            if whisper.CAN_FALLOCATE:
-                log.msg("Enabling Whisper fallocate support")
-            else:
-                log.err("WHISPER_FALLOCATE_CREATE is enabled but linking failed.")
-
-        if settings.WHISPER_LOCK_WRITES:
-            if whisper.CAN_LOCK:
-                log.msg("Enabling Whisper file locking")
-                whisper.LOCK = True
-            else:
-                log.err("WHISPER_LOCK_WRITES is enabled but import of fcntl module failed.")
 
         if settings.CACHE_WRITE_STRATEGY not in ('sorted', 'max', 'naive'):
             log.err("%s is not a valid value for CACHE_WRITE_STRATEGY, defaulting to %s" %

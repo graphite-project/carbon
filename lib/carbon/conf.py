@@ -23,6 +23,7 @@ from ConfigParser import ConfigParser
 
 from carbon import log, state
 from carbon.database import TimeSeriesDatabase
+from carbon.routers import DatapointRouter
 from carbon.exceptions import CarbonConfigException
 
 from twisted.python import usage
@@ -433,11 +434,11 @@ class CarbonRelayOptions(CarbonCacheOptions):
             self["aggregation-rules"] = join(settings["CONF_DIR"], settings['AGGREGATION_RULES'])
         settings["aggregation-rules"] = self["aggregation-rules"]
 
-        if settings["RELAY_METHOD"] not in ("rules", "consistent-hashing", "aggregated-consistent-hashing"):
-            print ("In carbon.conf, RELAY_METHOD must be either 'rules' or "
-                   "'consistent-hashing' or 'aggregated-consistent-hashing'. Invalid value: '%s'" %
-                   settings.RELAY_METHOD)
-            sys.exit(1)
+        router = settings["RELAY_METHOD"]
+        if router not in DatapointRouter.plugins:
+            print ("In carbon.conf, RELAY_METHOD must be one of %s. "
+                   "Invalid value: '%s'" % (', '.join(DatapointRouter.plugins), router))
+            raise SystemExit(1)
 
 
 def get_default_parser(usage="%prog [options] <start|stop|status>"):

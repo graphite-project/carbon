@@ -292,6 +292,10 @@ PICKLE_RECEIVER_PORT = 2014
 # instance.
 # Enable this for carbon-relays that send to a group of carbon-aggregators
 #RELAY_METHOD = aggregated-consistent-hashing
+#
+# You can also use fast-hashing and fast-aggregated-hashing which are in O(1)
+# and will always redirect the metrics to the same destination but do not try
+# to minimize rebalancing when the list of destinations is changing.
 RELAY_METHOD = rules
 
 # If you use consistent-hashing you can add redundancy by replicating every

@@ -16,6 +16,7 @@ from os.path import exists
 
 from twisted.application.service import MultiService
 from twisted.application.internet import TCPServer, TCPClient
+from twisted.internet.protocol import ServerFactory
 from twisted.python.components import Componentized
 from twisted.python.log import ILogObserver
 # Attaching modules to the global state module simplifies import order hassles

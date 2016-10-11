@@ -30,8 +30,15 @@
 #
 #LOCAL_DATA_DIR = /opt/graphite/storage/whisper/
 
-# Specify the database library used to store metric data on disk. Currently
-# only the whisper database is supported, but ceres support is coming soon.
+# Specify the database library used to store metric data on disk. Each database
+# may have configurable options to change the behaviour of how it writes to
+# persistent storage.
+#
+# whisper - Fixed-size database, similar in design and purpose to RRD. This is
+# the default storage backend for carbon and the most rigorously tested.
+#
+# ceres - Experimental alternative database that supports storing data in sparse
+# files of arbitrary fixed-size resolutions.
 DATABASE = whisper
 
 # Enable daily log rotation. If disabled, a new file will be opened whenever the log file path no

@@ -5,10 +5,11 @@ from twisted.application.service import Service
 from twisted.internet import reactor
 from twisted.internet.defer import Deferred, DeferredList
 from twisted.internet.protocol import ReconnectingClientFactory
-from twisted.protocols.basic import Int32StringReceiver
+from twisted.protocols.basic import LineOnlyReceiver, Int32StringReceiver
 from carbon.conf import settings
 from carbon.util import pickle
 from carbon import instrumentation, log, pipeline, state
+from carbon.util import PluginRegistrar
 
 try:
     import signal
@@ -19,7 +20,8 @@ except ImportError:
 SEND_QUEUE_LOW_WATERMARK = settings.MAX_QUEUE_SIZE * settings.QUEUE_LOW_WATERMARK_PCT
 
 
-class CarbonClientProtocol(Int32StringReceiver):
+class CarbonClientProtocol(object):
+
   def connectionMade(self):
     log.clients("%s::connectionMade" % self)
     self.paused = False
@@ -62,11 +64,15 @@ class CarbonClientProtocol(Int32StringReceiver):
     self.factory.enqueue(metric, datapoint)
     self.factory.scheduleSend()
 
-  def _sendDatapoints(self, datapoints):
-      self.sendString(pickle.dumps(datapoints, protocol=-1))
-      instrumentation.increment(self.sent, len(datapoints))
-      instrumentation.increment(self.batchesSent)
-      self.factory.checkQueue()
+  def _sendDatapointsNow(self, datapoints):
+    """Implement this function to actually send datapoints."""
+    raise NotImplementedError()
+
+  def sendDatapointsNow(self, datapoints):
+    self._sendDatapointsNow(datapoints)
+    instrumentation.increment(self.sent, len(datapoints))
+    instrumentation.increment(self.batchesSent)
+    self.factory.checkQueue()
 
   def sendQueued(self):
     """This should be the only method that will be used to send stats.
@@ -104,7 +110,7 @@ class CarbonClientProtocol(Int32StringReceiver):
           instrumentation.prior_stats.get(self.sent, 0),
           instrumentation.prior_stats.get('metricsReceived', 0)))
 
-    self._sendDatapoints(self.factory.takeSomeFromQueue())
+    self.sendDatapointsNow(self.factory.takeSomeFromQueue())
     if (self.factory.queueFull.called and
         queueSize < SEND_QUEUE_LOW_WATERMARK):
       if not self.factory.queueHasSpace.called:
@@ -159,7 +165,9 @@ class CarbonClientProtocol(Int32StringReceiver):
   __repr__ = __str__
 
 
-class CarbonClientFactory(ReconnectingClientFactory):
+class CarbonClientFactory(object, ReconnectingClientFactory):
+  __metaclass__ = PluginRegistrar
+  plugins = {}
   maxDelay = 5
 
   def __init__(self, destination):
@@ -186,6 +194,9 @@ class CarbonClientFactory(ReconnectingClientFactory):
     self.queuedUntilConnected = 'destinations.%s.queuedUntilConnected' % self.destinationName
     self.relayMaxQueueLength = 'destinations.%s.relayMaxQueueLength' % self.destinationName
 
+  def clientProtocol(self):
+    raise NotImplementedError()
+
   def scheduleSend(self):
     if self.deferSendPending and self.deferSendPending.active():
       return
@@ -209,7 +220,7 @@ class CarbonClientFactory(ReconnectingClientFactory):
     self.queueHasSpace.addCallback(self.queueSpaceCallback)
 
   def buildProtocol(self, addr):
-    self.connectedProtocol = CarbonClientProtocol()
+    self.connectedProtocol = self.clientProtocol()
     self.connectedProtocol.factory = self
     return self.connectedProtocol
 
@@ -329,10 +340,51 @@ class CarbonClientFactory(ReconnectingClientFactory):
   __repr__ = __str__
 
 
+# Basic clients and associated factories.
+class CarbonPickleClientProtocol(CarbonClientProtocol, Int32StringReceiver):
+
+  def _sendDatapointsNow(self, datapoints):
+    self.sendString(pickle.dumps(datapoints, protocol=-1))
+
+
+class CarbonPickleClientFactory(CarbonClientFactory):
+  plugin_name = "pickle"
+
+  def clientProtocol(self):
+      return CarbonPickleClientProtocol()
+
+
+class CarbonLineClientProtocol(CarbonClientProtocol, LineOnlyReceiver):
+
+  def _sendDatapointsNow(self, datapoints):
+    for metric, datapoint in datapoints:
+        self.sendLine("%s %s %d" % (metric, datapoint[0], datapoint[1]))
+
+
+class CarbonLineClientFactory(CarbonClientFactory):
+  plugin_name = "line"
+
+  def clientProtocol(self):
+      return CarbonLineClientProtocol()
+
+
 class CarbonClientManager(Service):
   def __init__(self, router):
     self.router = router
     self.client_factories = {}  # { destination : CarbonClientFactory() }
+
+  def createFactory(self, destination):
+    from carbon.conf import settings
+
+    factory_name = settings["DESTINATION_PROTOCOL"]
+    factory_class = CarbonClientFactory.plugins.get(factory_name)
+
+    if not factory_class:
+      print ("In carbon.conf, DESTINATION_PROTOCOL must be one of %s. "
+             "Invalid value: '%s'" % (', '.join(CarbonClientFactory.plugins), factory_name))
+      raise SystemExit(1)
+
+    return factory_class(destination)
 
   def startService(self):
     if 'signal' in globals().keys():
@@ -353,7 +405,9 @@ class CarbonClientManager(Service):
 
     log.clients("connecting to carbon daemon at %s:%d:%s" % destination)
     self.router.addDestination(destination)
-    factory = self.client_factories[destination] = CarbonClientFactory(destination)
+
+    factory = self.createFactory(destination)
+    self.client_factories[destination] = factory
     connectAttempted = DeferredList(
         [factory.connectionMade, factory.connectFailed],
         fireOnOneCallback=True,

@@ -4,6 +4,9 @@ from twisted.conch.checkers import SSHPublicKeyDatabase
 from twisted.conch.manhole import Manhole
 from twisted.conch.manhole_ssh import TerminalRealm, ConchFactory
 from twisted.internet import reactor
+from twisted.application.internet import TCPServer
+
+from carbon.protocols import CarbonServerProtocol
 from carbon.conf import settings
 
 
@@ -44,3 +47,19 @@ def createManholeListener():
 def start():
     sessionFactory = createManholeListener()
     reactor.listenTCP(settings.MANHOLE_PORT, sessionFactory, interface=settings.MANHOLE_INTERFACE)
+
+
+class ManholeProtocol(CarbonServerProtocol):
+  plugin_name = "manhole"
+
+  @classmethod
+  def build(cls, root_service):
+    if not settings.ENABLE_MANHOLE:
+      return
+
+    factory = createManholeListener()
+    service = TCPServer(
+      settings.MANHOLE_PORT,
+      factory,
+      interface=settings.MANHOLE_INTERFACE)
+    service.setServiceParent(root_service)

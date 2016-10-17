@@ -15,7 +15,7 @@ limitations under the License."""
 from os.path import exists
 
 from twisted.application.service import MultiService
-from twisted.application.internet import TCPServer, TCPClient, UDPServer
+from twisted.application.internet import TCPServer, TCPClient
 from twisted.internet.protocol import ServerFactory
 from twisted.python.components import Componentized
 from twisted.python.log import ILogObserver
@@ -26,17 +26,6 @@ from carbon.log import carbonLogObserver
 from carbon.pipeline import Processor, run_pipeline, run_pipeline_generated
 state.events = events
 state.instrumentation = instrumentation
-
-
-class CarbonReceiverFactory(ServerFactory):
-  def buildProtocol(self, addr):
-    from carbon.conf import settings
-
-    # Don't establish the connection if we have reached the limit.
-    if len(state.connectedMetricReceiverProtocols) < settings.MAX_RECEIVER_CONNECTIONS:
-      return ServerFactory.buildProtocol(self, addr)
-    else:
-      return None
 
 
 class CarbonRootService(MultiService):
@@ -136,54 +125,10 @@ def createRelayService(config):
 
 
 def setupReceivers(root_service, settings):
-  from carbon.protocols import MetricLineReceiver, MetricPickleReceiver, MetricDatagramReceiver
+  from carbon.protocols import MetricReceiver
 
-  for protocol, interface, port in [
-      (MetricLineReceiver, settings.LINE_RECEIVER_INTERFACE, settings.LINE_RECEIVER_PORT),
-      (MetricPickleReceiver, settings.PICKLE_RECEIVER_INTERFACE, settings.PICKLE_RECEIVER_PORT)
-    ]:
-    if port:
-      factory = CarbonReceiverFactory()
-      factory.protocol = protocol
-      service = TCPServer(port, factory, interface=interface)
-      service.setServiceParent(root_service)
-
-  if settings.ENABLE_UDP_LISTENER:
-      service = UDPServer(int(settings.UDP_RECEIVER_PORT),
-                          MetricDatagramReceiver(),
-                          interface=settings.UDP_RECEIVER_INTERFACE)
-      service.setServiceParent(root_service)
-
-  if settings.ENABLE_AMQP:
-    from carbon import amqp_listener
-    amqp_host = settings.AMQP_HOST
-    amqp_port = settings.AMQP_PORT
-    amqp_user = settings.AMQP_USER
-    amqp_password = settings.AMQP_PASSWORD
-    amqp_verbose = settings.AMQP_VERBOSE
-    amqp_vhost = settings.AMQP_VHOST
-    amqp_spec = settings.AMQP_SPEC
-    amqp_exchange_name = settings.AMQP_EXCHANGE
-
-    factory = amqp_listener.createAMQPListener(
-      amqp_user,
-      amqp_password,
-      vhost=amqp_vhost,
-      spec=amqp_spec,
-      exchange_name=amqp_exchange_name,
-      verbose=amqp_verbose)
-    service = TCPClient(amqp_host, amqp_port, factory)
-    service.setServiceParent(root_service)
-
-  if settings.ENABLE_MANHOLE:
-    from carbon import manhole
-
-    factory = manhole.createManholeListener()
-    service = TCPServer(
-      settings.MANHOLE_PORT,
-      factory,
-      interface=settings.MANHOLE_INTERFACE)
-    service.setServiceParent(root_service)
+  for plugin_name, plugin_class in MetricReceiver.plugins.items():
+    plugin_class.build(root_service)
 
 
 def setupAggregatorProcessor(root_service, settings):

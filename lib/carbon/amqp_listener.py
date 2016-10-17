@@ -38,6 +38,7 @@ from optparse import OptionParser
 from twisted.internet.defer import inlineCallbacks
 from twisted.internet import reactor
 from twisted.internet.protocol import ReconnectingClientFactory
+from twisted.application.internet import TCPClient
 from txamqp.protocol import AMQClient
 from txamqp.client import TwistedDelegate
 import txamqp.spec
@@ -50,11 +51,39 @@ except ImportError:
     sys.path.insert(0, LIB_DIR)
 
 import carbon.protocols #satisfy import order requirements
+from carbon.protocols import CarbonServerProtocol
 from carbon.conf import settings
 from carbon import log, events, instrumentation
 
 
 HOSTNAME = socket.gethostname().split('.')[0]
+
+
+class AMQPProtocol(CarbonServerProtocol):
+
+    @classmethod
+    def build(cls, root_service):
+        if not settings.ENABLE_AMQP:
+            return
+
+        amqp_host = settings.AMQP_HOST
+        amqp_port = settings.AMQP_PORT
+        amqp_user = settings.AMQP_USER
+        amqp_password = settings.AMQP_PASSWORD
+        amqp_verbose = settings.AMQP_VERBOSE
+        amqp_vhost = settings.AMQP_VHOST
+        amqp_spec = settings.AMQP_SPEC
+        amqp_exchange_name = settings.AMQP_EXCHANGE
+
+        factory = createAMQPListener(
+            amqp_user,
+            amqp_password,
+            vhost=amqp_vhost,
+            spec=amqp_spec,
+            exchange_name=amqp_exchange_name,
+            verbose=amqp_verbose)
+        service = TCPClient(amqp_host, amqp_port, factory)
+        service.setServiceParent(root_service)
 
 
 class AMQPGraphiteProtocol(AMQClient):

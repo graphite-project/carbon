@@ -150,6 +150,7 @@ else:
 
     def __init__(self, settings):
       self.data_dir = settings.LOCAL_DATA_DIR
+      ceres.setDefaultNodeCachingBehavior(settings.CERES_NODE_CACHING_BEHAVIOR)
       ceres.setDefaultSliceCachingBehavior(settings.CERES_SLICE_CACHING_BEHAVIOR)
       ceres.MAX_SLICE_GAP = int(settings.CERES_MAX_SLICE_GAP)
 

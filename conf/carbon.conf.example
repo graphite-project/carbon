@@ -186,6 +186,17 @@ WHISPER_FALLOCATE_CREATE = True
 # page cache memory by posix_fadvise(2) with POSIX_FADVISE_RANDOM option.
 # WHISPER_FADVISE_RANDOM = False
 
+# By default all nodes stored in Ceres are cached in memory to improve the
+# throughput of reads and writes to underlying slices. Turning this off will
+# greatly reduce memory consumption for databases with millions of metrics, at
+# the cost of a steep increase in disk i/o, approximately an extra two os.stat
+# calls for every read and write. Reasons to do this are if the underlying
+# storage can handle stat() with practically zero cost (SSD, NVMe, zRAM).
+# Valid values are:
+#       all - all nodes are cached
+#      none - node caching is disabled
+# CERES_NODE_CACHING_BEHAVIOR = all
+
 # Ceres nodes can have many slices and caching the right ones can improve
 # performance dramatically. Note that there are many trade-offs to tinkering
 # with this, and unless you are a ceres developer you *really* should not

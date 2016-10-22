@@ -98,6 +98,12 @@ UDP_RECEIVER_PORT = 2003
 PICKLE_RECEIVER_INTERFACE = 0.0.0.0
 PICKLE_RECEIVER_PORT = 2004
 
+# Set the interface and port for the protobuf listener.  Setting the interface to
+# 0.0.0.0 listens on all interfaces.  Port can be set to 0 to disable this
+# listener if it is not required.
+# PROTOBUF_RECEIVER_INTERFACE = 0.0.0.0
+# PROTOBUF_RECEIVER_PORT = 2005
+
 # Limit the number of open connections the receiver can handle as any time.
 # Default is no limit. Setting up a limit for sites handling high volume
 # traffic may be recommended to avoid running out of TCP memory or having
@@ -346,6 +352,11 @@ REPLICATION_FACTOR = 1
 # If using RELAY_METHOD = rules, all destinations used in relay-rules.conf
 # must be defined in this list
 DESTINATIONS = 127.0.0.1:2004
+
+# This define the protocol to use to contact the destination. It can be
+# set to one of "line", "pickle", "udp" and "protobuf". This list can be
+# extended with CarbonClientFactory plugins and defaults to "pickle".
+# DESTINATION_PROTOCOL = pickle
 
 # This is the maximum number of datapoints that can be queued up
 # for a single destination. Once this limit is hit, we will

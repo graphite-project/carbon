@@ -36,6 +36,10 @@ try:
   import carbon.amqp_listener
 except ImportError:
   pass
+try:
+  import carbon.protobuf
+except ImportError, e:
+  pass
 
 
 class CarbonRootService(MultiService):

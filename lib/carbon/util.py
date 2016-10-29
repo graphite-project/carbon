@@ -101,9 +101,9 @@ def parseDestinations(destination_strings):
 
   for dest_string in destination_strings:
     s = dest_string.strip()
-    bidx = s.rfind("]:")    # find closing braket and following colon.
-    cidx = s.find(":")
-    if s.startswith("[") and bidx is not None:
+    bidx = s.rfind(']:')    # find closing bracket and following colon.
+    cidx = s.find(':')
+    if s.startswith('[') and bidx is not None:
       server = s[1:bidx]
       port = s[bidx + 2:]
     elif cidx is not None:
@@ -112,8 +112,8 @@ def parseDestinations(destination_strings):
     else:
       raise ValueError("Invalid destination string \"%s\"" % dest_string)
 
-    if ":" in port:
-      port, _, instance = port.partition(":")
+    if ':' in port:
+      port, _, instance = port.partition(':')
     else:
       instance = None
 

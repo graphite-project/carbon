@@ -96,22 +96,29 @@ def run_twistd_plugin(filename):
     runApp(config)
 
 
-def parseDestinations(destination_strings):
-  destinations = []
-
-  for dest_string in destination_strings:
-    parts = dest_string.strip().split(':')
-    if len(parts) == 2:
-      server, port = parts
-      instance = None
-    elif len(parts) == 3:
-      server, port, instance = parts
+def parseDestination(dest_string):
+    s = dest_string.strip()
+    bidx = s.rfind(']:')    # find closing bracket and following colon.
+    cidx = s.find(':')
+    if s.startswith('[') and bidx is not None:
+        server = s[1:bidx]
+        port = s[bidx + 2:]
+    elif cidx is not None:
+        server = s[:cidx]
+        port = s[cidx + 1:]
     else:
-      raise ValueError("Invalid destination string \"%s\"" % dest_string)
+        raise ValueError("Invalid destination string \"%s\"" % dest_string)
 
-    destinations.append((server, int(port), instance))
+    if ':' in port:
+        port, _, instance = port.partition(':')
+    else:
+        instance = None
 
-  return destinations
+    return server, int(port), instance
+
+
+def parseDestinations(destination_strings):
+    return [parseDestination(dest_string) for dest_string in destination_strings]
 
 
 # Yes this is duplicated in whisper. Yes, duplication is bad.

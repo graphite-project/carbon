@@ -105,8 +105,10 @@ def writeCachedDataPoints():
         try:
             state.database.create(metric, archiveConfig, xFilesFactor, aggregationMethod)
             instrumentation.increment('creates')
-        except Exception:
+        except Exception, e:
+            log.err()
             log.msg("Error creating %s: %s" % (metric, e))
+            instrumentation.increment('errors')
             continue
       # If we've got a rate limit configured lets makes sure we enforce it
       if UPDATE_BUCKET:
@@ -120,6 +122,7 @@ def writeCachedDataPoints():
         state.database.write(metric, datapoints)
         updateTime = time.time() - t1
       except Exception, e:
+        log.err()
         log.msg("Error writing to %s: %s" % (metric, e))
         instrumentation.increment('errors')
       else:

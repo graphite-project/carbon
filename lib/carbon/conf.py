@@ -124,11 +124,12 @@ class OrderedConfigParser(ConfigParser):
 
     result = ConfigParser.read(self, path)
     sections = []
-    for line in open(path):
-      line = line.strip()
+    with open(path) as f:
+      for line in f:
+        line = line.strip()
 
-      if line.startswith('[') and line.endswith(']'):
-        sections.append(line[1:-1])
+        if line.startswith('[') and line.endswith(']'):
+          sections.append(line[1:-1])
 
     self._ordered_sections = sections
 

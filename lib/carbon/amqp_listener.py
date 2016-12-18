@@ -60,6 +60,7 @@ HOSTNAME = socket.gethostname().split('.')[0]
 
 
 class AMQPProtocol(CarbonServerProtocol):
+    plugin_name = "amqp"
 
     @classmethod
     def build(cls, root_service):

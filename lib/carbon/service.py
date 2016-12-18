@@ -27,6 +27,16 @@ from carbon.pipeline import Processor, run_pipeline, run_pipeline_generated
 state.events = events
 state.instrumentation = instrumentation
 
+# Import plugins.
+try:
+  import carbon.manhole
+except ImportError:
+  pass
+try:
+  import carbon.amqp_listener
+except ImportError:
+  pass
+
 
 class CarbonRootService(MultiService):
   """Root Service that properly configures twistd logging"""

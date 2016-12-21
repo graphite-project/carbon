@@ -126,6 +126,7 @@ USE_FLOW_CONTROL = True
 # This can be excessive and degrade performance if logging on the same
 # volume as the whisper data is stored.
 LOG_UPDATES = False
+LOG_CREATES = False
 LOG_CACHE_HITS = False
 LOG_CACHE_QUEUE_SORTS = False
 

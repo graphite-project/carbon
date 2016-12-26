@@ -79,6 +79,12 @@ MAX_UPDATES_PER_SECOND = 500
 # cause carbon to create the files quickly but at the risk of increased I/O.
 MAX_CREATES_PER_MINUTE = 50
 
+# Set the minimum timestamp resolution supported by this instance. This allows
+# internal optimisations by overwriting points with equal truncated timestamps
+# in order to limit the number of updates to the database. It defaults to one
+# second.
+MIN_TIMESTAMP_RESOLUTION = 1
+
 # Set the interface and port for the line (plain text) listener.  Setting the
 # interface to 0.0.0.0 listens on all interfaces.  Port can be set to 0 to
 # disable this listener if it is not required.

@@ -104,7 +104,9 @@ class MetricReceiver(CarbonServerProtocol, TimeoutMixin):
       return
     if int(datapoint[0]) == -1:  # use current time if none given: https://github.com/graphite-project/carbon/issues/54
       datapoint = (time.time(), datapoint[1])
-
+    res = settings.MIN_TIMESTAMP_RESOLUTION
+    if res:
+      datapoint = (int(datapoint[0]) // res * res, datapoint[1])
     events.metricReceived(metric, datapoint)
     self.resetTimeout()
 

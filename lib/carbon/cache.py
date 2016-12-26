@@ -30,8 +30,12 @@ def by_timestamp((timestamp, value)):  # useful sort key function
 class CacheFeedingProcessor(Processor):
   plugin_name = 'write'
 
+  def __init__(self, *args, **kwargs):
+    super(Processor, self).__init__(*args, **kwargs)
+    self.cache = MetricCache()
+
   def process(self, metric, datapoint):
-    MetricCache.store(metric, datapoint)
+    self.cache.store(metric, datapoint)
     return Processor.NO_OUTPUT
 
 
@@ -101,6 +105,28 @@ class SortedStrategy(DrainStrategy):
     return self.queue.next()
 
 
+class TimeSortedStrategy(DrainStrategy):
+  """ This strategy prefers metrics wich are lagging behind
+  guarantees every point gets written exactly once during
+  a loop of the cache """
+  def __init__(self, cache):
+    super(TimeSortedStrategy, self).__init__(cache)
+
+    def _generate_queue():
+      while True:
+        t = time.time()
+        metric_lw = sorted(self.cache.watermarks, key=lambda x: x[1], reverse=True)
+        if settings.LOG_CACHE_QUEUE_SORTS:
+          log.msg("Sorted %d cache queues in %.6f seconds" % (len(metric_lw), time.time() - t))
+        while metric_lw:
+          yield itemgetter(0)(metric_lw.pop())
+
+    self.queue = _generate_queue()
+
+  def choose_item(self):
+    return self.queue.next()
+
+
 class _MetricCache(defaultdict):
   """A Singleton dictionary of metric names and lists of their datapoints"""
   def __init__(self, strategy=None):
@@ -114,6 +140,12 @@ class _MetricCache(defaultdict):
   @property
   def counts(self):
     return [(metric, len(datapoints)) for (metric, datapoints) in self.items()]
+
+  @property
+  def watermarks(self):
+    return [(metric, min(datapoints.keys()), max(datapoints.keys()))
+            for (metric, datapoints) in self.items()
+            if datapoints]
 
   @property
   def is_full(self):
@@ -167,18 +199,31 @@ class _MetricCache(defaultdict):
       self[metric][timestamp] = value
 
 
-# Initialize a singleton cache instance
-write_strategy = None
-if settings.CACHE_WRITE_STRATEGY == 'naive':
-  write_strategy = NaiveStrategy
-if settings.CACHE_WRITE_STRATEGY == 'max':
-  write_strategy = MaxStrategy
-if settings.CACHE_WRITE_STRATEGY == 'sorted':
-  write_strategy = SortedStrategy
-if settings.CACHE_WRITE_STRATEGY == 'random':
-  write_strategy = RandomStrategy
+_Cache = None
 
-MetricCache = _MetricCache(write_strategy)
+def MetricCache():
+  global _Cache
+  if _Cache is not None:
+    return _Cache
+
+  # Initialize a singleton cache instance
+  # TODO: use plugins.
+  write_strategy = None
+  if settings.CACHE_WRITE_STRATEGY == 'naive':
+    write_strategy = NaiveStrategy
+  if settings.CACHE_WRITE_STRATEGY == 'max':
+    write_strategy = MaxStrategy
+  if settings.CACHE_WRITE_STRATEGY == 'sorted':
+    write_strategy = SortedStrategy
+  if settings.CACHE_WRITE_STRATEGY == 'timesorted':
+    write_strategy = TimeSortedStrategy
+  if settings.CACHE_WRITE_STRATEGY == 'random':
+    write_strategy = RandomStrategy
+
+  _Cache = _MetricCache(write_strategy)
+  return _Cache
+
+
 
 # Avoid import circularities
 from carbon import state

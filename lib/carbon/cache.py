@@ -188,6 +188,8 @@ class _MetricCache(defaultdict):
     else:
       # Avoid .keys() as it dumps the whole list
       metric = next(iter(self))
+    if metric is None:
+      return (None, [])
     return (metric, self.pop(metric))
 
   def get_datapoints(self, metric):

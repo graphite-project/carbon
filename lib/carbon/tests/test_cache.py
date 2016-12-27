@@ -1,3 +1,4 @@
+import time
 from unittest import TestCase
 from mock import Mock, PropertyMock, patch
 from carbon.cache import MetricCache, _MetricCache, DrainStrategy, MaxStrategy, RandomStrategy, SortedStrategy, TimeSortedStrategy
@@ -257,6 +258,22 @@ class DrainStrategyTest(TestCase):
     self.assertEqual('baz', time_sorted_strategy.choose_item())
     self.assertEqual('foo', time_sorted_strategy.choose_item())
     self.assertEqual('bar', time_sorted_strategy.choose_item())
+
+  def test_time_sorted_strategy_min_lag(self):
+    settings = {
+      'MIN_TIMESTAMP_LAG': 5,
+    }
+    settings_patch = patch.dict('carbon.conf.settings', settings)
+    settings_patch.start()
+
+    now = time.time()
+    self.metric_cache.store('old', (now - 10, 1.0))
+    self.metric_cache.store('new', (now, 2.0))
+
+    time_sorted_strategy = TimeSortedStrategy(self.metric_cache)
+    self.assertEqual('old', time_sorted_strategy.choose_item())
+    self.metric_cache.pop('old')
+    self.assertEqual(None, time_sorted_strategy.choose_item())
 
 
 class RandomStrategyTest(TestCase):

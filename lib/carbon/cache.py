@@ -98,6 +98,7 @@ class SortedStrategy(DrainStrategy):
           log.msg("Sorted %d cache queues in %.6f seconds" % (len(metric_counts), time.time() - t))
         while metric_counts:
           yield itemgetter(0)(metric_counts.pop())
+        log.msg("Queue consumed in %.6f seconds" % (time.time() - t))
 
     self.queue = _generate_queue()
 
@@ -120,6 +121,7 @@ class TimeSortedStrategy(DrainStrategy):
           log.msg("Sorted %d cache queues in %.6f seconds" % (len(metric_lw), time.time() - t))
         while metric_lw:
           yield itemgetter(0)(metric_lw.pop())
+        log.msg("Queue consumed in %.6f seconds" % (time.time() - t))
 
     self.queue = _generate_queue()
 

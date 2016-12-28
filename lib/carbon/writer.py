@@ -147,7 +147,7 @@ def writeForever():
       writeCachedDataPoints()
     except Exception:
       log.err()
-    time.sleep(1)  # The writer thread only sleeps when the cache is empty or an error occurs
+    time.sleep(0.1)  # The writer thread only sleeps when the cache is empty or an error occurs
 
 
 def reloadStorageSchemas():

@@ -79,6 +79,12 @@ MAX_UPDATES_PER_SECOND = 500
 # cause carbon to create the files quickly but at the risk of increased I/O.
 MAX_CREATES_PER_MINUTE = 50
 
+# This is the percentage that the cache must be empty before it will accept
+# more metrics.  For sites where there is a high volume flow of stats/minute,
+# it may make sense to reduce this percentage to give the cache a chance to
+# recover.  See also QUEUE_LOW_WATERMARK_PCT for usage guidance.
+CACHE_LOW_WATERMARK_PCT = 0.95
+
 # Set the interface and port for the line (plain text) listener.  Setting the
 # interface to 0.0.0.0 listens on all interfaces.  Port can be set to 0 to
 # disable this listener if it is not required.
@@ -112,10 +118,10 @@ USE_INSECURE_UNPICKLER = False
 CACHE_QUERY_INTERFACE = 0.0.0.0
 CACHE_QUERY_PORT = 7002
 
-# Set this to False to drop datapoints received after the cache
-# reaches MAX_CACHE_SIZE. If this is True (the default) then sockets
-# over which metrics are received will temporarily stop accepting
-# data until the cache size falls below 95% MAX_CACHE_SIZE.
+# Set this to False to drop datapoints received after the cache reaches
+# MAX_CACHE_SIZE.  If this is True (the default) then sockets over which
+# metrics are received will temporarily stop accepting data until the
+# cache size falls below CACHE_LOW_WATERMARK_PCT * MAX_CACHE_SIZE.
 USE_FLOW_CONTROL = True
 
 # If enabled this setting is used to timeout metric client connection if no

@@ -41,7 +41,8 @@ class ConsistentHashRing:
     return node
 
   def get_nodes(self, key):
-    assert self.ring
+    if not self.ring:
+      return
     if len(self.nodes) == 1:
       # short circuit in simple 1-node case
       for node in self.nodes:

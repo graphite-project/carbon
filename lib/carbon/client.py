@@ -36,8 +36,12 @@ class CarbonClientProtocol(object):
 
     self.slowConnectionReset = 'destinations.%s.slowConnectionReset' % self.destinationName
 
-    self.factory.connectionMade.callback(self)
+    d = self.factory.connectionMade
+    # Setup a new deferred before calling the callback to allow callbacks
+    # to re-register themselves.
     self.factory.connectionMade = Deferred()
+    d.callback(self)
+
     self.sendQueued()
 
   def connectionLost(self, reason):
@@ -170,8 +174,9 @@ class CarbonClientFactory(object, ReconnectingClientFactory):
   plugins = {}
   maxDelay = 5
 
-  def __init__(self, destination):
+  def __init__(self, destination, router):
     self.destination = destination
+    self.router = router
     self.destinationName = ('%s:%d:%s' % destination).replace('.', '_')
     self.host, self.port, self.carbon_instance = destination
     self.addr = (self.host, self.port)
@@ -184,9 +189,13 @@ class CarbonClientFactory(object, ReconnectingClientFactory):
     self.queueFull.addCallback(self.queueFullCallback)
     self.queueHasSpace = Deferred()
     self.queueHasSpace.addCallback(self.queueSpaceCallback)
+    # Args: {'connector': connector, 'reason': reason}
     self.connectFailed = Deferred()
-    self.connectionMade = Deferred()
+    # Args: {'connector': connector, 'reason': reason}
     self.connectionLost = Deferred()
+    # Args: protocol instance
+    self.connectionMade = Deferred()
+    self.connectionMade.addCallbacks(self.clientConnectionMade, log.err)
     self.deferSendPending = None
     # Define internal metric names
     self.attemptedRelays = 'destinations.%s.attemptedRelays' % self.destinationName
@@ -306,20 +315,69 @@ class CarbonClientFactory(object, ReconnectingClientFactory):
       instrumentation.increment(self.queuedUntilConnected)
 
   def startedConnecting(self, connector):
-    log.clients("%s::startedConnecting (%s:%d)" % (self, connector.host, connector.port))
+    log.clients("%s::startedConnecting (%s:%d)" % (
+        self, connector.host, connector.port))
+
+  def clientConnectionMade(self, client):
+    log.clients("%s::connectionMade (%s)" % (self, client))
+    self.resetDelay()
+    self.destinationUp(client.factory.destination)
+    self.connectionMade.addCallbacks(self.clientConnectionMade, log.err)
+    return client
 
   def clientConnectionLost(self, connector, reason):
     ReconnectingClientFactory.clientConnectionLost(self, connector, reason)
-    log.clients("%s::clientConnectionLost (%s:%d) %s" % (self, connector.host, connector.port, reason.getErrorMessage()))
+    log.clients("%s::clientConnectionLost (%s:%d) %s" % (
+        self, connector.host, connector.port, reason.getErrorMessage()))
     self.connectedProtocol = None
-    self.connectionLost.callback(0)
+
+    self.destinationDown(connector.factory.destination)
+
+    args = dict(connector=connector, reason=reason)
+    d = self.connectionLost
     self.connectionLost = Deferred()
+    d.callback(args)
 
   def clientConnectionFailed(self, connector, reason):
     ReconnectingClientFactory.clientConnectionFailed(self, connector, reason)
-    log.clients("%s::clientConnectionFailed (%s:%d) %s" % (self, connector.host, connector.port, reason.getErrorMessage()))
-    self.connectFailed.callback(dict(connector=connector, reason=reason))
+    log.clients("%s::clientConnectionFailed (%s:%d) %s" % (
+        self, connector.host, connector.port, reason.getErrorMessage()))
+
+    self.destinationDown(connector.factory.destination)
+
+    args = dict(connector=connector, reason=reason)
+    d = self.connectFailed
     self.connectFailed = Deferred()
+    d.callback(args)
+
+  def destinationUp(self, destination):
+    log.clients("Destination is up: %s:%d:%s" % destination)
+    if not self.router.hasDestination(destination):
+      log.clients("Adding client %s:%d:%s to router" % destination)
+      self.router.addDestination(destination)
+      state.events.resumeReceivingMetrics()
+
+  def destinationDown(self, destination):
+    # Only blacklist the destination if we tried a lot.
+    log.clients("Destination is down: %s:%d:%s (%d/%d)" % (
+        destination[0], destination[1], destination[2], self.retries,
+        settings.DYNAMIC_ROUTER_MAX_RETRIES))
+    # Retries com from the ReconnectingClientFactory.
+    if self.retries < settings.DYNAMIC_ROUTER_MAX_RETRIES:
+      return
+
+    if settings.DYNAMIC_ROUTER and self.router.hasDestination(destination):
+      log.clients("Removing client %s:%d:%s to router" % destination)
+      self.router.removeDestination(destination)
+      # Do not receive more metrics if we don't have any usable destinations.
+      if not self.router.countDestinations():
+          state.events.pauseReceivingMetrics()
+      # Re-inject queued metrics.
+      metrics = list(self.queue)
+      log.clients("Re-injecting %d metrics from %s" % (len(metrics), self))
+      for metric, datapoint in metrics:
+          state.events.metricGenerated(metric, datapoint)
+      self.queue.clear()
 
   def disconnect(self):
     self.queueEmpty.addCallback(lambda result: self.stopConnecting())
@@ -368,10 +426,48 @@ class CarbonLineClientFactory(CarbonClientFactory):
       return CarbonLineClientProtocol()
 
 
+class FakeClientFactory(object):
+  """Fake client factory that buffers points
+
+  This is used when all the destinations are down and before we
+  pause the reception of metrics to avoid loosing points.
+  """
+
+  def __init__(self):
+    # This queue isn't explicitely bounded but will implicitely be. It receives
+    # only metrics when no destinations are available, and as soon as we detect
+    # that we don't have any destination we pause the producer: this mean that
+    # it will contain only a few seconds of metrics.
+    self.queue = deque()
+    self.started = False
+
+  def startConnecting(self):
+    pass
+
+  def sendDatapoint(self, metric, datapoint):
+    self.queue.append((metric, datapoint))
+
+  def sendHighPriorityDatapoint(self, metric, datapoint):
+    self.queue.append((metric, datapoint))
+
+  def reinjectDatapoints(self):
+    metrics = list(self.queue)
+    log.clients("Re-injecting %d metrics from %s" % (len(metrics), self))
+    for metric, datapoint in metrics:
+        state.events.metricGenerated(metric, datapoint)
+    self.queue.clear()
+
+
 class CarbonClientManager(Service):
   def __init__(self, router):
     self.router = router
     self.client_factories = {}  # { destination : CarbonClientFactory() }
+
+    # This fake factory will be used as a buffer when we did not manage
+    # to connect to any destination.
+    fake_factory = FakeClientFactory()
+    self.client_factories[None] = fake_factory
+    state.events.resumeReceivingMetrics.addHandler(fake_factory.reinjectDatapoints)
 
   def createFactory(self, destination):
     from carbon.conf import settings
@@ -384,7 +480,7 @@ class CarbonClientManager(Service):
              "Invalid value: '%s'" % (', '.join(CarbonClientFactory.plugins), factory_name))
       raise SystemExit(1)
 
-    return factory_class(destination)
+    return factory_class(destination, self.router)
 
   def startService(self):
     if 'signal' in globals().keys():
@@ -404,10 +500,14 @@ class CarbonClientManager(Service):
       return
 
     log.clients("connecting to carbon daemon at %s:%d:%s" % destination)
-    self.router.addDestination(destination)
+    if not settings.DYNAMIC_ROUTER:
+        # If not using a dynamic router we add the destination before
+        # it's known to be working.
+        self.router.addDestination(destination)
 
     factory = self.createFactory(destination)
     self.client_factories[destination] = factory
+
     connectAttempted = DeferredList(
         [factory.connectionMade, factory.connectFailed],
         fireOnOneCallback=True,
@@ -439,12 +539,20 @@ class CarbonClientManager(Service):
       deferreds.append(self.stopClient(destination))
     return DeferredList(deferreds)
 
+  def getDestinations(self, metric):
+    destinations = list(self.router.getDestinations(metric))
+    # If we can't find any destination we just buffer the
+    # points. We will also pause the socket on the receiving side.
+    if not destinations:
+      return [None]
+    return destinations
+
   def sendDatapoint(self, metric, datapoint):
-    for destination in self.router.getDestinations(metric):
+    for destination in self.getDestinations(metric):
       self.client_factories[destination].sendDatapoint(metric, datapoint)
 
   def sendHighPriorityDatapoint(self, metric, datapoint):
-    for destination in self.router.getDestinations(metric):
+    for destination in self.getDestinations(metric):
       self.client_factories[destination].sendHighPriorityDatapoint(metric, datapoint)
 
   def __str__(self):

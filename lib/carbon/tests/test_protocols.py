@@ -1,9 +1,36 @@
+from carbon.protocols import MetricReceiver
 from unittest import TestCase
 from mock import Mock, patch
 from carbon.cache import _MetricCache
 
 import os.path
 import pickle
+
+
+class TestMetricReceiversHandler(TestCase):
+  def test_build(self):
+    expected_plugins = sorted(['line', 'udp', 'pickle', 'amqp'])
+
+    # Can't always test manhole because 'cryptography' can
+    # be a pain to install and we don't want to make the CI
+    # flaky because of that.
+    try:
+      import carbon.manhole
+      expected_plugins.append('manhole')
+    except ImportError:
+      pass
+
+    expected_plugins = sorted(expected_plugins)
+    plugins = sorted(MetricReceiver.plugins.keys())
+    self.assertEquals(expected_plugins, plugins)
+
+    class _FakeService(object):
+      def addService(_, __):
+        pass
+    fake_service = _FakeService()
+
+    for plugin_name, plugin_class in MetricReceiver.plugins.items():
+      plugin_class.build(fake_service)
 
 
 class TestCacheManagementHandler(TestCase):

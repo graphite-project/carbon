@@ -9,7 +9,7 @@ import pickle
 
 class TestMetricReceiversHandler(TestCase):
   def test_build(self):
-    expected_plugins = sorted(['line', 'udp', 'pickle', 'amqp'])
+    expected_plugins = sorted(['line', 'udp', 'pickle', 'amqp', 'protobuf'])
 
     # Can't always test manhole because 'cryptography' can
     # be a pain to install and we don't want to make the CI

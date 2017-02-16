@@ -34,6 +34,7 @@ defaults = dict(
   MAX_CACHE_SIZE=float('inf'),
   MAX_UPDATES_PER_SECOND=500,
   MAX_CREATES_PER_MINUTE=float('inf'),
+  MIN_TIMESTAMP_RESOLUTION=0,
   LINE_RECEIVER_INTERFACE='0.0.0.0',
   LINE_RECEIVER_PORT=2003,
   ENABLE_UDP_LISTENER=False,
@@ -96,7 +97,7 @@ defaults = dict(
   REWRITE_RULES='rewrite-rules.conf',
   RELAY_RULES='relay-rules.conf',
   ENABLE_LOGROTATION=True,
-  METRIC_CLIENT_IDLE_TIMEOUT=None
+  METRIC_CLIENT_IDLE_TIMEOUT=None,
 )
 
 

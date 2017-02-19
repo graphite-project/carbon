@@ -92,8 +92,8 @@ def recordMetrics():
 
     # Calculate cache-data-structure-derived metrics prior to storing anything
     # in the cache itself -- which would otherwise affect said metrics.
-    cache_size = cache.MetricCache.size
-    cache_queues = len(cache.MetricCache)
+    cache_size = cache.MetricCache().size
+    cache_queues = len(cache.MetricCache())
     record('cache.size', cache_size)
     record('cache.queues', cache_queues)
 
@@ -167,7 +167,7 @@ def cache_record(metric, value):
     else:
       fullMetric = '%s.agents.%s-%s.%s' % (prefix, HOSTNAME, settings.instance, metric)
     datapoint = (time.time(), value)
-    cache.MetricCache.store(fullMetric, datapoint)
+    cache.MetricCache().store(fullMetric, datapoint)
 
 
 def relay_record(metric, value):

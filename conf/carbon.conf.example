@@ -152,6 +152,12 @@ LOG_CACHE_QUEUE_SORTS = False
 # moment of the list's creation. Metrics will then be flushed from the cache to
 # disk in that order.
 #
+# timesorted - All metrics in the list will be looked at and sorted according
+# to the timestamp of there datapoints. The metric that were the least recently
+# written will be written first. This is an hybrid strategy between max and
+# sorted which is particularly adapted to sets of metrics with non-uniform
+# resolutions.
+#
 # max - The writer thread will always pop and flush the metric from cache
 # that has the most datapoints. This will give a strong flush preference to
 # frequently updated metrics and will also reduce random file-io. Infrequently

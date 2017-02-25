@@ -1,7 +1,7 @@
 import timeit
 
 from carbon.cache import _MetricCache, DrainStrategy, \
-    NaiveStrategy, MaxStrategy, RandomStrategy, SortedStrategy
+    NaiveStrategy, MaxStrategy, RandomStrategy, SortedStrategy, TimeSortedStrategy
 
 
 metric_cache = _MetricCache(DrainStrategy)
@@ -11,6 +11,7 @@ strategies = {
     'max': MaxStrategy,
     'random': RandomStrategy,
     'sorted': SortedStrategy,
+    'timesorted': TimeSortedStrategy,
 }
 
 def command_store_foo():
@@ -75,7 +76,7 @@ if __name__ == '__main__':
                 print "    datapoints: %-10d [skipped]" % n
                 continue
             count = 0
-            metric_cache = _MetricCache(NaiveStrategy)
+            metric_cache = _MetricCache(strategy)
             timeit.timeit(command_store_foo_n, number=n)
             t = timeit.timeit(command_drain, number=1)
             print_stats(n, t)

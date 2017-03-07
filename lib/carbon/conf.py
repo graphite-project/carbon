@@ -499,7 +499,7 @@ def get_default_parser(usage="%prog [options] <start|stop|status>"):
 
 def get_parser(name):
     parser = get_default_parser()
-    if name == "carbon-aggregator":
+    if "carbon-aggregator" in name:
         parser.add_option(
             "--rules",
             default=None,

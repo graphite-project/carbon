@@ -78,7 +78,7 @@ def recordMetrics():
   stats.clear()
 
   # cache metrics
-  if settings.program == 'carbon-cache':
+  if 'cache' in settings.program:
     record = cache_record
     updateTimes = myStats.get('updateTimes', [])
     committedPoints = myStats.get('committedPoints', 0)
@@ -119,7 +119,7 @@ def recordMetrics():
     record('cache.overflow', cacheOverflow)
 
   # aggregator metrics
-  elif settings.program == 'carbon-aggregator':
+  elif 'aggregator' in settings.program:
     record = aggregator_record
     record('allocatedBuffers', len(BufferManager))
     record('bufferedDatapoints',

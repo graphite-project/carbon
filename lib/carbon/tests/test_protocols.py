@@ -47,7 +47,10 @@ class TestCacheManagementHandler(TestCase):
     self.handler = CacheManagementHandler()
 
     self.cache = _MetricCache()
-    self._metriccache_patch = patch('carbon.protocols.MetricCache', self.cache)
+    def _get_cache():
+      return self.cache
+
+    self._metriccache_patch = patch('carbon.protocols.MetricCache', _get_cache)
     self._metriccache_patch.start()
 
     self.handler.unpickler = pickle

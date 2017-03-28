@@ -519,8 +519,8 @@ class CarbonClientManager(Service):
 
   def stopClient(self, destination):
     factory = self.client_factories.get(destination)
-    if factory is None:
-      return
+    if factory is None or destination is None:
+      return None
 
     self.router.removeDestination(destination)
     stopCompleted = factory.disconnect()
@@ -536,7 +536,9 @@ class CarbonClientManager(Service):
   def stopAllClients(self):
     deferreds = []
     for destination in list(self.client_factories):
-      deferreds.append(self.stopClient(destination))
+      deferred = self.stopClient(destination)
+      if deferred:
+        deferreds.append(deferred)
     return DeferredList(deferreds)
 
   def getDestinations(self, metric):

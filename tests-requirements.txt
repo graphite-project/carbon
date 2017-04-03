@@ -1,0 +1,5 @@
+mock
+mocker
+nose
+protobuf
+git+git://github.com/graphite-project/ceres.git#egg=ceres

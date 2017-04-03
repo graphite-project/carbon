@@ -1,5 +1,5 @@
 import carbon.client as carbon_client
-from carbon.client import CarbonPickleClientFactory, CarbonPickleClientProtocol, CarbonClientManager
+from carbon.client import CarbonPickleClientFactory, CarbonPickleClientProtocol, CarbonLineClientProtocol, CarbonClientManager
 from carbon.routers import DatapointRouter
 from carbon.tests.util import TestSettings
 from carbon import instrumentation
@@ -59,6 +59,19 @@ class ConnectedCarbonClientProtocolTest(TestCase):
     datapoint = ('foo.bar', (1000000000, 1.0))
     self.protocol.sendDatapoint(*datapoint)
     return deferLater(reactor, 0.1, assert_sent)
+
+
+class CarbonLineClientProtocolTest(TestCase):
+  def setUp(self):
+    self.protocol = CarbonLineClientProtocol()
+    self.protocol.sendLine = Mock()
+
+  def test_send_datapoints_now(self):
+    datapoint = ('foo.bar', (1000000000, 1.0))
+    expected_line_to_send = "foo.bar 1.0 1000000000"
+
+    self.protocol._sendDatapointsNow([datapoint])
+    self.protocol.sendLine.assert_called_once_with(expected_line_to_send)
 
 
 @patch('carbon.state.instrumentation', Mock(spec=instrumentation))

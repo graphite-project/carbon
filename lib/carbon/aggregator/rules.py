@@ -1,12 +1,27 @@
 import time
 import re
+
 from os.path import exists, getmtime
 from twisted.internet.task import LoopingCall
+from cachetools import TTLCache, LRUCache
+
 from carbon import log
+from carbon.conf import settings
 from carbon.aggregator.buffers import BufferManager
 
 
-class RuleManager:
+def get_cache():
+  ttl = settings.CACHE_METRIC_NAMES_TTL
+  size = settings.CACHE_METRIC_NAMES_MAX
+  if ttl > 0 and size > 0:
+    return TTLCache(size, ttl)
+  elif size > 0:
+    return LRUCache(size)
+  else:
+    return dict()
+
+
+class RuleManager(object):
   def __init__(self):
     self.rules = []
     self.rules_file = None
@@ -64,7 +79,7 @@ class RuleManager:
       raise
 
 
-class AggregationRule:
+class AggregationRule(object):
   def __init__(self, input_pattern, output_pattern, method, frequency):
     self.input_pattern = input_pattern
     self.output_pattern = output_pattern
@@ -77,7 +92,7 @@ class AggregationRule:
     self.aggregation_func = AGGREGATION_METHODS[method]
     self.build_regex()
     self.build_template()
-    self.cache = {}
+    self.cache = get_cache()
 
   def get_aggregate_metric(self, metric_path):
     if metric_path in self.cache:
@@ -91,10 +106,10 @@ class AggregationRule:
       try:
         result = self.output_template % extracted_fields
       except TypeError:
-        log.err("Failed to interpolate template %s with fields %s" % (self.output_template, extracted_fields))
+        log.err("Failed to interpolate template %s with fields %s" % (
+          self.output_template, extracted_fields))
 
-    if result:
-      self.cache[metric_path] = result
+    self.cache[metric_path] = result
     return result
 
   def build_regex(self):

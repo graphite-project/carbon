@@ -559,3 +559,12 @@ MAX_AGGREGATION_INTERVALS = 5
 # Specify the user to drop privileges to
 # If this is blank carbon-aggregator runs as the user that invokes it
 # USER =
+
+# Part of the code, and particularly aggregator rules, need
+# to cache metric names. To avoid leaking too much memory you
+# can tweak the size of this cache. The default allow for 1M
+# different metrics per rule (~200MiB).
+# CACHE_METRIC_NAMES_MAX=1000000
+
+# You can optionally set a ttl to this cache.
+# CACHE_METRIC_NAMES_TTL=600

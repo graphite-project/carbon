@@ -98,6 +98,8 @@ defaults = dict(
   RELAY_RULES='relay-rules.conf',
   ENABLE_LOGROTATION=True,
   METRIC_CLIENT_IDLE_TIMEOUT=None,
+  CACHE_METRIC_NAMES_MAX=0,
+  CACHE_METRIC_NAMES_TTL=0,
 )
 
 

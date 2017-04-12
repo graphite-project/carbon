@@ -140,7 +140,7 @@ def writeCachedDataPoints():
 
     # Avoid churning CPU when only new metrics are in the cache
     if not dataWritten:
-      time.sleep(0.1)
+      time.sleep(1)
 
 
 def writeForever():
@@ -149,7 +149,11 @@ def writeForever():
       writeCachedDataPoints()
     except Exception:
       log.err()
-    time.sleep(0.1)  # The writer thread only sleeps when the cache is empty or an error occurs
+      # Back-off on error to let time to the backend to recover.
+      time.sleep(0.1)
+    else:
+      # Avoid churning CPU when there are no metrics are in the cache
+      time.sleep(1)
 
 
 def reloadStorageSchemas():

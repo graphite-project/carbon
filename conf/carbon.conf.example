@@ -289,6 +289,18 @@ REPLICATION_FACTOR = 1
 # must be defined in this list
 DESTINATIONS = 127.0.0.1:2004
 
+# This defines mirror destinations for relay to dump a full metric infos no 
+# matter how you configure RELAY_METHOD. This can be helpful when you want 
+# to duplicate all metric infos as well as use RELAY_METHOD, like 
+# consistent-hashing, to do some load balance or else. 
+#
+# Note this option take the same argument format as DESTINATIONS
+#
+# By default, this option will be empty and has no influence on default 
+# relay behaviors.
+#
+#MIRRORS = 127.0.0.1:2004
+
 # This defines the maximum "message size" between carbon daemons.
 # You shouldn't need to tune this unless you really know what you're doing.
 MAX_DATAPOINTS_PER_MESSAGE = 500

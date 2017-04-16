@@ -225,12 +225,13 @@ class CarbonClientManager(Service):
     Service.stopService(self)
     self.stopAllClients()
 
-  def startClient(self, destination):
+  def startClient(self, destination, mirror=False):
     if destination in self.client_factories:
       return
 
     log.clients("connecting to carbon daemon at %s:%d:%s" % destination)
-    self.router.addDestination(destination)
+    if not mirror:
+      self.router.addDestination(destination)
     factory = self.client_factories[destination] = CarbonClientFactory(destination)
     connectAttempted = DeferredList(
         [factory.connectionMade, factory.connectFailed],
@@ -266,6 +267,11 @@ class CarbonClientManager(Service):
   def sendDatapoint(self, metric, datapoint):
     for destination in self.router.getDestinations(metric):
       self.client_factories[destination].sendDatapoint(metric, datapoint)
+
+    # Split a full dumped metric infos to MIRRORS_DESTINATIONS
+    if settings.MIRRORS_DESTINATIONS:
+      for destination in settings.MIRRORS_DESTINATIONS:
+        self.client_factories[destination].sendDatapoint(metric, datapoint)
 
   def __str__(self):
     return "<%s[%x]>" % (self.__class__.__name__, id(self))

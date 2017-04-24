@@ -24,7 +24,7 @@ aggregationMethod = max
 [sum]
 pattern = \.count$
 xFilesFactor = 0
-aggregationMethod = sum
+aggregationMethod = max
 
 [default_average]
 pattern = .*

@@ -1,8 +1,11 @@
 import time
+import socket
 
 from twisted.internet.protocol import ServerFactory, DatagramProtocol
 from twisted.application.internet import TCPServer, UDPServer
+from twisted.application import service
 from twisted.internet.error import ConnectionDone
+from twisted.internet import reactor, tcp, udp
 from twisted.protocols.basic import LineOnlyReceiver, Int32StringReceiver
 from twisted.protocols.policies import TimeoutMixin
 from carbon import log, events, state, management
@@ -23,6 +26,43 @@ class CarbonReceiverFactory(ServerFactory):
       return None
 
 
+class CarbonService(service.Service):
+    """creates our own socket to support SO_REUSEPORT
+    to be removed when twisted supports it natively
+    see https://github.com/twisted/twisted/pull/759
+    """
+    factory = None
+    protocol = None
+
+    def __init__(self, interface, port, protocol, factory):
+        self.protocol = protocol
+        self.factory = factory
+        self.interface = interface
+        self.port = port
+
+    def startService(self):
+        # use socket creation from twisted to use the same options as before
+        if hasattr(self.protocol, 'datagramReceived'):
+            tmp_port = udp.Port(None, None)
+        else:
+            tmp_port = tcp.Port(None, None)
+        carbon_sock = tmp_port.createInternetSocket()
+        if hasattr(socket, "SO_REUSEPORT"):
+            carbon_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
+        carbon_sock.bind((self.interface, self.port))
+        carbon_sock.listen(tmp_port.backlog)
+
+        if hasattr(self.protocol, 'datagramReceived'):
+            self._port = reactor.adoptDatagramPort(
+                carbon_sock.fileno(), socket.AF_INET, self.protocol())
+        else:
+            self._port = reactor.adoptStreamPort(
+                carbon_sock.fileno(), socket.AF_INET, self.factory)
+        carbon_sock.close()
+
+    def stopService(self):
+        self._port.stopListening()
+
 class CarbonServerProtocol(object):
   __metaclass__ = PluginRegistrar
   plugins = {}
@@ -38,13 +78,12 @@ class CarbonServerProtocol(object):
       return
 
     if hasattr(protocol, 'datagramReceived'):
-      service = UDPServer(port, protocol(), interface=interface)
-      service.setServiceParent(root_service)
+      service = CarbonService(interface, port, protocol, None)
     else:
       factory = CarbonReceiverFactory()
       factory.protocol = protocol
-      service = TCPServer(port, factory, interface=interface)
-      service.setServiceParent(root_service)
+      service = CarbonService(interface, port, protocol, factory)
+    service.setServiceParent(root_service)
 
 
 class MetricReceiver(CarbonServerProtocol, TimeoutMixin):

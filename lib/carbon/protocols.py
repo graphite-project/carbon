@@ -50,12 +50,12 @@ class CarbonService(service.Service):
         if hasattr(socket, "SO_REUSEPORT"):
             carbon_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
         carbon_sock.bind((self.interface, self.port))
-        carbon_sock.listen(tmp_port.backlog)
 
         if hasattr(self.protocol, 'datagramReceived'):
             self._port = reactor.adoptDatagramPort(
                 carbon_sock.fileno(), socket.AF_INET, self.protocol())
         else:
+            carbon_sock.listen(tmp_port.backlog)
             self._port = reactor.adoptStreamPort(
                 carbon_sock.fileno(), socket.AF_INET, self.factory)
         carbon_sock.close()

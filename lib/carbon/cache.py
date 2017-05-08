@@ -94,7 +94,7 @@ class SortedStrategy(DrainStrategy):
       while True:
         t = time.time()
         metric_counts = sorted(self.cache.counts, key=lambda x: x[1])
-        size = len(metric_counts) 
+        size = len(metric_counts)
         if settings.LOG_CACHE_QUEUE_SORTS and size:
           log.msg("Sorted %d cache queues in %.6f seconds" % (size, time.time() - t))
         while metric_counts:
@@ -119,7 +119,7 @@ class TimeSortedStrategy(DrainStrategy):
       while True:
         t = time.time()
         metric_lw = sorted(self.cache.watermarks, key=lambda x: x[1], reverse=True)
-        size = len(metric_lw) 
+        size = len(metric_lw)
         if settings.LOG_CACHE_QUEUE_SORTS and size:
           log.msg("Sorted %d cache queues in %.6f seconds" % (size, time.time() - t))
         while metric_lw:

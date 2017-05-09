@@ -3,6 +3,7 @@ try:
 except ImportError:
   from md5 import md5
 import bisect
+import sys
 
 
 class ConsistentHashRing:
@@ -14,7 +15,10 @@ class ConsistentHashRing:
       self.add_node(node)
 
   def compute_ring_position(self, key):
-    big_hash = md5(str(key)).hexdigest()
+    if sys.version_info >= (3, 0):
+      big_hash = md5(key.encode('utf-8')).hexdigest()
+    else:
+      big_hash = md5(key).hexdigest()
     small_hash = int(big_hash[:4], 16)
     return small_hash
 

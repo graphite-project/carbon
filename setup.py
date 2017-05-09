@@ -9,7 +9,6 @@ from glob import glob
 if os.environ.get('USE_SETUPTOOLS'):
   from setuptools import setup
   setup_kwargs = dict(zip_safe=0)
-
 else:
   from distutils.core import setup
   setup_kwargs = dict()
@@ -52,8 +51,10 @@ setup(
         'Programming Language :: Python',
         'Programming Language :: Python :: 2',
         'Programming Language :: Python :: 2.7',
-        'Programming Language :: Python :: 2 :: Only',
+        'Programming Language :: Python :: 3',
+        'Programming Language :: Python :: 3.4',
+        'Programming Language :: Python :: 3.5',
+        'Programming Language :: Python :: 3.6',
     ),
-
     **setup_kwargs
 )

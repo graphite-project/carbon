@@ -225,7 +225,10 @@ else:
 
     @classmethod
     def loads(cls, pickle_string):
-      return cls(StringIO(pickle_string)).load()
+      if sys.version_info >= (3, 0):
+        return cls(StringIO(pickle_string), encoding='utf-8').load()
+      else:
+        return cls(StringIO(pickle_string)).load()
 
 
 def get_unpickler(insecure=False):

@@ -1,5 +1,6 @@
 import time
 import socket
+import sys
 
 from twisted.internet.protocol import ServerFactory, DatagramProtocol
 from twisted.application.internet import TCPServer, UDPServer
@@ -155,7 +156,7 @@ class MetricReceiver(CarbonServerProtocol, TimeoutMixin):
 
 class MetricLineReceiver(MetricReceiver, LineOnlyReceiver):
   plugin_name = "line"
-  delimiter = '\n'
+  delimiter = b'\n'
 
   def lineReceived(self, line):
     try:
@@ -167,7 +168,10 @@ class MetricLineReceiver(MetricReceiver, LineOnlyReceiver):
       log.listener('invalid line received from client %s, ignoring [%s]' % (self.peerName, line.strip().encode('string_escape')))
       return
 
-    self.metricReceived(metric, datapoint)
+    if sys.version_info >= (3, 0):
+      self.metricReceived(metric.decode('utf-8'), datapoint)
+    else:
+      self.metricReceived(metric, datapoint)
 
 
 class MetricDatagramReceiver(MetricReceiver, DatagramProtocol):
@@ -187,7 +191,10 @@ class MetricDatagramReceiver(MetricReceiver, DatagramProtocol):
         metric, value, timestamp = line.strip().split()
         datapoint = (float(timestamp), float(value))
 
-        self.metricReceived(metric, datapoint)
+        if sys.version_info >= (3, 0):
+          self.metricReceived(metric.decode('utf-8'), datapoint)
+        else:
+          self.metricReceived(metric, datapoint)
       except ValueError:
         if len(line) > 400:
           line = line[:400] + '...'
@@ -219,6 +226,10 @@ class MetricPickleReceiver(MetricReceiver, Int32StringReceiver):
         datapoint = (float(value), float(timestamp))  # force proper types
       except ValueError:
         continue
+
+      # convert python2 unicode objects to str/bytes
+      if not isinstance(metric, str):
+        metric = metric.encode('utf-8')
 
       self.metricReceived(metric, datapoint)
 

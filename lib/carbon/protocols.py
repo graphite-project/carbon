@@ -13,6 +13,7 @@ from carbon.conf import settings
 from carbon.regexlist import WhiteList, BlackList
 from carbon.util import pickle, get_unpickler
 from carbon.util import PluginRegistrar
+from six import with_metaclass
 
 
 class CarbonReceiverFactory(ServerFactory):
@@ -63,8 +64,7 @@ class CarbonService(service.Service):
     def stopService(self):
         self._port.stopListening()
 
-class CarbonServerProtocol(object):
-  __metaclass__ = PluginRegistrar
+class CarbonServerProtocol(with_metaclass(PluginRegistrar, object)):
   plugins = {}
 
   @classmethod
@@ -133,12 +133,15 @@ class MetricReceiver(CarbonServerProtocol, TimeoutMixin):
       events.resumeReceivingMetrics.removeHandler(self.resumeReceiving)
 
   def metricReceived(self, metric, datapoint):
-    if BlackList and metric in BlackList:
-      instrumentation.increment('blacklistMatches')
-      return
-    if WhiteList and metric not in WhiteList:
-      instrumentation.increment('whitelistRejects')
-      return
+    if settings.USE_WHITELIST:
+      if metric in BlackList:
+        instrumentation.increment('blacklistMatches')
+        log.debug("metric {} dropped: in blacklist")
+        return
+      if metric not in WhiteList:
+        instrumentation.increment('whitelistRejects')
+        log.debug("metric {} dropped: not in whitelist")
+        return
     if datapoint[1] != datapoint[1]:  # filter out NaN values
       return
     if int(datapoint[0]) == -1:  # use current time if none given: https://github.com/graphite-project/carbon/issues/54
@@ -177,7 +180,8 @@ class MetricDatagramReceiver(MetricReceiver, DatagramProtocol):
 
     super(MetricDatagramReceiver, cls).build(root_service)
 
-  def datagramReceived(self, data, (host, port)):
+  def datagramReceived(self, data, addr):
+    (host, _) = addr
     for line in data.splitlines():
       try:
         metric, value, timestamp = line.strip().split()
@@ -208,7 +212,7 @@ class MetricPickleReceiver(MetricReceiver, Int32StringReceiver):
     for raw in datapoints:
       try:
         (metric, (value, timestamp)) = raw
-      except Exception, e:
+      except Exception as e:
         log.listener('Error decoding pickle: %s' % e)
 
       try:
@@ -239,7 +243,7 @@ class CacheManagementHandler(Int32StringReceiver):
     cache = MetricCache()
     if request['type'] == 'cache-query':
       metric = request['metric']
-      datapoints = cache.get(metric, {}).items()
+      datapoints = list(cache.get(metric, {}).items())
       result = dict(datapoints=datapoints)
       if settings.LOG_CACHE_HITS:
         log.query('[%s] cache query for \"%s\" returned %d values' % (self.peerAddr, metric, len(datapoints)))
@@ -249,7 +253,7 @@ class CacheManagementHandler(Int32StringReceiver):
       datapointsByMetric = {}
       metrics = request['metrics']
       for metric in metrics:
-        datapointsByMetric[metric] = cache.get(metric, {}).items()
+        datapointsByMetric[metric] = list(cache.get(metric, {}).items())
 
       result = dict(datapointsByMetric=datapointsByMetric)
 

@@ -1,4 +1,3 @@
-import exceptions
 from mock import Mock, patch
 from unittest import TestCase
 
@@ -51,7 +50,7 @@ class TestSetupPipeline(TestCase):
 
   def test_unknown_processor_raises_value_error(self):
     self.assertRaises(
-        exceptions.ValueError, setupPipeline, ['foo'], self.root_service_mock, self.settings)
+        ValueError, setupPipeline, ['foo'], self.root_service_mock, self.settings)
 
   @patch('carbon.service.setupRewriterProcessor', new=Mock())
   def test_parses_processor_args(self):

@@ -16,11 +16,11 @@ import os
 from os.path import exists, dirname, join, sep
 from carbon.util import PluginRegistrar
 from carbon import log
+from six import with_metaclass
 
 
-class TimeSeriesDatabase(object):
+class TimeSeriesDatabase(with_metaclass(PluginRegistrar, object)):
   "Abstract base class for Carbon database backends."
-  __metaclass__ = PluginRegistrar
   plugins = {}
 
   "List of supported aggregation methods for the database."
@@ -108,7 +108,7 @@ else:
       try:
         if not exists(directory):
           os.makedirs(directory)
-      except OSError, e:
+      except OSError as e:
         log.err("%s" % e)
 
       whisper.create(path, retentions, xfilesfactor, aggregation_method,
@@ -135,7 +135,7 @@ else:
     def validateArchiveList(self, archiveList):
       try:
         whisper.validateArchiveList(archiveList)
-      except whisper.InvalidConfiguration, e:
+      except whisper.InvalidConfiguration as e:
         raise ValueError("%s" % e)
 
 

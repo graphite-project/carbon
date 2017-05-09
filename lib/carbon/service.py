@@ -38,7 +38,7 @@ except ImportError:
   pass
 try:
   import carbon.protobuf
-except ImportError, e:
+except ImportError as e:
   pass
 
 

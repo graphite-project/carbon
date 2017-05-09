@@ -111,7 +111,7 @@ def writeCachedDataPoints():
         try:
             state.database.create(metric, archiveConfig, xFilesFactor, aggregationMethod)
             instrumentation.increment('creates')
-        except Exception, e:
+        except Exception as e:
             log.err()
             log.msg("Error creating %s: %s" % (metric, e))
             instrumentation.increment('errors')
@@ -127,7 +127,7 @@ def writeCachedDataPoints():
         datapoints = dict(datapoints).items()
         state.database.write(metric, datapoints)
         updateTime = time.time() - t1
-      except Exception, e:
+      except Exception as e:
         log.err()
         log.msg("Error writing to %s: %s" % (metric, e))
         instrumentation.increment('errors')
@@ -160,7 +160,7 @@ def reloadStorageSchemas():
   global SCHEMAS
   try:
     SCHEMAS = loadStorageSchemas()
-  except Exception, e:
+  except Exception as e:
     log.msg("Failed to reload storage SCHEMAS: %s" % (e))
 
 
@@ -168,7 +168,7 @@ def reloadAggregationSchemas():
   global AGGREGATION_SCHEMAS
   try:
     AGGREGATION_SCHEMAS = loadAggregationSchemas()
-  except Exception, e:
+  except Exception as e:
     log.msg("Failed to reload aggregation SCHEMAS: %s" % (e))
 
 

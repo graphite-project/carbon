@@ -3,6 +3,7 @@ import timeit
 
 from carbon.routers import DatapointRouter
 from test_routers import createSettings
+from six.moves import xrange
 
 
 REPLICATION_FACTORS = [1, 4]
@@ -21,7 +22,7 @@ def print_stats(r, t):
     else:
         sec = msec / 1000
         text += " secs: %3g" % sec
-    print text
+    print(text)
 
 
 def generateDestinations(n):

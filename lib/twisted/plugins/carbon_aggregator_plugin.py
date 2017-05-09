@@ -1,14 +1,13 @@
-from zope.interface import implements
+from zope.interface import implementer
 
 from twisted.plugin import IPlugin
 from twisted.application.service import IServiceMaker
 
 from carbon import conf
 
-
+@implementer(IServiceMaker, IPlugin)
 class CarbonAggregatorServiceMaker(object):
 
-    implements(IServiceMaker, IPlugin)
     tapname = "carbon-aggregator"
     description = "Aggregate stats for graphite."
     options = conf.CarbonAggregatorOptions

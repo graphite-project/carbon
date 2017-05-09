@@ -88,7 +88,7 @@ class ReadConfigTest(MockerTestCase):
         """
         try:
             read_config("carbon-foo", FakeOptions(config=None))
-        except CarbonConfigException, e:
+        except CarbonConfigException as e:
             self.assertEqual("Either ROOT_DIR or GRAPHITE_ROOT "
                              "needs to be provided.", str(e))
         else:

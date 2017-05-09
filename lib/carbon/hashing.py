@@ -36,7 +36,7 @@ class ConsistentHashRing:
     assert self.ring
     node = None
     node_iter = self.get_nodes(key)
-    node = node_iter.next()
+    node = next(node_iter)
     node_iter.close()
     return node
 
@@ -50,7 +50,7 @@ class ConsistentHashRing:
         return
     nodes = set()
     position = self.compute_ring_position(key)
-    search_entry = (position, None)
+    search_entry = (position, ())
     index = bisect.bisect_left(self.ring, search_entry) % len(self.ring)
     last_index = (index - 1) % len(self.ring)
     while len(nodes) < len(self.nodes) and index != last_index:

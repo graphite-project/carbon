@@ -1,5 +1,6 @@
 from collections import deque
 from time import time
+from six import with_metaclass
 
 from twisted.application.service import Service
 from twisted.internet import reactor
@@ -169,8 +170,7 @@ class CarbonClientProtocol(object):
   __repr__ = __str__
 
 
-class CarbonClientFactory(object, ReconnectingClientFactory):
-  __metaclass__ = PluginRegistrar
+class CarbonClientFactory(with_metaclass(PluginRegistrar, ReconnectingClientFactory, object)):
   plugins = {}
   maxDelay = 5
 
@@ -476,8 +476,8 @@ class CarbonClientManager(Service):
     factory_class = CarbonClientFactory.plugins.get(factory_name)
 
     if not factory_class:
-      print ("In carbon.conf, DESTINATION_PROTOCOL must be one of %s. "
-             "Invalid value: '%s'" % (', '.join(CarbonClientFactory.plugins), factory_name))
+      print("In carbon.conf, DESTINATION_PROTOCOL must be one of %s. "
+            "Invalid value: '%s'" % (', '.join(CarbonClientFactory.plugins), factory_name))
       raise SystemExit(1)
 
     return factory_class(destination, self.router)

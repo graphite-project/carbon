@@ -56,9 +56,9 @@ def run(sock, delay):
         lines.append("system.loadavg_5min %s %d" % (loadavg[1], now))
         lines.append("system.loadavg_15min %s %d" % (loadavg[2], now))
         message = '\n'.join(lines) + '\n' #all lines must end in a newline
-        print "sending message"
-        print '-' * 80
-        print message
+        print("sending message")
+        print('-' * 80)
+        print(message)
         package = pickle.dumps(tuples, 1)
         size = struct.pack('!L', len(package))
         sock.sendall(size)

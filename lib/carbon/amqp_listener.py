@@ -31,6 +31,11 @@ This program can be started standalone for testing or using carbon-cache.py
 (see example config file provided)
 """
 import sys
+
+# txamqp is currently not ported to py3
+if sys.version_info >= (3, 0):
+    raise ImportError
+
 import os
 import socket
 from optparse import OptionParser

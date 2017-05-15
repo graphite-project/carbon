@@ -1,3 +1,4 @@
+from sys import version_info
 from carbon.protocols import MetricReceiver
 from unittest import TestCase
 from mock import Mock, patch
@@ -9,7 +10,11 @@ import pickle
 
 class TestMetricReceiversHandler(TestCase):
   def test_build(self):
-    expected_plugins = sorted(['line', 'udp', 'pickle', 'amqp', 'protobuf'])
+    # amqp not supported with py3
+    if version_info >= (3, 0):
+      expected_plugins = sorted(['line', 'udp', 'pickle', 'protobuf'])
+    else:
+     expected_plugins = sorted(['line', 'udp', 'pickle', 'amqp', 'protobuf'])
 
     # Can't always test manhole because 'cryptography' can
     # be a pain to install and we don't want to make the CI

@@ -402,7 +402,7 @@ class CarbonClientFactory(with_metaclass(PluginRegistrar, ReconnectingClientFact
 class CarbonPickleClientProtocol(CarbonClientProtocol, Int32StringReceiver):
 
   def _sendDatapointsNow(self, datapoints):
-    self.sendString(pickle.dumps(datapoints, protocol=-1))
+    self.sendString(pickle.dumps(datapoints, protocol=2))
 
 
 class CarbonPickleClientFactory(CarbonClientFactory):

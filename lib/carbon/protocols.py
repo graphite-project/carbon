@@ -283,7 +283,7 @@ class CacheManagementHandler(Int32StringReceiver):
     else:
       result = dict(error="Invalid request type \"%s\"" % request['type'])
 
-    response = pickle.dumps(result, protocol=-1)
+    response = pickle.dumps(result, protocol=2)
     self.sendString(response)
 
 

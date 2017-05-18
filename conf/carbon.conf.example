@@ -499,6 +499,10 @@ MIN_RESET_RATIO=0.9
 # reset connections for no good reason.
 MIN_RESET_INTERVAL=121
 
+# Enable TCP Keep Alive (http://tldp.org/HOWTO/TCP-Keepalive-HOWTO/overview.html).
+# Default settings will send a probe every 30s. Default is False.
+# TCP_KEEPALIVE=True
+
 [aggregator]
 LINE_RECEIVER_INTERFACE = 0.0.0.0
 LINE_RECEIVER_PORT = 2023

@@ -1,6 +1,25 @@
+import socket
+
 from unittest import TestCase
 
 from carbon.util import parseDestinations
+from carbon.util import enableTcpKeepAlive
+
+
+class UtilTest(TestCase):
+
+    def test_enable_tcp_keep_alive(self):
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+        class _Transport():
+            def getHandle(self):
+                return s
+
+            def setTcpKeepAlive(self, value):
+                s.setsockopt(socket.SOL_TCP, socket.SO_KEEPALIVE, value)
+
+        enableTcpKeepAlive(_Transport())
+        self.assertEquals(s.getsockopt(socket.SOL_TCP, socket.SO_KEEPALIVE), 1)
 
 
 # Destinations have the form:

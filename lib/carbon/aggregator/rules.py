@@ -96,7 +96,11 @@ class AggregationRule(object):
 
   def get_aggregate_metric(self, metric_path):
     if metric_path in self.cache:
-      return self.cache[metric_path]
+      try:
+        return self.cache[metric_path]
+      except KeyError:
+        # The value can expire at any time, so we need to catch this.
+        pass
 
     match = self.regex.match(metric_path)
     result = None

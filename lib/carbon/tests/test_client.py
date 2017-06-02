@@ -44,8 +44,9 @@ class BroadcastRouter(DatapointRouter):
 @patch('carbon.state.instrumentation', Mock(spec=instrumentation))
 class ConnectedCarbonClientProtocolTest(TestCase):
   def setUp(self):
+    self.router_mock = Mock(spec=DatapointRouter)
     carbon_client.settings = TestSettings()  # reset to defaults
-    factory = CarbonPickleClientFactory(('127.0.0.1', 2003, 'a'))
+    factory = CarbonPickleClientFactory(('127.0.0.1', 2003, 'a'), self.router_mock)
     self.protocol = factory.buildProtocol(('127.0.0.1', 2003))
     self.transport = StringTransport()
     self.protocol.makeConnection(self.transport)
@@ -77,13 +78,14 @@ class CarbonLineClientProtocolTest(TestCase):
 @patch('carbon.state.instrumentation', Mock(spec=instrumentation))
 class CarbonClientFactoryTest(TestCase):
   def setUp(self):
+    self.router_mock = Mock(spec=DatapointRouter)
     self.protocol_mock = Mock(spec=CarbonPickleClientProtocol)
     self.protocol_patch = patch(
       'carbon.client.CarbonPickleClientProtocol', new=Mock(return_value=self.protocol_mock))
     self.protocol_patch.start()
     carbon_client.settings = TestSettings()
-    self.factory = CarbonPickleClientFactory(('127.0.0.1', 2003, 'a'))
-    self.connected_factory = CarbonPickleClientFactory(('127.0.0.1', 2003, 'a'))
+    self.factory = CarbonPickleClientFactory(('127.0.0.1', 2003, 'a'), self.router_mock)
+    self.connected_factory = CarbonPickleClientFactory(('127.0.0.1', 2003, 'a'), self.router_mock)
     self.connected_factory.buildProtocol(None)
     self.connected_factory.started = True
 
@@ -119,7 +121,7 @@ class CarbonClientManagerTest(TestCase):
     self.router_mock = Mock(spec=DatapointRouter)
     self.factory_mock = Mock(spec=CarbonPickleClientFactory)
     self.client_mgr = CarbonClientManager(self.router_mock)
-    self.client_mgr.createFactory = lambda dest: self.factory_mock(dest)
+    self.client_mgr.createFactory = lambda dest: self.factory_mock(dest, self.router_mock)
 
   def test_start_service_installs_sig_ignore(self):
     from signal import SIGHUP, SIG_IGN
@@ -148,13 +150,13 @@ class CarbonClientManagerTest(TestCase):
   def test_start_client_instantiates_client_factory(self):
     dest = ('127.0.0.1', 2003, 'a')
     self.client_mgr.startClient(dest)
-    self.factory_mock.assert_called_once_with(dest)
+    self.factory_mock.assert_called_once_with(dest, self.router_mock)
 
   def test_start_client_ignores_duplicate(self):
     dest = ('127.0.0.1', 2003, 'a')
     self.client_mgr.startClient(dest)
     self.client_mgr.startClient(dest)
-    self.factory_mock.assert_called_once_with(dest)
+    self.factory_mock.assert_called_once_with(dest, self.router_mock)
 
   def test_start_client_starts_factory_if_running(self):
     dest = ('127.0.0.1', 2003, 'a')
@@ -172,4 +174,3 @@ class CarbonClientManagerTest(TestCase):
     self.client_mgr.startClient(dest)
     self.client_mgr.stopClient(dest)
     self.router_mock.removeDestination.assert_called_once_with(dest)
-

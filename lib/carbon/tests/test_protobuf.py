@@ -1,4 +1,5 @@
 import carbon.client as carbon_client
+from carbon.routers import DatapointRouter
 from carbon.tests.util import TestSettings
 from carbon import instrumentation
 import carbon.service
@@ -37,8 +38,9 @@ def decode_sent(data):
 @patch('carbon.state.instrumentation', Mock(spec=instrumentation))
 class ConnectedCarbonClientProtocolTest(TestCase):
   def setUp(self):
+    self.router_mock = Mock(spec=DatapointRouter)
     carbon_client.settings = TestSettings()  # reset to defaults
-    factory = CarbonProtobufClientFactory(('127.0.0.1', 2003, 'a'))
+    factory = CarbonProtobufClientFactory(('127.0.0.1', 2003, 'a'), self.router_mock)
     self.protocol = factory.buildProtocol(('127.0.0.1', 2003))
     self.transport = StringTransport()
     self.protocol.makeConnection(self.transport)

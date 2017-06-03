@@ -1,5 +1,6 @@
 # Carbon
 
+[![Codacy Badge](https://api.codacy.com/project/badge/Grade/85221cd3bb6e49d7bbd6fed376a88264)](https://www.codacy.com/app/graphite-project/carbon?utm_source=github.com&utm_medium=referral&utm_content=graphite-project/carbon&utm_campaign=badger)
 [![Build Status](https://secure.travis-ci.org/graphite-project/carbon.png?branch=master)](http://travis-ci.org/graphite-project/carbon)
 
 ## Overview

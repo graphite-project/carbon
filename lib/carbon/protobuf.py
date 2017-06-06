@@ -1,5 +1,6 @@
 from twisted.protocols.basic import Int32StringReceiver
 
+from carbon import log
 from carbon.protocols import MetricReceiver
 from carbon.client import CarbonClientProtocol, CarbonClientFactory
 from carbon.carbon_pb2 import Payload
@@ -47,4 +48,3 @@ class CarbonProtobufClientFactory(CarbonClientFactory):
 
     def clientProtocol(self):
         return CarbonProtobufClientProtocol()
-

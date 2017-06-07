@@ -370,6 +370,17 @@ DESTINATIONS = 127.0.0.1:2004
 # extended with CarbonClientFactory plugins and defaults to "pickle".
 # DESTINATION_PROTOCOL = pickle
 
+# When using consistent hashing it sometime makes sense to make
+# the ring dynamic when you don't want to loose points when a
+# single destination is down. Replication is an answer to that
+# but it can be quite expensive.
+# DYNAMIC_ROUTER = False
+
+# Controls the number of connection attempts before marking a
+# destination as down. We usually do one connection attempt per
+# second.
+# DYNAMIC_ROUTER_MAX_RETRIES = 5
+
 # This is the maximum number of datapoints that can be queued up
 # for a single destination. Once this limit is hit, we will
 # stop accepting new data if USE_FLOW_CONTROL is True, otherwise

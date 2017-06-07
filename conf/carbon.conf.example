@@ -370,7 +370,7 @@ DESTINATIONS = 127.0.0.1:2004
 # extended with CarbonClientFactory plugins and defaults to "pickle".
 # DESTINATION_PROTOCOL = pickle
 
-# When using consistent hashing it sometime make sense to make
+# When using consistent hashing it sometime makes sense to make
 # the ring dynamic when you don't want to loose points when a
 # single destination is down. Replication is an answer to that
 # but it can be quite expensive.

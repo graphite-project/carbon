@@ -362,7 +362,7 @@ class CarbonClientFactory(object, ReconnectingClientFactory):
     log.clients("Destination is down: %s:%d:%s (%d/%d)" % (
         destination[0], destination[1], destination[2], self.retries,
         settings.DYNAMIC_ROUTER_MAX_RETRIES))
-    # Retries com from the ReconnectingClientFactory.
+    # Retries comes from the ReconnectingClientFactory.
     if self.retries < settings.DYNAMIC_ROUTER_MAX_RETRIES:
       return
 

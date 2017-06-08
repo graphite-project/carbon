@@ -2,17 +2,17 @@
 language: python
 python:
     - 2.7
+    - 3.4
+    - 3.5
+    - 3.6
     - pypy
-
-env:
-    - TOXENV=ci
 
 install:
     - pip install -r requirements.txt
     - python setup.py install --prefix=$VIRTUAL_ENV --install-lib=$VIRTUAL_ENV/lib/python$TRAVIS_PYTHON_VERSION/site-packages
-    - pip install tox
+    - pip install tox-travis
 
 script:
-    - tox -e $TOXENV
+    - tox
 
 sudo: false

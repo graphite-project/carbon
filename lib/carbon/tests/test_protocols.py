@@ -1,11 +1,16 @@
+# -*- coding: utf-8 -*-
 from sys import version_info
 from carbon.protocols import MetricReceiver
+from carbon.regexlist import WhiteList, BlackList
+from carbon import events
 from unittest import TestCase
-from mock import Mock, patch
+from mock import Mock, patch, call
 from carbon.cache import _MetricCache
 
 import os.path
 import pickle
+import re
+import time
 
 
 class TestMetricReceiversHandler(TestCase):
@@ -14,7 +19,7 @@ class TestMetricReceiversHandler(TestCase):
     if version_info >= (3, 0):
       expected_plugins = sorted(['line', 'udp', 'pickle', 'protobuf'])
     else:
-     expected_plugins = sorted(['line', 'udp', 'pickle', 'amqp', 'protobuf'])
+      expected_plugins = sorted(['line', 'udp', 'pickle', 'amqp', 'protobuf'])
 
     # Can't always test manhole because 'cryptography' can
     # be a pain to install and we don't want to make the CI
@@ -36,6 +41,77 @@ class TestMetricReceiversHandler(TestCase):
 
     for plugin_name, plugin_class in MetricReceiver.plugins.items():
       plugin_class.build(fake_service)
+
+
+class TestMetricReceiver(TestCase):
+    def setUp(self):
+        self.receiver = MetricReceiver()
+
+        self.event_mock = Mock()
+        self._event_patch = patch.object(events, 'metricReceived',
+                                         self.event_mock)
+        self._event_patch.start()
+
+        self.time_mock = Mock()
+        self.time_mock.return_value = 123456
+
+    def tearDown(self):
+        self._event_patch.stop()
+
+    def test_valid_metricReceived(self):
+        """ Valid metric should call events.metricReceived """
+        metric = ('carbon.foo', (1, 2))
+        self.receiver.metricReceived(*metric)
+        events.metricReceived.assert_called_once_with(*metric)
+
+    def test_nan_metricReceived(self):
+        """ NaN value should not call events.metricReceived """
+        metric = ('carbon.foo', (1, float('NaN')))
+        self.receiver.metricReceived(*metric)
+        events.metricReceived.assert_not_called()
+
+    def test_notime_metricReceived(self):
+        """ metric with timestamp -1 Should call events.metricReceived with
+            current (mocked) time """
+        with patch.object(time, 'time', self.time_mock):
+            metric = ('carbon.foo', (-1, 2))
+            self.receiver.metricReceived(*metric)
+            events.metricReceived.assert_called_once_with('carbon.foo',
+                                                          (time.time(), 2))
+
+    def test_allowlist_metricReceived(self):
+        """ metrics which don't match should be dropped """
+        regexes = [re.compile('.*\.is\.allowed\..*'),
+                   re.compile('^жопа\.驢\.γάιδαρος$')]
+
+        metrics = [('this.metric.is.allowed.a', (1, 2)),
+                   ('this.metric.is.not_allowed.a', (3, 4)),
+                   ('osioł.الاغ.नितंब$', (5, 6)),
+                   ('жопа.驢.γάιδαρος', (7, 8))]
+
+        with patch('carbon.regexlist.WhiteList.regex_list', regexes):
+            for m in metrics:
+                self.receiver.metricReceived(*m)
+
+        events.metricReceived.assert_has_calls([call(*metrics[0]),
+                                                call(*metrics[3])])
+
+    def test_disallowlist_metricReceived(self):
+        """ metrics which match should be dropped """
+        regexes = [re.compile('.*\.invalid\.metric\..*'),
+                   re.compile('^osioł.الاغ.नितंब$')]
+
+        metrics = [('some.invalid.metric.a', (1, 2)),
+                   ('a.valid.metric.b', (3, 4)),
+                   ('osioł.الاغ.नितंब', (5, 6)),
+                   ('жопа.驢.γάιδαρος', (7, 8))]
+
+        with patch('carbon.regexlist.BlackList.regex_list', regexes):
+            for m in metrics:
+                self.receiver.metricReceived(*m)
+
+        events.metricReceived.assert_has_calls([call(*metrics[1]),
+                                                call(*metrics[3])])
 
 
 class TestCacheManagementHandler(TestCase):

@@ -134,15 +134,13 @@ class MetricReceiver(CarbonServerProtocol, TimeoutMixin):
       events.resumeReceivingMetrics.removeHandler(self.resumeReceiving)
 
   def metricReceived(self, metric, datapoint):
-    if settings.USE_WHITELIST:
-      if metric in BlackList:
-        instrumentation.increment('blacklistMatches')
-        log.debug("metric {} dropped: in blacklist")
-        return
-      if metric not in WhiteList:
-        instrumentation.increment('whitelistRejects')
-        log.debug("metric {} dropped: not in whitelist")
-        return
+    if BlackList and metric in BlackList:
+      instrumentation.increment('blacklistMatches')
+      return
+    if WhiteList and metric not in WhiteList:
+      instrumentation.increment('whitelistRejects')
+      return
+
     if datapoint[1] != datapoint[1]:  # filter out NaN values
       return
     if int(datapoint[0]) == -1:  # use current time if none given: https://github.com/graphite-project/carbon/issues/54

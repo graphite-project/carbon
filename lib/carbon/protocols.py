@@ -65,6 +65,7 @@ class CarbonService(service.Service):
     def stopService(self):
         self._port.stopListening()
 
+
 class CarbonServerProtocol(with_metaclass(PluginRegistrar, object)):
   plugins = {}
 
@@ -140,7 +141,6 @@ class MetricReceiver(CarbonServerProtocol, TimeoutMixin):
     if WhiteList and metric not in WhiteList:
       instrumentation.increment('whitelistRejects')
       return
-
     if datapoint[1] != datapoint[1]:  # filter out NaN values
       return
     if int(datapoint[0]) == -1:  # use current time if none given: https://github.com/graphite-project/carbon/issues/54
@@ -157,19 +157,20 @@ class MetricLineReceiver(MetricReceiver, LineOnlyReceiver):
   delimiter = b'\n'
 
   def lineReceived(self, line):
+    if sys.version_info >= (3, 0):
+      line = line.decode('utf-8')
+
     try:
       metric, value, timestamp = line.strip().split()
       datapoint = (float(timestamp), float(value))
     except ValueError:
       if len(line) > 400:
         line = line[:400] + '...'
-      log.listener('invalid line received from client %s, ignoring [%s]' % (self.peerName, line.strip().encode('string_escape')))
+      log.listener('invalid line received from client %s, ignoring [%s]' %
+                   (self.peerName, repr(line.strip())[1:-1]))
       return
 
-    if sys.version_info >= (3, 0):
-      self.metricReceived(metric.decode('utf-8'), datapoint)
-    else:
-      self.metricReceived(metric, datapoint)
+    self.metricReceived(metric, datapoint)
 
 
 class MetricDatagramReceiver(MetricReceiver, DatagramProtocol):
@@ -184,19 +185,20 @@ class MetricDatagramReceiver(MetricReceiver, DatagramProtocol):
 
   def datagramReceived(self, data, addr):
     (host, _) = addr
+    if sys.version_info >= (3, 0):
+      data = data.decode('utf-8')
+
     for line in data.splitlines():
       try:
         metric, value, timestamp = line.strip().split()
         datapoint = (float(timestamp), float(value))
 
-        if sys.version_info >= (3, 0):
-          self.metricReceived(metric.decode('utf-8'), datapoint)
-        else:
-          self.metricReceived(metric, datapoint)
+        self.metricReceived(metric, datapoint)
       except ValueError:
         if len(line) > 400:
           line = line[:400] + '...'
-        log.listener('invalid line received from %s, ignoring [%s]' % (host, line.strip().encode('string_escape')))
+        log.listener('invalid line received from %s, ignoring [%s]' %
+                     (host, repr(line.strip())[1:-1]))
 
 
 class MetricPickleReceiver(MetricReceiver, Int32StringReceiver):
@@ -210,7 +212,8 @@ class MetricPickleReceiver(MetricReceiver, Int32StringReceiver):
   def stringReceived(self, data):
     try:
       datapoints = self.unpickler.loads(data)
-    except pickle.UnpicklingError:
+    # Pickle can throw a wide range of exceptions
+    except (pickle.UnpicklingError, ValueError, IndexError, ImportError, KeyError):
       log.listener('invalid pickle received from %s, ignoring' % self.peerName)
       return
 
@@ -219,6 +222,7 @@ class MetricPickleReceiver(MetricReceiver, Int32StringReceiver):
         (metric, (value, timestamp)) = raw
       except Exception as e:
         log.listener('Error decoding pickle: %s' % e)
+        continue
 
       try:
         datapoint = (float(value), float(timestamp))  # force proper types

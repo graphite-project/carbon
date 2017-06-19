@@ -103,7 +103,7 @@ def loadStorageSchemas():
       if state.database is not None:
         state.database.validateArchiveList(archiveList)
       schemaList.append(mySchema)
-    except ValueError, e:
+    except ValueError as e:
       log.msg("Invalid schemas found in %s: %s" % (section, e))
 
   schemaList.append(defaultSchema)

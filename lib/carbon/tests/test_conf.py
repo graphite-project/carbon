@@ -1,8 +1,9 @@
 import os
+from tempfile import mkdtemp, mkstemp
+from shutil import rmtree
 from os import makedirs
 from os.path import dirname, join
 from unittest import TestCase
-from mocker import MockerTestCase
 from carbon.conf import get_default_parser, parse_options, read_config
 from carbon.exceptions import CarbonConfigException
 
@@ -80,7 +81,25 @@ class ParseOptionsTest(TestCase):
         self.assertEqual(("start",), args)
 
 
-class ReadConfigTest(MockerTestCase):
+class ReadConfigTest(TestCase):
+
+    def makeFile(self, content=None, basename=None, dirname=None):
+        """
+        Create a temporary file with content
+        Deletes the file after tests
+        """
+        if basename is not None:
+            path = join(dirname, basename)
+        else:
+            fd, path = mkstemp(dir=dirname)
+            os.close(fd)
+            self.addCleanup(os.unlink, path)
+
+        if content is not None:
+            with open(path, "w") as f:
+                f.write(content)
+
+        return path
 
     def test_root_dir_is_required(self):
         """
@@ -88,7 +107,7 @@ class ReadConfigTest(MockerTestCase):
         """
         try:
             read_config("carbon-foo", FakeOptions(config=None))
-        except CarbonConfigException, e:
+        except CarbonConfigException as e:
             self.assertEqual("Either ROOT_DIR or GRAPHITE_ROOT "
                              "needs to be provided.", str(e))
         else:
@@ -99,7 +118,8 @@ class ReadConfigTest(MockerTestCase):
         If the '--config' option is not provided, it defaults to
         ROOT_DIR/conf/carbon.conf.
         """
-        root_dir = self.makeDir()
+        root_dir = mkdtemp()
+        self.addCleanup(rmtree, root_dir)
         conf_dir = join(root_dir, "conf")
         makedirs(conf_dir)
         self.makeFile(content="[foo]",
@@ -116,7 +136,8 @@ class ReadConfigTest(MockerTestCase):
         If the 'GRAPHITE_CONFIG_DIR' variable is set in the environment, then
         'CONFIG_DIR' will be set to that directory.
         """
-        root_dir = self.makeDir()
+        root_dir = mkdtemp()
+        self.addCleanup(rmtree, root_dir)
         conf_dir = join(root_dir, "configs", "production")
         makedirs(conf_dir)
         self.makeFile(content="[foo]",

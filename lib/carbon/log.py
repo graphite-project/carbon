@@ -1,7 +1,7 @@
 import os
 import time
 from sys import stdout, stderr
-from zope.interface import implements
+from zope.interface import implementer
 from twisted.python.log import startLoggingWithObserver, textFromEventDict, msg, err, ILogObserver
 from twisted.python.syslog import SyslogObserver
 from twisted.python.logfile import DailyLogFile
@@ -19,7 +19,7 @@ class CarbonLogFile(DailyLogFile):
     """
     Fix Umask Issue https://twistedmatrix.com/trac/ticket/7026
     """
-    openMode = self.defaultMode or 0777
+    openMode = self.defaultMode or 0o777
     self._file = os.fdopen(os.open(
       self.path, os.O_CREAT|os.O_RDWR, openMode), 'r+', 1)
     self.closed = False
@@ -59,8 +59,8 @@ class CarbonLogFile(DailyLogFile):
     self._openFile()
 
 
+@implementer(ILogObserver)
 class CarbonLogObserver(object):
-  implements(ILogObserver)
 
   def log_to_dir(self, logdir):
     self.logdir = logdir

@@ -1,9 +1,9 @@
 from carbon.util import PluginRegistrar
 from carbon import state, log
+from six import with_metaclass
 
 
-class Processor(object):
-  __metaclass__ = PluginRegistrar
+class Processor(with_metaclass(PluginRegistrar, object)):
   plugins = {}
   NO_OUTPUT = ()
 

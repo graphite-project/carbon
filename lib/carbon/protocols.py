@@ -1,5 +1,6 @@
 import time
 import socket
+import sys
 
 from twisted.internet.protocol import ServerFactory, DatagramProtocol
 from twisted.application.internet import TCPServer, UDPServer
@@ -13,6 +14,7 @@ from carbon.conf import settings
 from carbon.regexlist import WhiteList, BlackList
 from carbon.util import pickle, get_unpickler
 from carbon.util import PluginRegistrar
+from six import with_metaclass
 
 
 class CarbonReceiverFactory(ServerFactory):
@@ -63,8 +65,8 @@ class CarbonService(service.Service):
     def stopService(self):
         self._port.stopListening()
 
-class CarbonServerProtocol(object):
-  __metaclass__ = PluginRegistrar
+
+class CarbonServerProtocol(with_metaclass(PluginRegistrar, object)):
   plugins = {}
 
   @classmethod
@@ -152,16 +154,20 @@ class MetricReceiver(CarbonServerProtocol, TimeoutMixin):
 
 class MetricLineReceiver(MetricReceiver, LineOnlyReceiver):
   plugin_name = "line"
-  delimiter = '\n'
+  delimiter = b'\n'
 
   def lineReceived(self, line):
+    if sys.version_info >= (3, 0):
+      line = line.decode('utf-8')
+
     try:
       metric, value, timestamp = line.strip().split()
       datapoint = (float(timestamp), float(value))
     except ValueError:
       if len(line) > 400:
         line = line[:400] + '...'
-      log.listener('invalid line received from client %s, ignoring [%s]' % (self.peerName, line.strip().encode('string_escape')))
+      log.listener('invalid line received from client %s, ignoring [%s]' %
+                   (self.peerName, repr(line.strip())[1:-1]))
       return
 
     self.metricReceived(metric, datapoint)
@@ -177,7 +183,11 @@ class MetricDatagramReceiver(MetricReceiver, DatagramProtocol):
 
     super(MetricDatagramReceiver, cls).build(root_service)
 
-  def datagramReceived(self, data, (host, port)):
+  def datagramReceived(self, data, addr):
+    (host, _) = addr
+    if sys.version_info >= (3, 0):
+      data = data.decode('utf-8')
+
     for line in data.splitlines():
       try:
         metric, value, timestamp = line.strip().split()
@@ -187,7 +197,8 @@ class MetricDatagramReceiver(MetricReceiver, DatagramProtocol):
       except ValueError:
         if len(line) > 400:
           line = line[:400] + '...'
-        log.listener('invalid line received from %s, ignoring [%s]' % (host, line.strip().encode('string_escape')))
+        log.listener('invalid line received from %s, ignoring [%s]' %
+                     (host, repr(line.strip())[1:-1]))
 
 
 class MetricPickleReceiver(MetricReceiver, Int32StringReceiver):
@@ -201,20 +212,26 @@ class MetricPickleReceiver(MetricReceiver, Int32StringReceiver):
   def stringReceived(self, data):
     try:
       datapoints = self.unpickler.loads(data)
-    except pickle.UnpicklingError:
+    # Pickle can throw a wide range of exceptions
+    except (pickle.UnpicklingError, ValueError, IndexError, ImportError, KeyError):
       log.listener('invalid pickle received from %s, ignoring' % self.peerName)
       return
 
     for raw in datapoints:
       try:
         (metric, (value, timestamp)) = raw
-      except Exception, e:
+      except Exception as e:
         log.listener('Error decoding pickle: %s' % e)
+        continue
 
       try:
         datapoint = (float(value), float(timestamp))  # force proper types
       except ValueError:
         continue
+
+      # convert python2 unicode objects to str/bytes
+      if not isinstance(metric, str):
+        metric = metric.encode('utf-8')
 
       self.metricReceived(metric, datapoint)
 
@@ -239,7 +256,7 @@ class CacheManagementHandler(Int32StringReceiver):
     cache = MetricCache()
     if request['type'] == 'cache-query':
       metric = request['metric']
-      datapoints = cache.get(metric, {}).items()
+      datapoints = list(cache.get(metric, {}).items())
       result = dict(datapoints=datapoints)
       if settings.LOG_CACHE_HITS:
         log.query('[%s] cache query for \"%s\" returned %d values' % (self.peerAddr, metric, len(datapoints)))
@@ -249,7 +266,7 @@ class CacheManagementHandler(Int32StringReceiver):
       datapointsByMetric = {}
       metrics = request['metrics']
       for metric in metrics:
-        datapointsByMetric[metric] = cache.get(metric, {}).items()
+        datapointsByMetric[metric] = list(cache.get(metric, {}).items())
 
       result = dict(datapointsByMetric=datapointsByMetric)
 
@@ -268,7 +285,7 @@ class CacheManagementHandler(Int32StringReceiver):
     else:
       result = dict(error="Invalid request type \"%s\"" % request['type'])
 
-    response = pickle.dumps(result, protocol=-1)
+    response = pickle.dumps(result, protocol=2)
     self.sendString(response)
 
 

@@ -36,7 +36,7 @@ class MetricCacheTest(TestCase):
   def test_store_new_metric(self):
     self.metric_cache.store('foo', (123456, 1.0))
     self.assertEqual(1, self.metric_cache.size)
-    self.assertEqual([(123456, 1.0)], self.metric_cache['foo'].items())
+    self.assertEqual([(123456, 1.0)], list(self.metric_cache['foo'].items()))
 
   def test_store_multiple_datapoints(self):
     self.metric_cache.store('foo', (123456, 1.0))
@@ -50,7 +50,7 @@ class MetricCacheTest(TestCase):
     self.metric_cache.store('foo', (123456, 1.0))
     self.metric_cache.store('foo', (123456, 2.0))
     self.assertEqual(1, self.metric_cache.size)
-    self.assertEqual([(123456, 2.0)], self.metric_cache['foo'].items())
+    self.assertEqual([(123456, 2.0)], list(self.metric_cache['foo'].items()))
 
   def test_store_checks_fullness(self):
     is_full_mock = PropertyMock()

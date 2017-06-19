@@ -55,14 +55,14 @@ option_parser.add_option('--relayrules', default=default_relayrules,
 options, args = option_parser.parse_args()
 
 if not args:
-  print 'At least one host:port destination required\n'
+  print('At least one host:port destination required\n')
   option_parser.print_usage()
   raise SystemExit(1)
 
 if options.routing not in ('consistent-hashing', 'relay'):
-  print "Invalid --routing value, must be one of:"
-  print "  consistent-hashing"
-  print "  relay"
+  print("Invalid --routing value, must be one of:")
+  print("  consistent-hashing")
+  print("  relay")
   raise SystemExit(1)
 
 destinations = []
@@ -87,7 +87,7 @@ elif options.routing == 'relay':
   if exists(options.relayrules):
     router = RelayRulesRouter(options.relayrules)
   else:
-    print "relay rules file %s does not exist" % options.relayrules
+    print("relay rules file %s does not exist" % options.relayrules)
     raise SystemExit(1)
 
 client_manager = CarbonClientManager(router)

@@ -1,4 +1,4 @@
-from zope.interface import implements
+from zope.interface import implementer
 
 from twisted.plugin import IPlugin
 from twisted.application.service import IServiceMaker
@@ -6,9 +6,9 @@ from twisted.application.service import IServiceMaker
 from carbon import conf
 
 
+@implementer(IServiceMaker, IPlugin)
 class CarbonRelayServiceMaker(object):
 
-    implements(IServiceMaker, IPlugin)
     tapname = "carbon-relay"
     description = "Relay stats for graphite."
     options = conf.CarbonRelayOptions

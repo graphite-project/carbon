@@ -30,5 +30,5 @@ from carbon.exceptions import CarbonConfigException
 
 try:
     run_twistd_plugin(__file__)
-except CarbonConfigException, exc:
+except CarbonConfigException as exc:
     raise SystemExit(str(exc))

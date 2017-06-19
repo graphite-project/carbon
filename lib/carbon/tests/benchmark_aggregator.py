@@ -36,7 +36,7 @@ def bench_aggregator_fake():
 
 
 def _bench_aggregator(name):
-    print "== %s ==" % name
+    print("== %s ==" % name)
     max_intervals = settings['MAX_AGGREGATION_INTERVALS']
     now = time.time() - (max_intervals * FREQUENCY)
 
@@ -59,7 +59,7 @@ def _bench_aggregator(name):
         t = timeit.timeit(_process, number=n)
         buf.close()
         print_stats(n, t)
-    print ""
+    print("")
 
 
 def main():

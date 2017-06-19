@@ -107,7 +107,7 @@ class AggregationMetricBufferTest(TestCase):
     interval_buffer.input((600, 1.0))
     self.metric_buffer.interval_buffers[600] = interval_buffer
 
-    with patch.object(interval_buffer, 'mark_inactive') as mark_inactive_mock:
+    with patch.object(IntervalBuffer, 'mark_inactive') as mark_inactive_mock:
       self.metric_buffer.compute_value()
       mark_inactive_mock.assert_called_once_with()
 
@@ -201,7 +201,7 @@ class AggregationMetricBufferTest(TestCase):
     BufferManager.buffers['carbon.foo.bar'] = self.metric_buffer
 
     with patch("time.time", new=Mock(return_value=current_interval + 60)):
-      with patch.object(self.metric_buffer, 'close') as close_mock:
+      with patch.object(MetricBuffer, 'close') as close_mock:
         self.metric_buffer.compute_value()
         close_mock.assert_called_once_with()
 
@@ -220,6 +220,6 @@ class AggregationMetricBufferTest(TestCase):
       self.assertFalse('carbon.foo.bar' in BufferManager.buffers)
 
   def test_close_stops_looping_call(self):
-    with patch.object(self.metric_buffer, 'close') as close_mock:
+    with patch.object(MetricBuffer, 'close') as close_mock:
       self.metric_buffer.close()
       close_mock.assert_called_once_with()

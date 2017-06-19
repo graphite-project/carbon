@@ -57,6 +57,7 @@ class RegexList:
   def __nonzero__(self):
     return bool(self.regex_list)
 
+  __bool__ = __nonzero__  # py2/3 compatibility
 
 WhiteList = RegexList()
 BlackList = RegexList()

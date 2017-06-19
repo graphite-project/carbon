@@ -19,7 +19,12 @@ import errno
 
 from os.path import join, dirname, normpath, exists, isdir
 from optparse import OptionParser
-from ConfigParser import ConfigParser
+
+try:
+    from ConfigParser import ConfigParser
+# ConfigParser is renamed to configparser in py3
+except ImportError:
+    from configparser import ConfigParser
 
 from carbon import log, state
 from carbon.database import TimeSeriesDatabase
@@ -112,7 +117,7 @@ def _process_alive(pid):
         try:
             os.kill(int(pid), 0)
             return True
-        except OSError, err:
+        except OSError as err:
             return err.errno == errno.EPERM
 
 
@@ -220,8 +225,8 @@ class CarbonCacheOptions(usage.Options):
         self["pidfile"] = pidfile
 
         # Enforce a default umask of '022' if none was set.
-        if not self.parent.has_key("umask") or self.parent["umask"] is None:
-            self.parent["umask"] = 022
+        if "umask" not in self.parent or self.parent["umask"] is None:
+            self.parent["umask"] = 0o022
 
         # Read extra settings from the configuration file.
         program_settings = read_config(program, self)
@@ -248,7 +253,7 @@ class CarbonCacheOptions(usage.Options):
 
         storage_schemas = join(settings["CONF_DIR"], "storage-schemas.conf")
         if not exists(storage_schemas):
-            print "Error: missing required config %s" % storage_schemas
+            print("Error: missing required config %s" % storage_schemas)
             sys.exit(1)
 
         if settings.CACHE_WRITE_STRATEGY not in ('timesorted', 'sorted', 'max', 'naive'):
@@ -260,7 +265,7 @@ class CarbonCacheOptions(usage.Options):
         # Database-specific settings
         database = settings.DATABASE
         if database not in TimeSeriesDatabase.plugins:
-            print "No database plugin implemented for '%s'" % database
+            print("No database plugin implemented for '%s'" % database)
             raise SystemExit(1)
 
         database_class = TimeSeriesDatabase.plugins[database]
@@ -319,24 +324,24 @@ class CarbonCacheOptions(usage.Options):
 
         if action == "stop":
             if not exists(pidfile):
-                print "Pidfile %s does not exist" % pidfile
+                print("Pidfile %s does not exist" % pidfile)
                 raise SystemExit(0)
             pf = open(pidfile, 'r')
             try:
                 pid = int(pf.read().strip())
                 pf.close()
             except ValueError:
-                print "Failed to parse pid from pidfile %s" % pidfile
+                print("Failed to parse pid from pidfile %s" % pidfile)
                 raise SystemExit(1)
             except IOError:
-                print "Could not read pidfile %s" % pidfile
+                print("Could not read pidfile %s" % pidfile)
                 raise SystemExit(1)
-            print "Sending kill signal to pid %d" % pid
+            print("Sending kill signal to pid %d" % pid)
             try:
                 os.kill(pid, 15)
-            except OSError, e:
+            except OSError as e:
                 if e.errno == errno.ESRCH:
-                    print "No process with pid %d running" % pid
+                    print("No process with pid %d running" % pid)
                 else:
                     raise
 
@@ -344,25 +349,25 @@ class CarbonCacheOptions(usage.Options):
 
         elif action == "status":
             if not exists(pidfile):
-                print "%s (instance %s) is not running" % (program, instance)
+                print("%s (instance %s) is not running" % (program, instance))
                 raise SystemExit(1)
             pf = open(pidfile, "r")
             try:
                 pid = int(pf.read().strip())
                 pf.close()
             except ValueError:
-                print "Failed to parse pid from pidfile %s" % pidfile
+                print("Failed to parse pid from pidfile %s" % pidfile)
                 raise SystemExit(1)
             except IOError:
-                print "Failed to read pid from %s" % pidfile
+                print("Failed to read pid from %s" % pidfile)
                 raise SystemExit(1)
 
             if _process_alive(pid):
-                print ("%s (instance %s) is running with pid %d" %
+                print("%s (instance %s) is running with pid %d" %
                        (program, instance, pid))
                 raise SystemExit(0)
             else:
-                print "%s (instance %s) is not running" % (program, instance)
+                print("%s (instance %s) is not running" % (program, instance))
                 raise SystemExit(1)
 
         elif action == "start":
@@ -372,21 +377,21 @@ class CarbonCacheOptions(usage.Options):
                     pid = int(pf.read().strip())
                     pf.close()
                 except ValueError:
-                    print "Failed to parse pid from pidfile %s" % pidfile
+                    print("Failed to parse pid from pidfile %s" % pidfile)
                     raise SystemExit(1)
                 except IOError:
-                    print "Could not read pidfile %s" % pidfile
+                    print("Could not read pidfile %s" % pidfile)
                     raise SystemExit(1)
                 if _process_alive(pid):
-                    print ("%s (instance %s) is already running with pid %d" %
+                    print("%s (instance %s) is already running with pid %d" %
                            (program, instance, pid))
                     raise SystemExit(1)
                 else:
-                    print "Removing stale pidfile %s" % pidfile
+                    print("Removing stale pidfile %s" % pidfile)
                     try:
                         os.unlink(pidfile)
                     except IOError:
-                        print "Could not remove pidfile %s" % pidfile
+                        print("Could not remove pidfile %s" % pidfile)
             # Try to create the PID directory
             else:
                 if not os.path.exists(settings["PID_DIR"]):
@@ -400,11 +405,11 @@ class CarbonCacheOptions(usage.Options):
 
 
 
-            print "Starting %s (instance %s)" % (program, instance)
+            print("Starting %s (instance %s)" % (program, instance))
 
         else:
-            print "Invalid action '%s'" % action
-            print "Valid actions: start stop status"
+            print("Invalid action '%s'" % action)
+            print("Valid actions: start stop status")
             raise SystemExit(1)
 
 
@@ -446,8 +451,8 @@ class CarbonRelayOptions(CarbonCacheOptions):
 
         router = settings["RELAY_METHOD"]
         if router not in DatapointRouter.plugins:
-            print ("In carbon.conf, RELAY_METHOD must be one of %s. "
-                   "Invalid value: '%s'" % (', '.join(DatapointRouter.plugins), router))
+            print("In carbon.conf, RELAY_METHOD must be one of %s. "
+                  "Invalid value: '%s'" % (', '.join(DatapointRouter.plugins), router))
             raise SystemExit(1)
 
 

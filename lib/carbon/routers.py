@@ -1,11 +1,12 @@
 import imp
 from carbon.hashing import ConsistentHashRing
 from carbon.util import PluginRegistrar
+from six import with_metaclass
+from six.moves import xrange
 
 
-class DatapointRouter(object):
+class DatapointRouter(with_metaclass(PluginRegistrar, object)):
   "Abstract base class for datapoint routing logic implementations"
-  __metaclass__ = PluginRegistrar
   plugins = {}
 
   def addDestination(self, destination):

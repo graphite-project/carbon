@@ -32,34 +32,34 @@ def command_drain():
 def print_stats(n, t):
     usec = t * 1e6
     if usec < 1000:
-        print "    datapoints: %-10d usecs: %d" % (n, int(usec))
+        print("    datapoints: %-10d usecs: %d" % (n, int(usec)))
     else:
         msec = usec / 1000
         if msec < 1000:
-            print "    datapoints: %-10d msecs: %d" % (n, int(msec))
+            print("    datapoints: %-10d msecs: %d" % (n, int(msec)))
         else:
             sec = msec / 1000
-            print "    datapoints: %-10d  secs: %3g" % (n, sec)
+            print("    datapoints: %-10d  secs: %3g" % (n, sec))
 
 
 if __name__ == '__main__':
-    print "Benchmarking single metric MetricCache store..."
+    print("Benchmarking single metric MetricCache store...")
     for n in [1000, 10000, 100000, 1000000]:
         count = 0
         metric_cache = _MetricCache(DrainStrategy)
         t = timeit.timeit(command_store_foo, number=n)
         print_stats(n, t)
 
-    print "Benchmarking unique metric MetricCache store..."
+    print("Benchmarking unique metric MetricCache store...")
     for n in [1000, 10000, 100000, 1000000]:
         count = 0
         metric_cache = _MetricCache(DrainStrategy)
         t = timeit.timeit(command_store_foo_n, number=n)
         print_stats(n, t)
 
-    print "Benchmarking single metric MetricCache drain..."
+    print("Benchmarking single metric MetricCache drain...")
     for name, strategy in sorted(strategies.items()):
-        print "CACHE_WRITE_STRATEGY: %s" % name
+        print("CACHE_WRITE_STRATEGY: %s" % name)
         for n in [1000, 10000, 100000, 1000000]:
             count = 0
             metric_cache = _MetricCache(strategy)
@@ -67,13 +67,13 @@ if __name__ == '__main__':
             t = timeit.timeit(command_drain, number=1)
             print_stats(n, t)
 
-    print "Benchmarking unique metric MetricCache drain..."
+    print("Benchmarking unique metric MetricCache drain...")
     for name, strategy in sorted(strategies.items()):
-        print "CACHE_WRITE_STRATEGY: %s" % name
+        print("CACHE_WRITE_STRATEGY: %s" % name)
         for n in [1000, 10000, 100000, 1000000]:
             # remove me when strategy is fast
             if (name == 'max' and n > 10000) or (name == 'random' and n > 100000):
-                print "    datapoints: %-10d [skipped]" % n
+                print("    datapoints: %-10d [skipped]" % n)
                 continue
             count = 0
             metric_cache = _MetricCache(strategy)

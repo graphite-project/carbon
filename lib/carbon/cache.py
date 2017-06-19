@@ -23,7 +23,8 @@ from carbon import events, log
 from carbon.pipeline import Processor
 
 
-def by_timestamp((timestamp, value)):  # useful sort key function
+def by_timestamp(t_v): # useful sort key function
+  (timestamp, _) = t_v
   return timestamp
 
 
@@ -57,14 +58,14 @@ class NaiveStrategy(DrainStrategy):
 
     def _generate_queue():
       while True:
-        metric_names = self.cache.keys()
+        metric_names = list(self.cache.keys())
         while metric_names:
           yield metric_names.pop()
 
     self.queue = _generate_queue()
 
   def choose_item(self):
-    return self.queue.next()
+    return next(self.queue)
 
 
 class MaxStrategy(DrainStrategy):
@@ -80,7 +81,7 @@ class MaxStrategy(DrainStrategy):
 class RandomStrategy(DrainStrategy):
   """Pop points randomly"""
   def choose_item(self):
-    return choice(self.cache.keys())
+    return choice(list(self.cache.keys()))
 
 
 class SortedStrategy(DrainStrategy):
@@ -105,7 +106,7 @@ class SortedStrategy(DrainStrategy):
     self.queue = _generate_queue()
 
   def choose_item(self):
-    return self.queue.next()
+    return next(self.queue)
 
 
 class TimeSortedStrategy(DrainStrategy):
@@ -130,7 +131,7 @@ class TimeSortedStrategy(DrainStrategy):
     self.queue = _generate_queue()
 
   def choose_item(self):
-    return self.queue.next()
+    return next(self.queue)
 
 
 class _MetricCache(defaultdict):
@@ -174,7 +175,7 @@ class _MetricCache(defaultdict):
       metric = self.strategy.choose_item()
     else:
       # Avoid .keys() as it dumps the whole list
-      metric = self.iterkeys().next()
+      metric = next(iter(self.keys()))
     return (metric, self.pop(metric))
 
   def get_datapoints(self, metric):

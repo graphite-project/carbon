@@ -627,8 +627,13 @@ class CarbonClientManager(Service):
     if not settings['DESTINATION_POOL_REPLICAS']:
       return [self.client_factories[d] for d in destinations]
     else:
-      return set([min(self.pooled_factories[d[0:2]], key=lambda f: f.queueSize)
-                  for d in destinations])
+      factories = set()
+      for d in destinations:
+        if d is None:
+          factories.add(self.client_factories[d])
+        else:
+          factories.add(min(self.pooled_factories[d[0:2]], key=lambda f: f.queueSize))
+      return factories
 
   def sendDatapoint(self, metric, datapoint):
     for factory in self.getFactories(metric):

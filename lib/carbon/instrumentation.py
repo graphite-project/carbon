@@ -142,7 +142,7 @@ def recordMetrics():
       # Preserve the count of sent metrics so that the ratio of
       # received : sent can be checked per-relay to determine the
       # health of the destination.
-      if stat_name.endswith('.sent'):
+      if stat_name.endswith('.sent') or stat_name.endswith('.attemptedRelays'):
         myPriorStats[stat_name] = stat_value
 
   # common metrics

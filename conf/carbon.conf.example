@@ -415,7 +415,9 @@ DESTINATIONS = 127.0.0.1:2004
 # The following example will balance the load between :0 and :1.
 ## DESTINATIONS = foo:2001:0, foo:2001:1
 ## RELAY_METHOD = rules
-# DESTINATIONS_POOL_REPLICAS = True
+# Noet: this is currently incompatible with USE_RATIO_RESET which gets
+# disabled if  this option is enabled.
+# DESTINATIONS_POOL_REPLICAS = False
 
 # When using consistent hashing it sometime makes sense to make
 # the ring dynamic when you don't want to loose points when a

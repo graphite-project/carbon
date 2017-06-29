@@ -85,7 +85,7 @@ def loadStorageSchemas():
     pattern = options.get('pattern')
 
     try:
-      retentions = options['retentions'].split(',')
+      retentions = options.get('retentions').split(',')
       archives = [Archive.fromString(s) for s in retentions]
     except KeyError:
       log.err("Schema %s missing 'retentions', skipping" % section)

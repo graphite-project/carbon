@@ -56,6 +56,9 @@ def optimalWriteOrder():
   cache = MetricCache()
   while cache:
     (metric, datapoints) = cache.drain_metric()
+    if metric is None:
+        break
+
     dbFileExists = state.database.exists(metric)
 
     if not dbFileExists and CREATE_BUCKET:
@@ -182,6 +185,9 @@ def shutdownModifyUpdateSpeed():
         log.msg("Carbon shutting down.  Changed the update rate to: " + str(settings.MAX_UPDATES_PER_SECOND_ON_SHUTDOWN))
     except KeyError:
         log.msg("Carbon shutting down.  Update rate not changed")
+
+    # Also set MIN_TIMESTAMP_LAG to 0 to avoid waiting for nothing.
+    settings.MIN_TIMESTAMP_LAG = 0
 
 
 class WriterService(Service):

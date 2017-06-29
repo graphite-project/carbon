@@ -85,6 +85,12 @@ MAX_CREATES_PER_MINUTE = 50
 # second.
 MIN_TIMESTAMP_RESOLUTION = 1
 
+# Set the minimum lag in seconds for a point to be written to the database
+# in order to optimize batching. This means that each point will wait at least
+# the duration of this lag before being written. Setting this to 0 disable the feature.
+# This currently only works when using the timesorted write strategy.
+# MIN_TIMESTAMP_LAG = 0
+
 # Set the interface and port for the line (plain text) listener.  Setting the
 # interface to 0.0.0.0 listens on all interfaces.  Port can be set to 0 to
 # disable this listener if it is not required.

@@ -180,7 +180,7 @@ class _MetricCache(defaultdict):
       metric = self.strategy.choose_item()
     else:
       # Avoid .keys() as it dumps the whole list
-      metric = next(iter(self.keys()))
+      metric = next(iter(self))
     return (metric, self.pop(metric))
 
   def get_datapoints(self, metric):

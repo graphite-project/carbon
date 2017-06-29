@@ -48,7 +48,7 @@ for section in config_parser.sections():
     except ValueError as e:
       print("  - Error: Section '%s' contains an invalid item in its retention definition ('%s')" % \
         (section, retention))
-      print("    %s" % e.message)
+      print("    %s" % e)
       section_failed = True
 
   if not section_failed:
@@ -57,7 +57,7 @@ for section in config_parser.sections():
     except whisper.InvalidConfiguration as e:
       print("  - Error: Section '%s' contains an invalid retention definition ('%s')" % \
         (section, ','.join(retentions)))
-      print("    %s" % e.message)
+      print("    %s" % e)
 
   if section_failed:
     errors_found += 1

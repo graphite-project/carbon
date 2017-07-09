@@ -94,11 +94,13 @@ class SortedStrategy(DrainStrategy):
       while True:
         t = time.time()
         metric_counts = sorted(self.cache.counts, key=lambda x: x[1])
-        if settings.LOG_CACHE_QUEUE_SORTS:
-          log.msg("Sorted %d cache queues in %.6f seconds" % (len(metric_counts), time.time() - t))
+        size = len(metric_counts)
+        if settings.LOG_CACHE_QUEUE_SORTS and size:
+          log.msg("Sorted %d cache queues in %.6f seconds" % (size, time.time() - t))
         while metric_counts:
           yield itemgetter(0)(metric_counts.pop())
-        log.msg("Queue consumed in %.6f seconds" % (time.time() - t))
+        if settings.LOG_CACHE_QUEUE_SORTS and size:
+          log.msg("Queue consumed in %.6f seconds" % (time.time() - t))
 
     self.queue = _generate_queue()
 
@@ -117,11 +119,13 @@ class TimeSortedStrategy(DrainStrategy):
       while True:
         t = time.time()
         metric_lw = sorted(self.cache.watermarks, key=lambda x: x[1], reverse=True)
-        if settings.LOG_CACHE_QUEUE_SORTS:
-          log.msg("Sorted %d cache queues in %.6f seconds" % (len(metric_lw), time.time() - t))
+        size = len(metric_lw)
+        if settings.LOG_CACHE_QUEUE_SORTS and size:
+          log.msg("Sorted %d cache queues in %.6f seconds" % (size, time.time() - t))
         while metric_lw:
           yield itemgetter(0)(metric_lw.pop())
-        log.msg("Queue consumed in %.6f seconds" % (time.time() - t))
+        if settings.LOG_CACHE_QUEUE_SORTS and size:
+          log.msg("Queue consumed in %.6f seconds" % (time.time() - t))
 
     self.queue = _generate_queue()
 

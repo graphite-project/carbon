@@ -369,7 +369,7 @@ class CarbonCacheOptions(usage.Options):
                     pf.close()
                 except ValueError:
                     print "Failed to parse pid from pidfile %s" % pidfile
-                    SystemExit(1)
+                    raise SystemExit(1)
                 except IOError:
                     print "Could not read pidfile %s" % pidfile
                     raise SystemExit(1)

@@ -4,24 +4,50 @@ except ImportError:
   from md5 import md5
 import bisect
 
+try:
+  import pyhash
+  hasher = pyhash.fnv1a_32()
+  def fnv32a(string, seed=0x811c9dc5):
+    return hasher(string, seed=seed)
+except ImportError:
+  def fnv32a(string, seed=0x811c9dc5):
+    """
+    FNV-1a Hash (http://isthe.com/chongo/tech/comp/fnv/) in Python.
+    Taken from https://gist.github.com/vaiorabbit/5670985
+    """
+    hval = seed
+    fnv_32_prime = 0x01000193
+    uint32_max = 2 ** 32
+    for s in string:
+      hval = hval ^ ord(s)
+      hval = (hval * fnv_32_prime) % uint32_max
+    return hval
 
 class ConsistentHashRing:
-  def __init__(self, nodes, replica_count=100):
+  def __init__(self, nodes, replica_count=100, hash_type='carbon_ch'):
     self.ring = []
     self.nodes = set()
     self.replica_count = replica_count
+    self.hash_type = hash_type
     for node in nodes:
       self.add_node(node)
 
   def compute_ring_position(self, key):
-    big_hash = md5(str(key)).hexdigest()
-    small_hash = int(big_hash[:4], 16)
+    if self.hash_type == 'fnv1a_ch':
+      big_hash = '{:x}'.format(int(fnv32a( str(key) )))
+      small_hash = int(big_hash[:4], 16) ^ int(big_hash[4:], 16)
+    else:
+      big_hash = md5(str(key)).hexdigest()
+      small_hash = int(big_hash[:4], 16)
     return small_hash
 
   def add_node(self, node):
     self.nodes.add(node)
     for i in range(self.replica_count):
-      replica_key = "%s:%d" % (node, i)
+      if self.hash_type == 'fnv1a_ch':
+        replica_key = "%d-%s" % (i, node[1])
+      else:
+        replica_key = "%s:%d" % (node, i)
       position = self.compute_ring_position(replica_key)
       while position in [r[0] for r in self.ring]:
         position = position + 1

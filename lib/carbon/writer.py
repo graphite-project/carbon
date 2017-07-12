@@ -12,6 +12,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License."""
 
+import random
 import time
 
 from carbon import state
@@ -25,11 +26,22 @@ from twisted.internet import reactor
 from twisted.internet.task import LoopingCall
 from twisted.application.service import Service
 
+from twisted.web.client import Agent
+from twisted.web.http_headers import Headers
+from twisted.internet import defer, protocol
+from twisted.internet.defer import succeed
+from twisted.web.iweb import IBodyProducer
+from zope.interface import implements
+
 try:
     import signal
 except ImportError:
     log.msg("Couldn't import signal module")
 
+try:
+  from urllib import urlencode
+except ImportError:
+  from urllib.parse import urlencode
 
 SCHEMAS = loadStorageSchemas()
 AGGREGATION_SCHEMAS = loadAggregationSchemas()
@@ -49,6 +61,7 @@ if settings.MAX_UPDATES_PER_SECOND != float('inf'):
   fill_rate = settings.MAX_UPDATES_PER_SECOND
   UPDATE_BUCKET = TokenBucket(capacity, fill_rate)
 
+agent = Agent(reactor)
 
 def optimalWriteOrder():
   """Generates metrics with the most cached values first and applies a soft
@@ -74,6 +87,77 @@ def optimalWriteOrder():
       continue
 
     yield (metric, datapoints, dbFileExists)
+
+
+class StringProducer(object):
+  implements(IBodyProducer)
+
+  def __init__(self, body):
+    self.body = body
+    self.length = len(body)
+
+  def startProducing(self, consumer):
+    consumer.write(self.body)
+    return succeed(None)
+
+  def pauseProducing(self):
+    pass
+
+  def stopProducing(self):
+    pass
+
+
+class SimpleReceiver(protocol.Protocol):
+  def __init__(self, response, d):
+    self.response = response
+    self.buf = ''
+    self.d = d
+
+  def dataReceived(self, data):
+    self.buf += data
+
+  def connectionLost(self, reason):
+    # TODO: test if reason is twisted.web.client.ResponseDone, if not, do an errback
+    self.d.callback({
+      'code': self.response.code,
+      'body': self.buf,
+    })
+
+
+def httpRequest(url, values=None, headers=None, method='POST'):
+  fullHeaders = {
+    'Content-Type': ['application/x-www-form-urlencoded']
+  }
+  if headers:
+    fullHeaders.update(headers)
+
+  d = agent.request(
+    method,
+    url,
+    Headers(fullHeaders),
+    StringProducer(urlencode(values)) if values else None
+  )
+
+  def handle_response(response):
+    d = defer.Deferred()
+    response.deliverBody(SimpleReceiver(response, d))
+    return d
+
+  d.addCallback(handle_response)
+  return d
+
+
+def tagMetric(metric):
+  def successHandler(result, *args, **kw):
+    log.msg("Tagged %s: %s" % (metric, result))
+
+  def errorHandler(err):
+    log.msg("Error tagging %s: %s" % (metric, err))
+
+  httpRequest(
+    settings.GRAPHITE_URL + '/tags/tagSeries',
+    {'path': metric}
+  ).addCallback(successHandler).addErrback(errorHandler)
 
 
 def writeCachedDataPoints():
@@ -113,6 +197,7 @@ def writeCachedDataPoints():
                       (metric, archiveConfig, xFilesFactor, aggregationMethod))
         try:
             state.database.create(metric, archiveConfig, xFilesFactor, aggregationMethod)
+            tagMetric(metric)
             instrumentation.increment('creates')
         except Exception as e:
             log.err()
@@ -129,6 +214,8 @@ def writeCachedDataPoints():
         # will keep the first point in the list.
         datapoints = dict(datapoints).items()
         state.database.write(metric, datapoints)
+        if random.randint(1, 100) == 1:
+          tagMetric(metric)
         updateTime = time.time() - t1
       except Exception as e:
         log.err()

@@ -76,6 +76,7 @@ defaults = dict(
   AMQP_VERBOSE=False,
   AMQP_SPEC=None,
   BIND_PATTERNS=['#'],
+  GRAPHITE_URL='http://127.0.0.1:8000',
   ENABLE_MANHOLE=False,
   MANHOLE_INTERFACE='127.0.0.1',
   MANHOLE_PORT=7222,

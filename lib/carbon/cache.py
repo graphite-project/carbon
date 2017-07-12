@@ -21,6 +21,7 @@ from collections import defaultdict
 from carbon.conf import settings
 from carbon import events, log
 from carbon.pipeline import Processor
+from carbon.util import TaggedSeries
 
 
 def by_timestamp(t_v): # useful sort key function
@@ -36,6 +37,13 @@ class CacheFeedingProcessor(Processor):
     self.cache = MetricCache()
 
   def process(self, metric, datapoint):
+    # normalize metric name (reorder tags)
+    try:
+      metric = TaggedSeries.parse(metric).format()
+    except Exception as err:
+      log.msg('Error parsing metric %s: %s' % (metric, err))
+      pass
+
     self.cache.store(metric, datapoint)
     return Processor.NO_OUTPUT
 

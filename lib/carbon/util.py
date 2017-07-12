@@ -1,6 +1,7 @@
 import sys
 import os
 import pwd
+import re
 
 try:
   import builtins as __builtin__
@@ -298,3 +299,43 @@ class PluginRegistrar(type):
     super(PluginRegistrar, classObj).__init__(name, bases, members)
     if hasattr(classObj, 'plugin_name'):
       classObj.plugins[classObj.plugin_name] = classObj
+
+
+class TaggedSeries(object):
+  @classmethod
+  def parse(cls, path):
+    m = re.match('^(.+?)((?:;[^;!=]+=[^;]*)*)$', path)
+    if not m:
+      raise Exception('Cannot parse path')
+
+    metric = m.group(1)
+    tagstring = m.group(2)
+
+    tags = {}
+
+    while True:
+      m = re.match(';([^;]+)=([^;]*)(;.*|$)', tagstring)
+      if m is None:
+        break
+
+      tags[m.group(1)] = m.group(2)
+
+      tagstring = m.group(3)
+      if tagstring == '':
+        break
+
+    tags['name'] = metric
+
+    return cls(metric, tags)
+
+  def __init__(self, metric, tags, id=None):
+    self.metric = metric
+    self.tags = tags
+    self.id = id
+
+  def format(self):
+    return self.metric + ''.join(sorted([
+      ';' + tag + '=' + value
+      for tag, value in self.tags.items()
+      if tag != 'name'
+    ]))

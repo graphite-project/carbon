@@ -26,7 +26,7 @@ from twisted.internet import reactor
 from twisted.internet.task import LoopingCall
 from twisted.application.service import Service
 
-from twisted.web.client import Agent
+from twisted.web.client import Agent, HTTPConnectionPool
 from twisted.web.http_headers import Headers
 from twisted.internet import defer, protocol
 from twisted.internet.defer import succeed
@@ -61,7 +61,7 @@ if settings.MAX_UPDATES_PER_SECOND != float('inf'):
   fill_rate = settings.MAX_UPDATES_PER_SECOND
   UPDATE_BUCKET = TokenBucket(capacity, fill_rate)
 
-agent = Agent(reactor)
+pool = HTTPConnectionPool(reactor)
 
 def optimalWriteOrder():
   """Generates metrics with the most cached values first and applies a soft
@@ -131,30 +131,31 @@ def httpRequest(url, values=None, headers=None, method='POST'):
   if headers:
     fullHeaders.update(headers)
 
-  d = agent.request(
-    method,
-    url,
-    Headers(fullHeaders),
-    StringProducer(urlencode(values)) if values else None
-  )
-
   def handle_response(response):
     d = defer.Deferred()
     response.deliverBody(SimpleReceiver(response, d))
     return d
 
-  d.addCallback(handle_response)
-  return d
+  return Agent(reactor, pool=pool).request(
+    method,
+    url,
+    Headers(fullHeaders),
+    StringProducer(urlencode(values)) if values else None
+  ).addCallback(handle_response)
 
 
 def tagMetric(metric):
+  log.msg("Tagging %s" % metric)
+  t = time.time()
+
   def successHandler(result, *args, **kw):
-    log.msg("Tagged %s: %s" % (metric, result))
+    log.msg("Tagged %s: %s in %s" % (metric, result, time.time() - t))
+    return result
 
   def errorHandler(err):
-    log.msg("Error tagging %s: %s" % (metric, err))
+    log.msg("Error tagging %s: %s %s" % (metric, err, time.time() - t))
 
-  httpRequest(
+  return httpRequest(
     settings.GRAPHITE_URL + '/tags/tagSeries',
     {'path': metric}
   ).addCallback(successHandler).addErrback(errorHandler)
@@ -214,7 +215,7 @@ def writeCachedDataPoints():
         # will keep the first point in the list.
         datapoints = dict(datapoints).items()
         state.database.write(metric, datapoints)
-        if random.randint(1, 100) == 1:
+        if random.randint(1, settings.TAG_UPDATE_INTERVAL) == 1:
           tagMetric(metric)
         updateTime = time.time() - t1
       except Exception as e:
@@ -230,20 +231,20 @@ def writeCachedDataPoints():
 
     # Avoid churning CPU when only new metrics are in the cache
     if not dataWritten:
-      time.sleep(1)
+      break
 
 
 def writeForever():
-  while reactor.running:
+  if reactor.running:
     try:
       writeCachedDataPoints()
     except Exception:
       log.err()
       # Back-off on error to let time to the backend to recover.
-      time.sleep(0.1)
+      reactor.callLater(0.1, writeForever)
     else:
       # Avoid churning CPU when there are no metrics are in the cache
-      time.sleep(1)
+      reactor.callLater(1, writeForever)
 
 
 def reloadStorageSchemas():

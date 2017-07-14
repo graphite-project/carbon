@@ -17,6 +17,7 @@ from os.path import exists, dirname, join, sep
 from carbon.util import PluginRegistrar
 from carbon import log
 from six import with_metaclass
+from hashlib import sha256
 
 
 class TimeSeriesDatabase(with_metaclass(PluginRegistrar, object)):
@@ -129,7 +130,11 @@ else:
       return whisper.setAggregationMethod(wsp_path, value)
 
     def getFilesystemPath(self, metric):
-      metric_path = metric.replace('.', sep).lstrip(sep) + '.wsp'
+      if ';' in metric:
+        hash = sha256(metric).hexdigest()
+        metric_path = sep.join(['_tagged', hash[0:3], hash[3:6], metric.replace('.', '-') + '.wsp'])
+      else:
+        metric_path = metric.replace('.', sep).lstrip(sep) + '.wsp'
       return join(self.data_dir, metric_path)
 
     def validateArchiveList(self, archiveList):

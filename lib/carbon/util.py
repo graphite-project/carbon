@@ -9,6 +9,7 @@ except ImportError:
   import __builtin__
 
 from os.path import abspath, basename, dirname
+from twisted.internet import defer
 
 # BytesIO is needed on py3 as StringIO does not operate on byte input anymore
 # We could use BytesIO on py2 as well but it is slower than StringIO
@@ -242,7 +243,7 @@ def get_unpickler(insecure=False):
 class TokenBucket(object):
   '''This is a basic tokenbucket rate limiter implementation for use in
   enforcing various configurable rate limits'''
-  def __init__(self, capacity, fill_rate):
+  def __init__(self, capacity, fill_rate, reactor):
     '''Capacity is the total number of tokens the bucket can hold, fill rate is
     the rate in tokens (or fractional tokens) to be added to the bucket per
     second.'''
@@ -250,25 +251,41 @@ class TokenBucket(object):
     self._tokens = float(capacity)
     self.fill_rate = float(fill_rate)
     self.timestamp = time()
+    self.reactor = reactor
 
   def drain(self, cost, blocking=False):
     '''Given a number of tokens (or fractions) drain will return True and
     drain the number of tokens from the bucket if the capacity allows,
     otherwise we return false and leave the contents of the bucket.'''
-    if cost <= self.tokens:
-      self._tokens -= cost
-      return True
-    else:
-      if blocking:
-        tokens_needed = cost - self._tokens
-        seconds_per_token = 1 / self.fill_rate
-        seconds_left = seconds_per_token * tokens_needed
-        time_to_sleep = self.timestamp + seconds_left - time()
-        if time_to_sleep > 0:
-            sleep(time_to_sleep)
+    if not blocking:
+      if cost <= self.tokens:
         self._tokens -= cost
         return True
+
       return False
+
+    d = defer.Deferred()
+
+    if cost <= self.tokens:
+      self._tokens -= cost
+      d.callback(True)
+      return d
+
+    tokens_needed = cost - self._tokens
+    seconds_per_token = 1 / self.fill_rate
+    seconds_left = seconds_per_token * tokens_needed
+    time_to_sleep = self.timestamp + seconds_left - time()
+    if time_to_sleep <= 0:
+      self._tokens -= cost
+      d.callback(True)
+      return d
+
+    def drain_and_return(val):
+      self._tokens -= cost
+      return d.callback(val)
+
+    self.reactor.callLater(time_to_sleep, drain_and_return, True)
+    return d
 
   def setCapacityAndFillRate(self, new_capacity, new_fill_rate):
     delta = float(new_capacity) - self.capacity

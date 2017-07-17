@@ -29,7 +29,7 @@ from twisted.application.service import Service
 from twisted.web.client import Agent, HTTPConnectionPool
 from twisted.web.http_headers import Headers
 from twisted.internet import defer, protocol
-from twisted.internet.defer import succeed
+from twisted.internet.defer import succeed, inlineCallbacks
 from twisted.web.iweb import IBodyProducer
 from zope.interface import implements
 
@@ -54,39 +54,14 @@ UPDATE_BUCKET = None
 if settings.MAX_CREATES_PER_MINUTE != float('inf'):
   capacity = settings.MAX_CREATES_PER_MINUTE
   fill_rate = float(settings.MAX_CREATES_PER_MINUTE) / 60
-  CREATE_BUCKET = TokenBucket(capacity, fill_rate)
+  CREATE_BUCKET = TokenBucket(capacity, fill_rate, reactor)
 
 if settings.MAX_UPDATES_PER_SECOND != float('inf'):
   capacity = settings.MAX_UPDATES_PER_SECOND
   fill_rate = settings.MAX_UPDATES_PER_SECOND
-  UPDATE_BUCKET = TokenBucket(capacity, fill_rate)
+  UPDATE_BUCKET = TokenBucket(capacity, fill_rate, reactor)
 
 pool = HTTPConnectionPool(reactor)
-
-def optimalWriteOrder():
-  """Generates metrics with the most cached values first and applies a soft
-  rate limit on new metrics"""
-  cache = MetricCache()
-  while cache:
-    (metric, datapoints) = cache.drain_metric()
-    if metric is None:
-        break
-
-    dbFileExists = state.database.exists(metric)
-
-    if not dbFileExists and CREATE_BUCKET:
-      # If our tokenbucket has enough tokens available to create a new metric
-      # file then yield the metric data to complete that operation. Otherwise
-      # we'll just drop the metric on the ground and move on to the next
-      # metric.
-      # XXX This behavior should probably be configurable to no tdrop metrics
-      # when rate limitng unless our cache is too big or some other legit
-      # reason.
-      if CREATE_BUCKET.drain(1):
-        yield (metric, datapoints, dbFileExists)
-      continue
-
-    yield (metric, datapoints, dbFileExists)
 
 
 class StringProducer(object):
@@ -161,77 +136,93 @@ def tagMetric(metric):
   ).addCallback(successHandler).addErrback(errorHandler)
 
 
+@inlineCallbacks
 def writeCachedDataPoints():
   "Write datapoints until the MetricCache is completely empty"
 
   cache = MetricCache()
   while cache:
-    dataWritten = False
+    (metric, datapoints) = cache.drain_metric()
+    if metric is None:
+      # end the loop
+      break
 
-    for (metric, datapoints, dbFileExists) in optimalWriteOrder():
-      dataWritten = True
+    dbFileExists = state.database.exists(metric)
 
-      if not dbFileExists:
-        archiveConfig = None
-        xFilesFactor, aggregationMethod = None, None
+    if not dbFileExists:
+      if CREATE_BUCKET and not CREATE_BUCKET.drain(1):
+        # If our tokenbucket doesn't have enough tokens available to create a new metric
+        # file then we'll just drop the metric on the ground and move on to the next
+        # metric.
+        # XXX This behavior should probably be configurable to no tdrop metrics
+        # when rate limitng unless our cache is too big or some other legit
+        # reason.
+        continue
 
-        for schema in SCHEMAS:
-          if schema.matches(metric):
-            if settings.LOG_CREATES:
-              log.creates('new metric %s matched schema %s' % (metric, schema.name))
-            archiveConfig = [archive.getTuple() for archive in schema.archives]
-            break
+      archiveConfig = None
+      xFilesFactor, aggregationMethod = None, None
 
-        for schema in AGGREGATION_SCHEMAS:
-          if schema.matches(metric):
-            if settings.LOG_CREATES:
-              log.creates('new metric %s matched aggregation schema %s'
-                          % (metric, schema.name))
-            xFilesFactor, aggregationMethod = schema.archives
-            break
+      for schema in SCHEMAS:
+        if schema.matches(metric):
+          if settings.LOG_CREATES:
+            log.creates('new metric %s matched schema %s' % (metric, schema.name))
+          archiveConfig = [archive.getTuple() for archive in schema.archives]
+          break
 
-        if not archiveConfig:
-          raise Exception("No storage schema matched the metric '%s', check your storage-schemas.conf file." % metric)
+      for schema in AGGREGATION_SCHEMAS:
+        if schema.matches(metric):
+          if settings.LOG_CREATES:
+            log.creates('new metric %s matched aggregation schema %s'
+                        % (metric, schema.name))
+          xFilesFactor, aggregationMethod = schema.archives
+          break
 
-        if settings.LOG_CREATES:
-          log.creates("creating database metric %s (archive=%s xff=%s agg=%s)" %
-                      (metric, archiveConfig, xFilesFactor, aggregationMethod))
-        try:
-            state.database.create(metric, archiveConfig, xFilesFactor, aggregationMethod)
-            tagMetric(metric)
-            instrumentation.increment('creates')
-        except Exception as e:
-            log.err()
-            log.msg("Error creating %s: %s" % (metric, e))
-            instrumentation.increment('errors')
-            continue
-      # If we've got a rate limit configured lets makes sure we enforce it
-      if UPDATE_BUCKET:
-        UPDATE_BUCKET.drain(1, blocking=True)
+      if not archiveConfig:
+        raise Exception("No storage schema matched the metric '%s', check your storage-schemas.conf file." % metric)
+
+      if settings.LOG_CREATES:
+        log.creates("creating database metric %s (archive=%s xff=%s agg=%s)" %
+                    (metric, archiveConfig, xFilesFactor, aggregationMethod))
       try:
-        t1 = time.time()
-        # If we have duplicated points, always pick the last. update_many()
-        # has no guaranted behavior for that, and in fact the current implementation
-        # will keep the first point in the list.
-        datapoints = dict(datapoints).items()
-        state.database.write(metric, datapoints)
-        if random.randint(1, settings.TAG_UPDATE_INTERVAL) == 1:
-          tagMetric(metric)
-        updateTime = time.time() - t1
+        state.database.create(metric, archiveConfig, xFilesFactor, aggregationMethod)
+        tagMetric(metric)
+        instrumentation.increment('creates')
       except Exception as e:
         log.err()
-        log.msg("Error writing to %s: %s" % (metric, e))
+        log.msg("Error creating %s: %s" % (metric, e))
         instrumentation.increment('errors')
-      else:
-        pointCount = len(datapoints)
-        instrumentation.increment('committedPoints', pointCount)
-        instrumentation.append('updateTimes', updateTime)
-        if settings.LOG_UPDATES:
-          log.updates("wrote %d datapoints for %s in %.5f seconds" % (pointCount, metric, updateTime))
+        continue
 
-    # Avoid churning CPU when only new metrics are in the cache
-    if not dataWritten:
-      break
+    # If we've got a rate limit configured lets makes sure we enforce it
+    waitTime = 0
+    if UPDATE_BUCKET:
+      t1 = time.time()
+      yield UPDATE_BUCKET.drain(1, blocking=True)
+      waitTime = time.time() - t1
+
+    try:
+      t1 = time.time()
+      # If we have duplicated points, always pick the last. update_many()
+      # has no guaranted behavior for that, and in fact the current implementation
+      # will keep the first point in the list.
+      datapoints = dict(datapoints).items()
+      state.database.write(metric, datapoints)
+      if random.randint(1, settings.TAG_UPDATE_INTERVAL) == 1:
+        tagMetric(metric)
+      updateTime = time.time() - t1
+    except Exception as e:
+      log.err()
+      log.msg("Error writing to %s: %s" % (metric, e))
+      instrumentation.increment('errors')
+    else:
+      pointCount = len(datapoints)
+      instrumentation.increment('committedPoints', pointCount)
+      instrumentation.append('updateTimes', updateTime)
+      if settings.LOG_UPDATES:
+        if waitTime > 0.001:
+          log.updates("wrote %d datapoints for %s in %.5f seconds after waiting %.5f seconds" % (pointCount, metric, updateTime, waitTime))
+        else:
+          log.updates("wrote %d datapoints for %s in %.5f seconds" % (pointCount, metric, updateTime))
 
 
 def writeForever():

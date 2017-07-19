@@ -39,7 +39,7 @@ class CacheFeedingProcessor(Processor):
   def process(self, metric, datapoint):
     # normalize metric name (reorder tags)
     try:
-      metric = TaggedSeries.parse(metric).format()
+      metric = TaggedSeries.parse(metric).path
     except Exception as err:
       log.msg('Error parsing metric %s: %s' % (metric, err))
       pass

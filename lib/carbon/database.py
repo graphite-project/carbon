@@ -168,26 +168,33 @@ else:
 
       self.tree = ceres.CeresTree(self.data_dir)
 
+    def rewrite_metric(self, metric):
+      if ';' in metric:
+        hash = sha256(metric).hexdigest()
+        return '.'.join(['_tagged', hash[0:3], hash[3:6], metric.replace('.', '-')])
+
+      return metric
+
     def write(self, metric, datapoints):
-      self.tree.store(metric, datapoints)
+      self.tree.store(self.rewrite_metric(metric), datapoints)
 
     def exists(self, metric):
-      return self.tree.hasNode(metric)
+      return self.tree.hasNode(self.rewrite_metric(metric))
 
     def create(self, metric, retentions, xfilesfactor, aggregation_method):
-      self.tree.createNode(metric, retentions=retentions,
+      self.tree.createNode(self.rewrite_metric(metric), retentions=retentions,
                            timeStep=retentions[0][0],
                            xFilesFactor=xfilesfactor,
                            aggregationMethod=aggregation_method)
 
     def getMetadata(self, metric, key):
-      return self.tree.getNode(metric).readMetadata()[key]
+      return self.tree.getNode(self.rewrite_metric(metric)).readMetadata()[key]
 
     def setMetadata(self, metric, key, value):
-      node = self.tree.getNode(metric)
+      node = self.tree.getNode(self.rewrite_metric(metric))
       metadata = node.readMetadata()
       metadata[key] = value
       node.writeMetadata(metadata)
 
     def getFilesystemPath(self, metric):
-      return self.tree.getFilesystemPath(metric)
+      return self.tree.getFilesystemPath(self.rewrite_metric(metric))

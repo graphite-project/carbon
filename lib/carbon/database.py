@@ -131,7 +131,7 @@ else:
 
     def getFilesystemPath(self, metric):
       if ';' in metric:
-        metric_hash = sha256(metric).hexdigest()
+        metric_hash = sha256(metric.encode('utf8')).hexdigest()
         metric_path = sep.join(['_tagged', metric_hash[0:3], metric_hash[3:6], metric.replace('.', '-') + '.wsp'])
       else:
         metric_path = metric.replace('.', sep).lstrip(sep) + '.wsp'
@@ -170,7 +170,7 @@ else:
 
     def rewrite_metric(self, metric):
       if ';' in metric:
-        metric_hash = sha256(metric).hexdigest()
+        metric_hash = sha256(metric.encode('utf8')).hexdigest()
         return '.'.join(['_tagged', metric_hash[0:3], metric_hash[3:6], metric.replace('.', '-')])
 
       return metric

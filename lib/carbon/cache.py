@@ -42,7 +42,6 @@ class CacheFeedingProcessor(Processor):
       metric = TaggedSeries.parse(metric).path
     except Exception as err:
       log.msg('Error parsing metric %s: %s' % (metric, err))
-      pass
 
     self.cache.store(metric, datapoint)
     return Processor.NO_OUTPUT

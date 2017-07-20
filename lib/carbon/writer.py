@@ -19,7 +19,7 @@ from carbon import state
 from carbon.cache import MetricCache
 from carbon.storage import loadStorageSchemas, loadAggregationSchemas
 from carbon.conf import settings
-from carbon import log, events, instrumentation
+from carbon import log, instrumentation
 from carbon.util import TokenBucket
 
 from twisted.internet import reactor

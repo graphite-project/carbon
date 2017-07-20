@@ -1,7 +1,6 @@
 import sys
 import os
 import pwd
-import re
 
 try:
   import builtins as __builtin__
@@ -28,7 +27,7 @@ except ImportError:
   import pickle
   USING_CPICKLE = False
 
-from time import sleep, time
+from time import time
 from twisted.python.util import initgroups
 from twisted.scripts.twistd import runApp
 

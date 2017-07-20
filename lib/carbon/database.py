@@ -29,23 +29,23 @@ class TimeSeriesDatabase(with_metaclass(PluginRegistrar, object)):
 
   def write(self, metric, datapoints):
     "Persist datapoints in the database for metric."
-    raise NotImplemented()
+    raise NotImplementedError()
 
   def exists(self, metric):
     "Return True if the given metric path exists, False otherwise."
-    raise NotImplemented()
+    raise NotImplementedError()
 
   def create(self, metric, retentions, xfilesfactor, aggregation_method):
     "Create an entry in the database for metric using options."
-    raise NotImplemented()
+    raise NotImplementedError()
 
   def getMetadata(self, metric, key):
     "Lookup metric metadata."
-    raise NotImplemented()
+    raise NotImplementedError()
 
   def setMetadata(self, metric, key, value):
     "Modify metric metadata."
-    raise NotImplemented()
+    raise NotImplementedError()
 
   def getFilesystemPath(self, metric):
     "Return filesystem path for metric, defaults to None."
@@ -131,8 +131,8 @@ else:
 
     def getFilesystemPath(self, metric):
       if ';' in metric:
-        hash = sha256(metric).hexdigest()
-        metric_path = sep.join(['_tagged', hash[0:3], hash[3:6], metric.replace('.', '-') + '.wsp'])
+        metric_hash = sha256(metric).hexdigest()
+        metric_path = sep.join(['_tagged', metric_hash[0:3], metric_hash[3:6], metric.replace('.', '-') + '.wsp'])
       else:
         metric_path = metric.replace('.', sep).lstrip(sep) + '.wsp'
       return join(self.data_dir, metric_path)
@@ -170,8 +170,8 @@ else:
 
     def rewrite_metric(self, metric):
       if ';' in metric:
-        hash = sha256(metric).hexdigest()
-        return '.'.join(['_tagged', hash[0:3], hash[3:6], metric.replace('.', '-')])
+        metric_hash = sha256(metric).hexdigest()
+        return '.'.join(['_tagged', metric_hash[0:3], metric_hash[3:6], metric.replace('.', '-')])
 
       return metric
 

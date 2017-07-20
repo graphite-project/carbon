@@ -33,7 +33,7 @@ class CacheFeedingProcessor(Processor):
   plugin_name = 'write'
 
   def __init__(self, *args, **kwargs):
-    super(Processor, self).__init__(*args, **kwargs)
+    super(CacheFeedingProcessor, self).__init__(*args, **kwargs)
     self.cache = MetricCache()
 
   def process(self, metric, datapoint):
@@ -55,7 +55,7 @@ class DrainStrategy(object):
     self.cache = cache
 
   def choose_item(self):
-    raise NotImplemented
+    raise NotImplementedError()
 
 
 class NaiveStrategy(DrainStrategy):

@@ -13,9 +13,6 @@ class AggregationProcessor(Processor):
   def process(self, metric, datapoint):
     increment('datapointsReceived')
 
-    for rule in RewriteRuleManager.rules(PRE):
-      metric = rule.apply(metric)
-
     aggregate_metrics = set()
 
     for rule in RuleManager.rules:
@@ -32,9 +29,6 @@ class AggregationProcessor(Processor):
         values_buffer.configure_aggregation(rule.frequency, rule.aggregation_func)
 
       values_buffer.input(datapoint)
-
-    for rule in RewriteRuleManager.rules(POST):
-      metric = rule.apply(metric)
 
     if settings.FORWARD_ALL and metric not in aggregate_metrics:
       if settings.LOG_AGGREGATOR_MISSES and len(aggregate_metrics) == 0:

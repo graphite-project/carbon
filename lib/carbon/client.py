@@ -4,16 +4,16 @@ from six import with_metaclass
 
 from twisted.application.service import Service
 from twisted.internet import reactor
-from twisted.internet.base import BlockingResolver
 from twisted.internet.defer import Deferred, DeferredList
 from twisted.internet.protocol import ReconnectingClientFactory
 from twisted.protocols.basic import LineOnlyReceiver, Int32StringReceiver
 
 from carbon.conf import settings
 from carbon.util import pickle
-from carbon import instrumentation, log, pipeline, state
 from carbon.util import PluginRegistrar
 from carbon.util import enableTcpKeepAlive
+from carbon.resolver import setUpRandomResolver
+from carbon import instrumentation, log, pipeline, state
 
 try:
     from OpenSSL import SSL
@@ -29,8 +29,6 @@ try:
 except ImportError:
     log.debug("Couldn't import signal module")
 
-
-resolver = BlockingResolver()
 
 SEND_QUEUE_LOW_WATERMARK = settings.MAX_QUEUE_SIZE * settings.QUEUE_LOW_WATERMARK_PCT
 
@@ -220,7 +218,6 @@ class CarbonClientFactory(with_metaclass(PluginRegistrar, ReconnectingClientFact
     self.router = router
     self.destinationName = ('%s:%d:%s' % destination).replace('.', '_')
     self.host, self.port, self.carbon_instance = destination
-    self.resolved_host = self.host
     self.addr = (self.host, self.port)
     self.started = False
     # This factory maintains protocol state across reconnects
@@ -296,18 +293,6 @@ class CarbonClientFactory(with_metaclass(PluginRegistrar, ReconnectingClientFact
        else:
            client = CAReplaceClientContextFactory(settings['DESTINATION_SSL_CA'])
        self.connector = reactor.connectSSL(self.host, self.port, self, client)
-    elif settings['DESTINATION_POOL_REPLICAS']:
-      # If we decide to open multiple TCP connection to a replica, we probably
-      # want to try to also load-balance accross hosts.
-      d = resolver.getHostByName(self.host, timeout=1)
-
-      def _store_result(result):
-        log.clients("Resolved %s to %s" % (self.host, result))
-        self.resolved_host = result
-
-      d.addCallback(_store_result)
-      d.addErrback(log.err)
-      self.connector = reactor.connectTCP(self.resolved_host, self.port, self)
     else:
       self.connector = reactor.connectTCP(self.host, self.port, self)
 
@@ -538,6 +523,12 @@ class FakeClientFactory(object):
 
 class CarbonClientManager(Service):
   def __init__(self, router):
+    if settings.DESTINATION_POOL_REPLICAS:
+        # If we decide to open multiple TCP connection to a replica, we probably
+        # want to try to also load-balance accross hosts. In this case we need
+        # to make sure rfc3484 doesn't get in the way.
+        setUpRandomResolver(reactor)
+
     self.router = router
     self.client_factories = {}  # { destination : CarbonClientFactory() }
     # { destination[0:2]: set(CarbonClientFactory()) }
@@ -631,16 +622,25 @@ class CarbonClientManager(Service):
 
   def getFactories(self, metric):
     destinations = self.getDestinations(metric)
+    factories = set()
+
     if not settings.DESTINATION_POOL_REPLICAS:
-      return [self.client_factories[d] for d in destinations]
+      # Simple case, with only one replica per destination.
+      for d in destinations:
+        # If we can't find it, we add to the 'fake' factory / buffer.
+        factories.add(self.client_factories.get(d))
     else:
-      factories = set()
+      # Here we might have multiple replicas per destination.
       for d in destinations:
         if d is None:
-          factories.add(self.client_factories[d])
+          # d == None means there are no destinations currently available, so
+          # we just put the data into our fake factory / buffer.
+          factories.add(self.client_factories[None])
         else:
-          factories.add(min(self.pooled_factories[d[0:2]], key=lambda f: f.queueSize))
-      return factories
+          # Else we take the replica with the smallest queue size.
+          key = d[0:2]  # Take only host:port, not instance.
+          factories.add(min(self.pooled_factories[key], key=lambda f: f.queueSize))
+    return factories
 
   def sendDatapoint(self, metric, datapoint):
     for factory in self.getFactories(metric):

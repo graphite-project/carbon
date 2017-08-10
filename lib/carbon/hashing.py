@@ -39,7 +39,11 @@ class ConsistentHashRing:
         big_hash = '{:x}'.format(int(fnv32a(key)))
       else:
         big_hash = '{:x}'.format(int(fnv32a(str(key))))
-      small_hash = int(big_hash[:4], 16) ^ int(big_hash[4:], 16)
+      big_hash_length = len(big_hash)
+      if big_hash_length > 4:
+          small_hash = int(big_hash[:4], 16) ^ int(big_hash[4:], 16)
+      else:
+          small_hash = int(big_hash, 16) ^ int(big_hash[::-1], 16)
     else:
       if sys.version_info >= (3, 0):
         big_hash = md5(key.encode('utf-8')).hexdigest()

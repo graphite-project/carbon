@@ -184,6 +184,11 @@ CACHE_WRITE_STRATEGY = sorted
 # shift the onus of buffering writes from the kernel into carbon's cache.
 WHISPER_AUTOFLUSH = False
 
+
+# Enable whisper file header caching in order to decrease the number 
+# of IOPS.  In some cases this will improve disk performance
+WHISPER_CACHE_HEADERS = False
+
 # By default new Whisper files are created pre-allocated with the data region
 # filled with zeros to prevent fragmentation and speed up contiguous reads and
 # writes (which are common). Enabling this option will cause Whisper to create

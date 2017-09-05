@@ -30,6 +30,18 @@ try:
 except ImportError:
     log.msg("Couldn't import signal module")
 
+try:
+    import whisper
+except ImportError:
+    log.msg("Could not import whisper module")
+
+def ageWhisperHeaderCache():
+    if settings.WHISPER_HEADER_AGE_THRESHOLD > 0 and settings.WHISPER_CACHE_HEADERS is True:
+        entries_to_delete = [key for (key,val) in whisper.__headerCache.items() if time.time() - val.time >= settings.WHISPER_HEADER_AGE_THRESHOLD ]
+        log.msg("Will age {count} header cache entries".format(count=len(entries_to_delete)))
+        for entry in entries_to_delete:
+            del whisper.__headerCache[entry]
+        log.msg("{count} surviving header cache entries remain".format(count=len(whisper.__headerCache.keys())))
 
 SCHEMAS = loadStorageSchemas()
 AGGREGATION_SCHEMAS = loadAggregationSchemas()
@@ -195,6 +207,7 @@ class WriterService(Service):
     def __init__(self):
         self.storage_reload_task = LoopingCall(reloadStorageSchemas)
         self.aggregation_reload_task = LoopingCall(reloadAggregationSchemas)
+        self.age_header_task = LoopingCall(ageWhisperHeaderCache)
 
     def startService(self):
         if 'signal' in globals().keys():
@@ -204,9 +217,11 @@ class WriterService(Service):
         self.aggregation_reload_task.start(60, False)
         reactor.addSystemEventTrigger('before', 'shutdown', shutdownModifyUpdateSpeed)
         reactor.callInThread(writeForever)
+        self.age_header_task.start(60, False) 
         Service.startService(self)
 
     def stopService(self):
+        self.age_header_task.stop()
         self.storage_reload_task.stop()
         self.aggregation_reload_task.stop()
         Service.stopService(self)

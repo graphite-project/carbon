@@ -208,7 +208,7 @@ def writeCachedDataPoints():
       # will keep the first point in the list.
       datapoints = dict(datapoints).items()
       state.database.write(metric, datapoints)
-      if random.randint(1, settings.TAG_UPDATE_INTERVAL) == 1:
+      if random.randint(1, settings.TAG_UPDATE_INTERVAL) == 1:  # nosec
         tagMetric(metric)
       updateTime = time.time() - t1
     except Exception as e:

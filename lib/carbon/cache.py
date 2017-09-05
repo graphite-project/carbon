@@ -88,7 +88,7 @@ class MaxStrategy(DrainStrategy):
 class RandomStrategy(DrainStrategy):
   """Pop points randomly"""
   def choose_item(self):
-    return choice(list(self.cache.keys()))
+    return choice(list(self.cache.keys()))  # nosec
 
 
 class SortedStrategy(DrainStrategy):

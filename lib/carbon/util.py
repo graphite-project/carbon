@@ -1,6 +1,7 @@
 import sys
 import os
 import pwd
+import re
 
 try:
   import builtins as __builtin__

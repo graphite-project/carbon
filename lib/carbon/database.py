@@ -14,10 +14,9 @@ limitations under the License."""
 
 import os
 from os.path import exists, dirname, join, sep
-from carbon.util import PluginRegistrar
+from carbon.util import PluginRegistrar, TaggedSeries
 from carbon import log
 from six import with_metaclass
-from hashlib import sha256
 
 
 class TimeSeriesDatabase(with_metaclass(PluginRegistrar, object)):
@@ -94,7 +93,8 @@ else:
           else:
             log.err("WHISPER_FADVISE_RANDOM is enabled but import of ftools module failed.")
         except AttributeError:
-          log.err("WHISPER_FADVISE_RANDOM is enabled but skipped because it is not compatible with the version of Whisper.")
+          log.err("WHISPER_FADVISE_RANDOM is enabled but skipped because it is not compatible " +
+                  "with the version of Whisper.")
 
     def write(self, metric, datapoints):
       path = self.getFilesystemPath(metric)
@@ -130,12 +130,7 @@ else:
       return whisper.setAggregationMethod(wsp_path, value)
 
     def getFilesystemPath(self, metric):
-      if ';' in metric:
-        metric_hash = sha256(metric.encode('utf8')).hexdigest()
-        metric_path = sep.join(['_tagged', metric_hash[0:3], metric_hash[3:6], metric.replace('.', '-') + '.wsp'])
-      else:
-        metric_path = metric.replace('.', sep).lstrip(sep) + '.wsp'
-      return join(self.data_dir, metric_path)
+      return join(self.data_dir, TaggedSeries.encode(metric, sep) + '.wsp')
 
     def validateArchiveList(self, archiveList):
       try:
@@ -151,7 +146,7 @@ except ImportError:
 else:
   class CeresDatabase(TimeSeriesDatabase):
     plugin_name = 'ceres'
-    aggregationMethods = ['average','sum','last','max','min']
+    aggregationMethods = ['average', 'sum', 'last', 'max', 'min']
 
     def __init__(self, settings):
       self.data_dir = settings.LOCAL_DATA_DIR
@@ -168,33 +163,26 @@ else:
 
       self.tree = ceres.CeresTree(self.data_dir)
 
-    def rewrite_metric(self, metric):
-      if ';' in metric:
-        metric_hash = sha256(metric.encode('utf8')).hexdigest()
-        return '.'.join(['_tagged', metric_hash[0:3], metric_hash[3:6], metric.replace('.', '-')])
-
-      return metric
-
     def write(self, metric, datapoints):
-      self.tree.store(self.rewrite_metric(metric), datapoints)
+      self.tree.store(TaggedSeries.encode(metric), datapoints)
 
     def exists(self, metric):
-      return self.tree.hasNode(self.rewrite_metric(metric))
+      return self.tree.hasNode(TaggedSeries.encode(metric))
 
     def create(self, metric, retentions, xfilesfactor, aggregation_method):
-      self.tree.createNode(self.rewrite_metric(metric), retentions=retentions,
+      self.tree.createNode(TaggedSeries.encode(metric), retentions=retentions,
                            timeStep=retentions[0][0],
                            xFilesFactor=xfilesfactor,
                            aggregationMethod=aggregation_method)
 
     def getMetadata(self, metric, key):
-      return self.tree.getNode(self.rewrite_metric(metric)).readMetadata()[key]
+      return self.tree.getNode(TaggedSeries.encode(metric)).readMetadata()[key]
 
     def setMetadata(self, metric, key, value):
-      node = self.tree.getNode(self.rewrite_metric(metric))
+      node = self.tree.getNode(TaggedSeries.encode(metric))
       metadata = node.readMetadata()
       metadata[key] = value
       node.writeMetadata(metadata)
 
     def getFilesystemPath(self, metric):
-      return self.tree.getFilesystemPath(self.rewrite_metric(metric))
+      return self.tree.getFilesystemPath(TaggedSeries.encode(metric))

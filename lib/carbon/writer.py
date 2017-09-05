@@ -178,7 +178,8 @@ def writeCachedDataPoints():
           break
 
       if not archiveConfig:
-        raise Exception("No storage schema matched the metric '%s', check your storage-schemas.conf file." % metric)
+        raise Exception(("No storage schema matched the metric '%s',"
+                         " check your storage-schemas.conf file.") % metric)
 
       if settings.LOG_CREATES:
         log.creates("creating database metric %s (archive=%s xff=%s agg=%s)" %
@@ -220,9 +221,11 @@ def writeCachedDataPoints():
       instrumentation.append('updateTimes', updateTime)
       if settings.LOG_UPDATES:
         if waitTime > 0.001:
-          log.updates("wrote %d datapoints for %s in %.5f seconds after waiting %.5f seconds" % (pointCount, metric, updateTime, waitTime))
+          log.updates("wrote %d datapoints for %s in %.5f seconds after waiting %.5f seconds" % (
+            pointCount, metric, updateTime, waitTime))
         else:
-          log.updates("wrote %d datapoints for %s in %.5f seconds" % (pointCount, metric, updateTime))
+          log.updates("wrote %d datapoints for %s in %.5f seconds" % (
+            pointCount, metric, updateTime))
 
 
 def writeForever():
@@ -258,10 +261,11 @@ def shutdownModifyUpdateSpeed():
     try:
         shut = settings.MAX_UPDATES_PER_SECOND_ON_SHUTDOWN
         if UPDATE_BUCKET:
-          UPDATE_BUCKET.setCapacityAndFillRate(shut,shut)
+          UPDATE_BUCKET.setCapacityAndFillRate(shut, shut)
         if CREATE_BUCKET:
-          CREATE_BUCKET.setCapacityAndFillRate(shut,shut)
-        log.msg("Carbon shutting down.  Changed the update rate to: " + str(settings.MAX_UPDATES_PER_SECOND_ON_SHUTDOWN))
+          CREATE_BUCKET.setCapacityAndFillRate(shut, shut)
+        log.msg("Carbon shutting down.  Changed the update rate to: " +
+                str(settings.MAX_UPDATES_PER_SECOND_ON_SHUTDOWN))
     except KeyError:
         log.msg("Carbon shutting down.  Update rate not changed")
 

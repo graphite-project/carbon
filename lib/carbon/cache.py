@@ -24,7 +24,7 @@ from carbon.pipeline import Processor
 from carbon.util import TaggedSeries
 
 
-def by_timestamp(t_v): # useful sort key function
+def by_timestamp(t_v):  # useful sort key function
   (timestamp, _) = t_v
   return timestamp
 
@@ -220,6 +220,7 @@ class _MetricCache(defaultdict):
 
 _Cache = None
 
+
 def MetricCache():
   global _Cache
   if _Cache is not None:
@@ -241,7 +242,6 @@ def MetricCache():
 
   _Cache = _MetricCache(write_strategy)
   return _Cache
-
 
 
 # Avoid import circularities

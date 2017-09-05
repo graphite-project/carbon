@@ -7,8 +7,12 @@ try:
 except ImportError:
   import __builtin__
 
+from hashlib import sha256
 from os.path import abspath, basename, dirname
+from time import time
 from twisted.internet import defer
+from twisted.python.util import initgroups
+from twisted.scripts.twistd import runApp
 
 # BytesIO is needed on py3 as StringIO does not operate on byte input anymore
 # We could use BytesIO on py2 as well but it is slower than StringIO
@@ -26,10 +30,6 @@ try:
 except ImportError:
   import pickle
   USING_CPICKLE = False
-
-from time import time
-from twisted.python.util import initgroups
-from twisted.scripts.twistd import runApp
 
 
 def dropprivs(user):
@@ -69,7 +69,7 @@ def run_twistd_plugin(filename):
     # If no reactor was selected yet, try to use the epoll reactor if
     # available.
     try:
-        from twisted.internet import epollreactor
+        from twisted.internet import epollreactor  # noqa: F401
         twistd_options.append("--reactor=epoll")
     except ImportError:
         pass
@@ -94,10 +94,9 @@ def run_twistd_plugin(filename):
         twistd_options.append("--debug")
 
     for option_name, option_value in vars(options).items():
-        if (option_value is not None and
-            option_name not in ("debug", "profile", "profiler", "pidfile", "umask", "nodaemon", "syslog")):
-            twistd_options.extend(["--%s" % option_name.replace("_", "-"),
-                                   option_value])
+        if (option_value is not None and option_name not in (
+                "debug", "profile", "profiler", "pidfile", "umask", "nodaemon", "syslog")):
+            twistd_options.extend(["--%s" % option_name.replace("_", "-"), option_value])
 
     # Finally, append extra args so that twistd has a chance to process them.
     twistd_options.extend(args)
@@ -138,12 +137,12 @@ def parseDestinations(destination_strings):
 # a dependency on whisper especiaily as carbon moves toward being a more
 # generic storage service that can use various backends.
 UnitMultipliers = {
-  's' : 1,
-  'm' : 60,
-  'h' : 60 * 60,
-  'd' : 60 * 60 * 24,
-  'w' : 60 * 60 * 24 * 7,
-  'y' : 60 * 60 * 24 * 365,
+  's': 1,
+  'm': 60,
+  'h': 60 * 60,
+  'd': 60 * 60 * 24,
+  'w': 60 * 60 * 24 * 7,
+  'y': 60 * 60 * 24 * 365,
 }
 
 
@@ -194,11 +193,11 @@ if USING_CPICKLE:
 
     @classmethod
     def find_class(cls, module, name):
-      if not module in cls.PICKLE_SAFE:
+      if module not in cls.PICKLE_SAFE:
         raise pickle.UnpicklingError('Attempting to unpickle unsafe module %s' % module)
       __import__(module)
       mod = sys.modules[module]
-      if not name in cls.PICKLE_SAFE[module]:
+      if name not in cls.PICKLE_SAFE[module]:
         raise pickle.UnpicklingError('Attempting to unpickle unsafe class %s' % name)
       return getattr(mod, name)
 
@@ -216,11 +215,11 @@ else:
     }
 
     def find_class(self, module, name):
-      if not module in self.PICKLE_SAFE:
+      if module not in self.PICKLE_SAFE:
         raise pickle.UnpicklingError('Attempting to unpickle unsafe module %s' % module)
       __import__(module)
       mod = sys.modules[module]
-      if not name in self.PICKLE_SAFE[module]:
+      if name not in self.PICKLE_SAFE[module]:
         raise pickle.UnpicklingError('Attempting to unpickle unsafe class %s' % name)
       return getattr(mod, name)
 
@@ -339,13 +338,23 @@ class TaggedSeries(object):
 
     return cls(metric, tags)
 
-  @classmethod
-  def format(cls, tags):
+  @staticmethod
+  def format(tags):
     return tags.get('name', '') + ''.join(sorted([
       ';%s=%s' % (tag, value)
       for tag, value in tags.items()
       if tag != 'name'
     ]))
+
+  @staticmethod
+  def encode(metric, sep='.'):
+    # if metric is tagged, encode it for storage in whisper etc
+    if ';' in metric:
+      metric_hash = sha256(metric.encode('utf8')).hexdigest()
+      return sep.join(['_tagged', metric_hash[0:3], metric_hash[3:6], metric.replace('.', '-')])
+
+    # metric isn't tagged, just replace dots with the separator and trim any leading separator
+    return metric.replace('.', sep).lstrip(sep)
 
   def __init__(self, metric, tags, id=None):
     self.metric = metric

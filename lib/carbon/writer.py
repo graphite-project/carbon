@@ -119,23 +119,6 @@ def httpRequest(url, values=None, headers=None, method='POST'):
   ).addCallback(handle_response)
 
 
-def tagMetric(metric):
-  log.msg("Tagging %s" % metric)
-  t = time.time()
-
-  def successHandler(result, *args, **kw):
-    log.msg("Tagged %s: %s in %s" % (metric, result, time.time() - t))
-    return result
-
-  def errorHandler(err):
-    log.msg("Error tagging %s: %s %s" % (metric, err, time.time() - t))
-
-  return httpRequest(
-    settings.GRAPHITE_URL + '/tags/tagSeries',
-    {'path': metric}
-  ).addCallback(successHandler).addErrback(errorHandler)
-
-
 @inlineCallbacks
 def writeCachedDataPoints():
   "Write datapoints until the MetricCache is completely empty"
@@ -186,7 +169,7 @@ def writeCachedDataPoints():
                     (metric, archiveConfig, xFilesFactor, aggregationMethod))
       try:
         state.database.create(metric, archiveConfig, xFilesFactor, aggregationMethod)
-        tagMetric(metric)
+        state.database.tag(metric, httpRequest=httpRequest)
         instrumentation.increment('creates')
       except Exception as e:
         log.err()
@@ -209,7 +192,7 @@ def writeCachedDataPoints():
       datapoints = dict(datapoints).items()
       state.database.write(metric, datapoints)
       if random.randint(1, settings.TAG_UPDATE_INTERVAL) == 1:  # nosec
-        tagMetric(metric)
+        state.database.tag(metric, httpRequest=httpRequest)
       updateTime = time.time() - t1
     except Exception as e:
       log.err()

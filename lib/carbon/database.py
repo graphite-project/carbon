@@ -13,6 +13,8 @@ See the License for the specific language governing permissions and
 limitations under the License."""
 
 import os
+import time
+
 from os.path import exists, dirname, join, sep
 from carbon.util import PluginRegistrar, TaggedSeries
 from carbon import log
@@ -25,6 +27,9 @@ class TimeSeriesDatabase(with_metaclass(PluginRegistrar, object)):
 
   "List of supported aggregation methods for the database."
   aggregationMethods = []
+
+  def __init__(self, settings):
+    self.graphite_url = settings.GRAPHITE_URL
 
   def write(self, metric, datapoints):
     "Persist datapoints in the database for metric."
@@ -54,6 +59,26 @@ class TimeSeriesDatabase(with_metaclass(PluginRegistrar, object)):
     "Validate that the database can handle the given archiveList."
     pass
 
+  def tag(self, metric, httpRequest=None):
+    log.msg("Tagging %s" % metric)
+    t = time.time()
+
+    if not httpRequest:
+      log.msg("Error tagging %s: %s" % (metric, 'missing httpRequest param'))
+      return None
+
+    def successHandler(result, *args, **kw):
+      log.msg("Tagged %s: %s in %s" % (metric, result, time.time() - t))
+      return result
+
+    def errorHandler(err):
+      log.msg("Error tagging %s: %s" % (metric, err))
+
+    return httpRequest(
+      self.graphite_url + '/tags/tagSeries',
+      {'path': metric}
+    ).addCallback(successHandler).addErrback(errorHandler)
+
 
 try:
   import whisper
@@ -65,6 +90,8 @@ else:
     aggregationMethods = whisper.aggregationMethods
 
     def __init__(self, settings):
+      super(WhisperDatabase, self).__init__(settings)
+
       self.data_dir = settings.LOCAL_DATA_DIR
       self.sparse_create = settings.WHISPER_SPARSE_CREATE
       self.fallocate_create = settings.WHISPER_FALLOCATE_CREATE
@@ -149,6 +176,8 @@ else:
     aggregationMethods = ['average', 'sum', 'last', 'max', 'min']
 
     def __init__(self, settings):
+      super(CeresDatabase, self).__init__(settings)
+
       self.data_dir = settings.LOCAL_DATA_DIR
       ceres.setDefaultNodeCachingBehavior(settings.CERES_NODE_CACHING_BEHAVIOR)
       ceres.setDefaultSliceCachingBehavior(settings.CERES_SLICE_CACHING_BEHAVIOR)

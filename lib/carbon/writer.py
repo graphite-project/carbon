@@ -25,23 +25,12 @@ from carbon.util import TokenBucket
 from twisted.internet import reactor
 from twisted.internet.task import LoopingCall
 from twisted.application.service import Service
-
-from twisted.web.client import Agent, HTTPConnectionPool
-from twisted.web.http_headers import Headers
-from twisted.internet import defer, protocol
-from twisted.internet.defer import succeed, inlineCallbacks
-from twisted.web.iweb import IBodyProducer
-from zope.interface import implements
+from twisted.internet.defer import inlineCallbacks
 
 try:
     import signal
 except ImportError:
     log.msg("Couldn't import signal module")
-
-try:
-  from urllib import urlencode
-except ImportError:
-  from urllib.parse import urlencode
 
 SCHEMAS = loadStorageSchemas()
 AGGREGATION_SCHEMAS = loadAggregationSchemas()
@@ -60,63 +49,6 @@ if settings.MAX_UPDATES_PER_SECOND != float('inf'):
   capacity = settings.MAX_UPDATES_PER_SECOND
   fill_rate = settings.MAX_UPDATES_PER_SECOND
   UPDATE_BUCKET = TokenBucket(capacity, fill_rate, reactor)
-
-pool = HTTPConnectionPool(reactor)
-
-
-class StringProducer(object):
-  implements(IBodyProducer)
-
-  def __init__(self, body):
-    self.body = body
-    self.length = len(body)
-
-  def startProducing(self, consumer):
-    consumer.write(self.body)
-    return succeed(None)
-
-  def pauseProducing(self):
-    pass
-
-  def stopProducing(self):
-    pass
-
-
-class SimpleReceiver(protocol.Protocol):
-  def __init__(self, response, d):
-    self.response = response
-    self.buf = ''
-    self.d = d
-
-  def dataReceived(self, data):
-    self.buf += data
-
-  def connectionLost(self, reason):
-    # TODO: test if reason is twisted.web.client.ResponseDone, if not, do an errback
-    self.d.callback({
-      'code': self.response.code,
-      'body': self.buf,
-    })
-
-
-def httpRequest(url, values=None, headers=None, method='POST'):
-  fullHeaders = {
-    'Content-Type': ['application/x-www-form-urlencoded']
-  }
-  if headers:
-    fullHeaders.update(headers)
-
-  def handle_response(response):
-    d = defer.Deferred()
-    response.deliverBody(SimpleReceiver(response, d))
-    return d
-
-  return Agent(reactor, pool=pool).request(
-    method,
-    url,
-    Headers(fullHeaders),
-    StringProducer(urlencode(values)) if values else None
-  ).addCallback(handle_response)
 
 
 @inlineCallbacks
@@ -169,7 +101,7 @@ def writeCachedDataPoints():
                     (metric, archiveConfig, xFilesFactor, aggregationMethod))
       try:
         state.database.create(metric, archiveConfig, xFilesFactor, aggregationMethod)
-        state.database.tag(metric, httpRequest=httpRequest)
+        state.database.tag(metric)
         instrumentation.increment('creates')
       except Exception as e:
         log.err()
@@ -192,7 +124,7 @@ def writeCachedDataPoints():
       datapoints = dict(datapoints).items()
       state.database.write(metric, datapoints)
       if random.randint(1, settings.TAG_UPDATE_INTERVAL) == 1:  # nosec
-        state.database.tag(metric, httpRequest=httpRequest)
+        state.database.tag(metric)
       updateTime = time.time() - t1
     except Exception as e:
       log.err()

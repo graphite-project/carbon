@@ -59,13 +59,11 @@ class TimeSeriesDatabase(with_metaclass(PluginRegistrar, object)):
     "Validate that the database can handle the given archiveList."
     pass
 
-  def tag(self, metric, httpRequest=None):
+  def tag(self, metric):
+    from carbon.http import httpRequest
+
     log.msg("Tagging %s" % metric)
     t = time.time()
-
-    if not httpRequest:
-      log.msg("Error tagging %s: %s" % (metric, 'missing httpRequest param'))
-      return None
 
     def successHandler(result, *args, **kw):
       log.msg("Tagged %s: %s in %s" % (metric, result, time.time() - t))

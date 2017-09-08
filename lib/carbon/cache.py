@@ -21,9 +21,10 @@ from collections import defaultdict
 from carbon.conf import settings
 from carbon import events, log
 from carbon.pipeline import Processor
+from carbon.util import TaggedSeries
 
 
-def by_timestamp(t_v): # useful sort key function
+def by_timestamp(t_v):  # useful sort key function
   (timestamp, _) = t_v
   return timestamp
 
@@ -32,10 +33,16 @@ class CacheFeedingProcessor(Processor):
   plugin_name = 'write'
 
   def __init__(self, *args, **kwargs):
-    super(Processor, self).__init__(*args, **kwargs)
+    super(CacheFeedingProcessor, self).__init__(*args, **kwargs)
     self.cache = MetricCache()
 
   def process(self, metric, datapoint):
+    # normalize metric name (reorder tags)
+    try:
+      metric = TaggedSeries.parse(metric).path
+    except Exception as err:
+      log.msg('Error parsing metric %s: %s' % (metric, err))
+
     self.cache.store(metric, datapoint)
     return Processor.NO_OUTPUT
 
@@ -48,7 +55,7 @@ class DrainStrategy(object):
     self.cache = cache
 
   def choose_item(self):
-    raise NotImplemented
+    raise NotImplementedError()
 
 
 class NaiveStrategy(DrainStrategy):
@@ -81,7 +88,7 @@ class MaxStrategy(DrainStrategy):
 class RandomStrategy(DrainStrategy):
   """Pop points randomly"""
   def choose_item(self):
-    return choice(list(self.cache.keys()))
+    return choice(list(self.cache.keys()))  # nosec
 
 
 class SortedStrategy(DrainStrategy):
@@ -213,6 +220,7 @@ class _MetricCache(defaultdict):
 
 _Cache = None
 
+
 def MetricCache():
   global _Cache
   if _Cache is not None:
@@ -234,7 +242,6 @@ def MetricCache():
 
   _Cache = _MetricCache(write_strategy)
   return _Cache
-
 
 
 # Avoid import circularities

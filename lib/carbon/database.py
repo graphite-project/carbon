@@ -13,8 +13,10 @@ See the License for the specific language governing permissions and
 limitations under the License."""
 
 import os
+import time
+
 from os.path import exists, dirname, join, sep
-from carbon.util import PluginRegistrar
+from carbon.util import PluginRegistrar, TaggedSeries
 from carbon import log
 from six import with_metaclass
 
@@ -26,25 +28,28 @@ class TimeSeriesDatabase(with_metaclass(PluginRegistrar, object)):
   "List of supported aggregation methods for the database."
   aggregationMethods = []
 
+  def __init__(self, settings):
+    self.graphite_url = settings.GRAPHITE_URL
+
   def write(self, metric, datapoints):
     "Persist datapoints in the database for metric."
-    raise NotImplemented()
+    raise NotImplementedError()
 
   def exists(self, metric):
     "Return True if the given metric path exists, False otherwise."
-    raise NotImplemented()
+    raise NotImplementedError()
 
   def create(self, metric, retentions, xfilesfactor, aggregation_method):
     "Create an entry in the database for metric using options."
-    raise NotImplemented()
+    raise NotImplementedError()
 
   def getMetadata(self, metric, key):
     "Lookup metric metadata."
-    raise NotImplemented()
+    raise NotImplementedError()
 
   def setMetadata(self, metric, key, value):
     "Modify metric metadata."
-    raise NotImplemented()
+    raise NotImplementedError()
 
   def getFilesystemPath(self, metric):
     "Return filesystem path for metric, defaults to None."
@@ -53,6 +58,23 @@ class TimeSeriesDatabase(with_metaclass(PluginRegistrar, object)):
   def validateArchiveList(self, archiveList):
     "Validate that the database can handle the given archiveList."
     pass
+
+  def tag(self, metric):
+    from carbon.http import httpRequest
+
+    log.msg("Tagging %s" % metric)
+    t = time.time()
+
+    def successHandler(result, *args, **kw):
+      log.msg("Tagged %s: %s in %s" % (metric, result, time.time() - t))
+
+    def errorHandler(err):
+      log.msg("Error tagging %s: %s" % (metric, err))
+
+    httpRequest(
+      self.graphite_url + '/tags/tagSeries',
+      {'path': metric}
+    ).addCallback(successHandler).addErrback(errorHandler)
 
 
 try:
@@ -65,6 +87,8 @@ else:
     aggregationMethods = whisper.aggregationMethods
 
     def __init__(self, settings):
+      super(WhisperDatabase, self).__init__(settings)
+
       self.data_dir = settings.LOCAL_DATA_DIR
       self.sparse_create = settings.WHISPER_SPARSE_CREATE
       self.fallocate_create = settings.WHISPER_FALLOCATE_CREATE
@@ -93,7 +117,8 @@ else:
           else:
             log.err("WHISPER_FADVISE_RANDOM is enabled but import of ftools module failed.")
         except AttributeError:
-          log.err("WHISPER_FADVISE_RANDOM is enabled but skipped because it is not compatible with the version of Whisper.")
+          log.err("WHISPER_FADVISE_RANDOM is enabled but skipped because it is not compatible " +
+                  "with the version of Whisper.")
 
     def write(self, metric, datapoints):
       path = self.getFilesystemPath(metric)
@@ -129,8 +154,7 @@ else:
       return whisper.setAggregationMethod(wsp_path, value)
 
     def getFilesystemPath(self, metric):
-      metric_path = metric.replace('.', sep).lstrip(sep) + '.wsp'
-      return join(self.data_dir, metric_path)
+      return join(self.data_dir, TaggedSeries.encode(metric, sep) + '.wsp')
 
     def validateArchiveList(self, archiveList):
       try:
@@ -146,9 +170,11 @@ except ImportError:
 else:
   class CeresDatabase(TimeSeriesDatabase):
     plugin_name = 'ceres'
-    aggregationMethods = ['average','sum','last','max','min']
+    aggregationMethods = ['average', 'sum', 'last', 'max', 'min']
 
     def __init__(self, settings):
+      super(CeresDatabase, self).__init__(settings)
+
       self.data_dir = settings.LOCAL_DATA_DIR
       ceres.setDefaultNodeCachingBehavior(settings.CERES_NODE_CACHING_BEHAVIOR)
       ceres.setDefaultSliceCachingBehavior(settings.CERES_SLICE_CACHING_BEHAVIOR)
@@ -164,25 +190,25 @@ else:
       self.tree = ceres.CeresTree(self.data_dir)
 
     def write(self, metric, datapoints):
-      self.tree.store(metric, datapoints)
+      self.tree.store(TaggedSeries.encode(metric), datapoints)
 
     def exists(self, metric):
-      return self.tree.hasNode(metric)
+      return self.tree.hasNode(TaggedSeries.encode(metric))
 
     def create(self, metric, retentions, xfilesfactor, aggregation_method):
-      self.tree.createNode(metric, retentions=retentions,
+      self.tree.createNode(TaggedSeries.encode(metric), retentions=retentions,
                            timeStep=retentions[0][0],
                            xFilesFactor=xfilesfactor,
                            aggregationMethod=aggregation_method)
 
     def getMetadata(self, metric, key):
-      return self.tree.getNode(metric).readMetadata()[key]
+      return self.tree.getNode(TaggedSeries.encode(metric)).readMetadata()[key]
 
     def setMetadata(self, metric, key, value):
-      node = self.tree.getNode(metric)
+      node = self.tree.getNode(TaggedSeries.encode(metric))
       metadata = node.readMetadata()
       metadata[key] = value
       node.writeMetadata(metadata)
 
     def getFilesystemPath(self, metric):
-      return self.tree.getFilesystemPath(metric)
+      return self.tree.getFilesystemPath(TaggedSeries.encode(metric))

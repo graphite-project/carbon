@@ -302,6 +302,13 @@ WHISPER_FALLOCATE_CREATE = True
 # Example: store everything
 # BIND_PATTERNS = #
 
+# URL of graphite-web instance, this is used to add incoming series to the tag database
+# GRAPHITE_URL = http://127.0.0.1:8000
+
+# Tag update interval, this specifies how frequently updates to existing series will trigger
+# an update to the tag index, the default setting is once every 100 updates
+# TAG_UPDATE_INTERVAL = 100
+
 # To configure special settings for the carbon-cache instance 'b', uncomment this:
 #[cache:b]
 #LINE_RECEIVER_PORT = 2103

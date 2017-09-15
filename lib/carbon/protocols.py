@@ -45,11 +45,11 @@ class CarbonService(service.Service):
     def startService(self):
         # use socket creation from twisted to use the same options as before
         if hasattr(self.protocol, 'datagramReceived'):
-            tmp_port = udp.Port(None, None)
+            tmp_port = udp.Port(None, None, interface=self.interface)
         else:
-            tmp_port = tcp.Port(None, None)
+            tmp_port = tcp.Port(None, None, interface=self.interface)
         carbon_sock = tmp_port.createInternetSocket()
-        if hasattr(socket, "SO_REUSEPORT"):
+        if hasattr(socket, 'SO_REUSEPORT'):
             carbon_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
         carbon_sock.bind((self.interface, self.port))
 

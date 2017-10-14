@@ -101,7 +101,7 @@ class RandomStrategy(DrainStrategy):
         if len(self.cache.get(metric_name).items()) >= settings.MIN_DATAPOINTS_PER_UPDATE:
           return metric_name
         count = count - 1
-        metric_name = choice(self.cache.keys())
+        metric_name = choice(list(self.cache.keys()))  # nosec
       return None
     return metric_name
 

@@ -141,18 +141,20 @@ class SortedStrategy(DrainStrategy):
 
 
 class TimeSortedStrategy(DrainStrategy):
-  """ This strategy prefers metrics wich are lagging behind
+  """ This strategy prefers metrics which are lagging behind
   guarantees every point gets written exactly once during
   a loop of the cache """
   def __init__(self, cache):
     super(TimeSortedStrategy, self).__init__(cache)
+    self.mdpu_flag = False
 
     def _generate_queue():
       while True:
         t = time.time()
         metric_lw = sorted(self.cache.watermarks, key=lambda x: x[1], reverse=True)
         if settings.MIN_TIMESTAMP_LAG:
-          metric_lw = [x for x in metric_lw if t - x[1] > settings.MIN_TIMESTAMP_LAG]
+          metric_new = [x for x in metric_lw if t - x[1] > settings.MIN_TIMESTAMP_LAG
+                        or (self.mdpu_flag and x[1] >= settings.MIN_DATAPOINTS_PER_UPDATE)]
         size = len(metric_lw)
         if settings.LOG_CACHE_QUEUE_SORTS and size:
           log.msg("Sorted %d cache queues in %.6f seconds" % (size, time.time() - t))
@@ -167,6 +169,7 @@ class TimeSortedStrategy(DrainStrategy):
     self.queue = _generate_queue()
 
   def choose_item(self, mdpu=False):
+    self.mdpu_flag = mdpu
     return next(self.queue)
 
 

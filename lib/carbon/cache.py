@@ -153,7 +153,7 @@ class TimeSortedStrategy(DrainStrategy):
         t = time.time()
         metric_lw = sorted(self.cache.watermarks, key=lambda x: x[1], reverse=True)
         if settings.MIN_TIMESTAMP_LAG:
-          metric_new = [x for x in metric_lw if t - x[1] > settings.MIN_TIMESTAMP_LAG
+          metric_lw = [x for x in metric_lw if t - x[1] > settings.MIN_TIMESTAMP_LAG
                         or (self.mdpu_flag and x[1] >= settings.MIN_DATAPOINTS_PER_UPDATE)]
         size = len(metric_lw)
         if settings.LOG_CACHE_QUEUE_SORTS and size:

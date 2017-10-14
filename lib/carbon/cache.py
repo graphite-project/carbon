@@ -54,7 +54,7 @@ class DrainStrategy(object):
   def __init__(self, cache):
     self.cache = cache
 
-  def choose_item(self):
+  def choose_item(self, mdpu=False):
     raise NotImplementedError()
 
 
@@ -71,7 +71,7 @@ class NaiveStrategy(DrainStrategy):
 
     self.queue = _generate_queue()
 
-  def choose_item(self):
+  def choose_item(self, mdpu=False):
     return next(self.queue)
 
 
@@ -80,16 +80,30 @@ class MaxStrategy(DrainStrategy):
   This method leads to less variance in pointsPerUpdate but may mean
   that infrequently or irregularly updated metrics may not be written
   until shutdown """
-  def choose_item(self):
+  def choose_item(self, mdpu=False):
     metric_name, size = max(self.cache.items(), key=lambda x: len(itemgetter(1)(x)))
+    size = len(datapoints)
+    if mdpu:
+      if size >= settings.MIN_DATAPOINTS_PER_UPDATE:
+        return metric_name
+      else:
+        return None
     return metric_name
 
 
 class RandomStrategy(DrainStrategy):
   """Pop points randomly"""
-  def choose_item(self):
-    return choice(list(self.cache.keys()))  # nosec
-
+  def choose_item(self, mdpu=False):
+    metric_name = choice(self.cache.keys())  # nosec
+    if mdpu:
+      count = int(0.1 * len(self.cache))
+      while count > 0:
+        if len(self.cache.get(metric_name).items()) >= settings.MIN_DATAPOINTS_PER_UPDATE:
+          return metric_name
+        count = count - 1
+        metric_name = choice(self.cache.keys())
+      return None
+    return metric_name
 
 class SortedStrategy(DrainStrategy):
   """ The default strategy which prefers metrics with a greater number
@@ -97,6 +111,7 @@ class SortedStrategy(DrainStrategy):
   a loop of the cache """
   def __init__(self, cache):
     super(SortedStrategy, self).__init__(cache)
+    self.mdpu_flag = False
 
     def _generate_queue():
       while True:
@@ -106,13 +121,22 @@ class SortedStrategy(DrainStrategy):
         if settings.LOG_CACHE_QUEUE_SORTS and size:
           log.msg("Sorted %d cache queues in %.6f seconds" % (size, time.time() - t))
         while metric_counts:
-          yield itemgetter(0)(metric_counts.pop())
+          (metric_name, numPoints) = metric_counts.pop()
+          if self.mdpu_flag:
+            if numPoints >= settings.MIN_DATAPOINTS_PER_UPDATE:
+              yield metric_name
+            else:
+              metric_counts = []
+              yield None
+          else:
+            yield metric_name
         if settings.LOG_CACHE_QUEUE_SORTS and size:
           log.msg("Queue consumed in %.6f seconds" % (time.time() - t))
 
     self.queue = _generate_queue()
 
-  def choose_item(self):
+  def choose_item(self, mdpu=False):
+    self.mdpu_flag = mdpu
     return next(self.queue)
 
 
@@ -122,6 +146,7 @@ class TimeSortedStrategy(DrainStrategy):
   a loop of the cache """
   def __init__(self, cache):
     super(TimeSortedStrategy, self).__init__(cache)
+    self.mdpu_flag = False
 
     def _generate_queue():
       while True:
@@ -136,13 +161,22 @@ class TimeSortedStrategy(DrainStrategy):
           # If there is nothing to do give a chance to sleep to the reader.
           yield None
         while metric_lw:
-          yield itemgetter(0)(metric_lw.pop())
+          (metric_name, numPoints) = metric_lw.pop()
+          if self.mdpu_flag:
+            if numPoints >= settings.MIN_DATAPOINTS_PER_UPDATE:
+              yield metric_name
+            else:
+              metric_lw = []
+              yield None
+          else:
+            yield metric_name
         if settings.LOG_CACHE_QUEUE_SORTS and size:
           log.msg("Queue consumed in %.6f seconds" % (time.time() - t))
 
     self.queue = _generate_queue()
 
-  def choose_item(self):
+  def choose_item(self, mdpu=False):
+    self.mdpu_flag = mdpu
     return next(self.queue)
 
 
@@ -178,16 +212,18 @@ class _MetricCache(defaultdict):
       log.msg("MetricCache below watermark: self.size=%d" % self.size)
       events.cacheSpaceAvailable()
 
-  def drain_metric(self):
+  def drain_metric(self, mdpu=False):
     """Returns a metric and it's datapoints in order determined by the
     `DrainStrategy`_"""
     if not self:
       return (None, [])
     if self.strategy:
-      metric = self.strategy.choose_item()
+      metric = self.strategy.choose_item(mdpu)
     else:
       # Avoid .keys() as it dumps the whole list
       metric = next(iter(self))
+    if metric == None:
+      return (None, None)
     return (metric, self.pop(metric))
 
   def get_datapoints(self, metric):

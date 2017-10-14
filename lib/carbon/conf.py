@@ -37,6 +37,7 @@ from twisted.python import usage
 defaults = dict(
   USER="",
   MAX_CACHE_SIZE=float('inf'),
+  LOW_CACHE_SIZE=float('inf'),
   MAX_UPDATES_PER_SECOND=500,
   MAX_CREATES_PER_MINUTE=float('inf'),
   MIN_TIMESTAMP_RESOLUTION=0,
@@ -66,6 +67,7 @@ defaults = dict(
   CERES_SLICE_CACHING_BEHAVIOR='latest',
   CERES_LOCK_WRITES=False,
   MAX_DATAPOINTS_PER_MESSAGE=500,
+  MIN_DATAPOINTS_PER_UPDATE=1,
   MAX_AGGREGATION_INTERVALS=5,
   FORWARD_ALL=True,
   MAX_QUEUE_SIZE=1000,

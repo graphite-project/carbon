@@ -94,7 +94,7 @@ class MaxStrategy(DrainStrategy):
 class RandomStrategy(DrainStrategy):
   """Pop points randomly"""
   def choose_item(self, mdpu=False):
-    metric_name = choice(self.cache.keys())  # nosec
+    metric_name = choice(list(self.cache.keys()))  # nosec
     if mdpu:
       count = int(0.1 * len(self.cache))
       while count > 0:

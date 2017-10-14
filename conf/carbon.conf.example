@@ -104,6 +104,7 @@ MIN_TIMESTAMP_RESOLUTION = 1
 # The default value for LOW_CACHE_SIZE is 80% of MAX_CACHE_SIZE.
 # Value for LOW_CACHE_SIZE must be less than 0.95 * MAX_CACHE_SIZE
 # (which is the threshold for applying flow_control if enabled)
+# Please note that MIN_DATAPOINTS_PER_UPDATE is ignored when using the timesorted write strategy.
 MIN_DATAPOINTS_PER_UPDATE = 1
 LOW_CACHE_SIZE = inf
 

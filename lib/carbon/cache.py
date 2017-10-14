@@ -81,7 +81,7 @@ class MaxStrategy(DrainStrategy):
   that infrequently or irregularly updated metrics may not be written
   until shutdown """
   def choose_item(self, mdpu=False):
-    metric_name, size = max(self.cache.items(), key=lambda x: len(itemgetter(1)(x)))
+    metric_name, datapoints = max(self.cache.items(), key=lambda x: len(itemgetter(1)(x)))
     size = len(datapoints)
     if mdpu:
       if size >= settings.MIN_DATAPOINTS_PER_UPDATE:
@@ -146,7 +146,6 @@ class TimeSortedStrategy(DrainStrategy):
   a loop of the cache """
   def __init__(self, cache):
     super(TimeSortedStrategy, self).__init__(cache)
-    self.mdpu_flag = False
 
     def _generate_queue():
       while True:
@@ -161,22 +160,13 @@ class TimeSortedStrategy(DrainStrategy):
           # If there is nothing to do give a chance to sleep to the reader.
           yield None
         while metric_lw:
-          (metric_name, numPoints) = metric_lw.pop()
-          if self.mdpu_flag:
-            if numPoints >= settings.MIN_DATAPOINTS_PER_UPDATE:
-              yield metric_name
-            else:
-              metric_lw = []
-              yield None
-          else:
-            yield metric_name
+          yield itemgetter(0)(metric_lw.pop())
         if settings.LOG_CACHE_QUEUE_SORTS and size:
           log.msg("Queue consumed in %.6f seconds" % (time.time() - t))
 
     self.queue = _generate_queue()
 
   def choose_item(self, mdpu=False):
-    self.mdpu_flag = mdpu
     return next(self.queue)
 
 

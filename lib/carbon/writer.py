@@ -19,7 +19,7 @@ from carbon import state
 from carbon.cache import MetricCache
 from carbon.storage import loadStorageSchemas, loadAggregationSchemas
 from carbon.conf import settings
-from carbon import log, instrumentation, events
+from carbon import log, instrumentation
 from carbon.util import TokenBucket
 
 from twisted.internet import reactor
@@ -35,7 +35,7 @@ except ImportError:
 SCHEMAS = loadStorageSchemas()
 AGGREGATION_SCHEMAS = loadAggregationSchemas()
 
-shuttingDown = 0
+shuttingDown = False
 if settings.LOW_CACHE_SIZE == float('inf'):
   LOW_CACHE_SIZE = 0.8 * settings.MAX_CACHE_SIZE
 else:
@@ -62,21 +62,14 @@ def writeCachedDataPoints():
 
   cache = MetricCache()
   while cache:
-    if (shuttingDown == 1) or (MetricCache.size >= LOW_CACHE_SIZE):
-      mdpu = False
-    else:
-      mdpu = True
+    mdpu = settings.MIN_DATAPOINTS_PER_UPDATE > 0 and not shuttingDown \
+           and MetricCache.size < LOW_CACHE_SIZE
     (metric, datapoints) = cache.drain_metric(mdpu)
     if metric is None:
       # end the loop
       break
-    if state.cacheTooFull and MetricCache.size < settings.CACHE_SIZE_LOW_WATERMARK:
-        events.cacheSpaceAvailable()
-    try:
-      dbFileExists = state.database.exists(metric)
-    except Exception:
-      log.msg("Invalid metric_name {0}".format(metric))
-      continue
+
+    dbFileExists = state.database.exists(metric)
 
     if not dbFileExists:
       if CREATE_BUCKET and not CREATE_BUCKET.drain(1):
@@ -189,7 +182,7 @@ def reloadAggregationSchemas():
 def shutdownModifyUpdateSpeed():
     global shuttingDown
     try:
-        shuttingDown = 1
+        shuttingDown = True
         shut = settings.MAX_UPDATES_PER_SECOND_ON_SHUTDOWN
         if UPDATE_BUCKET:
           UPDATE_BUCKET.setCapacityAndFillRate(shut, shut)

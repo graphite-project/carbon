@@ -81,29 +81,15 @@ class MaxStrategy(DrainStrategy):
   that infrequently or irregularly updated metrics may not be written
   until shutdown """
   def choose_item(self, mdpu=False):
-    metric_name, datapoints = max(self.cache.items(), key=lambda x: len(itemgetter(1)(x)))
-    size = len(datapoints)
-    if mdpu:
-      if size >= settings.MIN_DATAPOINTS_PER_UPDATE:
-        return metric_name
-      else:
-        return None
+    metric_name, size = max(self.cache.items(), key=lambda x: len(itemgetter(1)(x)))
     return metric_name
 
 
 class RandomStrategy(DrainStrategy):
   """Pop points randomly"""
   def choose_item(self, mdpu=False):
-    metric_name = choice(list(self.cache.keys()))  # nosec
-    if mdpu:
-      count = int(0.1 * len(self.cache))
-      while count > 0:
-        if len(self.cache.get(metric_name).items()) >= settings.MIN_DATAPOINTS_PER_UPDATE:
-          return metric_name
-        count = count - 1
-        metric_name = choice(list(self.cache.keys()))  # nosec
-      return None
-    return metric_name
+    return choice(list(self.cache.keys()))  # nosec
+
 
 class SortedStrategy(DrainStrategy):
   """ The default strategy which prefers metrics with a greater number
@@ -111,7 +97,6 @@ class SortedStrategy(DrainStrategy):
   a loop of the cache """
   def __init__(self, cache):
     super(SortedStrategy, self).__init__(cache)
-    self.mdpu_flag = False
 
     def _generate_queue():
       while True:
@@ -121,22 +106,13 @@ class SortedStrategy(DrainStrategy):
         if settings.LOG_CACHE_QUEUE_SORTS and size:
           log.msg("Sorted %d cache queues in %.6f seconds" % (size, time.time() - t))
         while metric_counts:
-          (metric_name, numPoints) = metric_counts.pop()
-          if self.mdpu_flag:
-            if numPoints >= settings.MIN_DATAPOINTS_PER_UPDATE:
-              yield metric_name
-            else:
-              metric_counts = []
-              yield None
-          else:
-            yield metric_name
+          yield itemgetter(0)(metric_counts.pop())
         if settings.LOG_CACHE_QUEUE_SORTS and size:
           log.msg("Queue consumed in %.6f seconds" % (time.time() - t))
 
     self.queue = _generate_queue()
 
   def choose_item(self, mdpu=False):
-    self.mdpu_flag = mdpu
     return next(self.queue)
 
 
@@ -154,7 +130,7 @@ class TimeSortedStrategy(DrainStrategy):
         metric_lw = sorted(self.cache.watermarks, key=lambda x: x[1], reverse=True)
         if settings.MIN_TIMESTAMP_LAG:
           metric_lw = [x for x in metric_lw if t - x[1] > settings.MIN_TIMESTAMP_LAG
-                        or (self.mdpu_flag and x[1] >= settings.MIN_DATAPOINTS_PER_UPDATE)]
+                        or (self.mdpu_flag and x[1] >= settings.MIN_DATAPOINTS_PER_UPDATE >0)]
         size = len(metric_lw)
         if settings.LOG_CACHE_QUEUE_SORTS and size:
           log.msg("Sorted %d cache queues in %.6f seconds" % (size, time.time() - t))

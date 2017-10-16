@@ -127,16 +127,13 @@ class TimeSortedStrategy(DrainStrategy):
     def _generate_queue():
       while True:
         t = time.time()
+        metric_lw = sorted(self.cache.watermarks, key=lambda x: x[1], reverse=True)
         if settings.MIN_TIMESTAMP_LAG:
-          metric_lw = [x[0] for x in sorted(self.cache.watermarks, key=lambda x: x[1],
-                                            reverse=True) if t - x[1] > settings.MIN_TIMESTAMP_LAG]
-        else:
-          metric_lw = [x[0] for x in
-                       sorted(self.cache.watermarks, key=lambda x: x[1], reverse=True)]
+          metric_lw = [x for x in metric_lw if t - x[1] > settings.MIN_TIMESTAMP_LAG]
         if self.mdpu_flag and settings.MIN_DATAPOINTS_PER_UPDATE > 0:
-          metric_counts = [x[0] for x in sorted(self.cache.counts, key=lambda x: x[1])
-                           if x[1] >= settings.MIN_DATAPOINTS_PER_UPDATE]
-          metric_lw = list(set(metric_lw) & set(metric_counts))
+          metric_count = [x[0] for x in self.cache.counts if
+                          x[1] >= settings.MIN_DATAPOINTS_PER_UPDATE]
+          metric_lw = [x for x in metric_lw if x in metric_count]
         size = len(metric_lw)
         if settings.LOG_CACHE_QUEUE_SORTS and size:
           log.msg("Sorted %d cache queues in %.6f seconds" % (size, time.time() - t))
@@ -144,7 +141,7 @@ class TimeSortedStrategy(DrainStrategy):
           # If there is nothing to do give a chance to sleep to the reader.
           yield None
         while metric_lw:
-          yield metric_lw.pop()
+          yield itemgetter(0)(metric_lw.pop())
         if settings.LOG_CACHE_QUEUE_SORTS and size:
           log.msg("Queue consumed in %.6f seconds" % (time.time() - t))
 

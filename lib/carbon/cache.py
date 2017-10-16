@@ -127,9 +127,12 @@ class TimeSortedStrategy(DrainStrategy):
     def _generate_queue():
       while True:
         t = time.time()
-        metric_lw = [x[0] for x in sorted(self.cache.watermarks, key=lambda x: x[1], reverse=True)]
         if settings.MIN_TIMESTAMP_LAG:
-          metric_lw = [x[0] for x in metric_lw if t - x[1] > settings.MIN_TIMESTAMP_LAG]
+          metric_lw = [x[0] for x in sorted(self.cache.watermarks, key=lambda x: x[1],
+                                            reverse=True) if t - x[1] > settings.MIN_TIMESTAMP_LAG]
+        else:
+          metric_lw = [x[0] for x in
+                       sorted(self.cache.watermarks, key=lambda x: x[1], reverse=True)]
         if self.mdpu_flag and settings.MIN_DATAPOINTS_PER_UPDATE > 0:
           metric_counts = [x[0] for x in sorted(self.cache.counts, key=lambda x: x[1])
                            if x[1] >= settings.MIN_DATAPOINTS_PER_UPDATE]

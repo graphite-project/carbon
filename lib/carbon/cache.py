@@ -141,7 +141,7 @@ class TimeSortedStrategy(DrainStrategy):
           # If there is nothing to do give a chance to sleep to the reader.
           yield None
         while metric_lw:
-          yield metric_lw.pop()
+          yield (metric_lw.pop())
         if settings.LOG_CACHE_QUEUE_SORTS and size:
           log.msg("Queue consumed in %.6f seconds" % (time.time() - t))
 

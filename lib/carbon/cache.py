@@ -127,7 +127,7 @@ class TimeSortedStrategy(DrainStrategy):
     def _generate_queue():
       while True:
         t = time.time()
-        metric_lw = sorted(self.cache.watermarks, key=lambda x: x[1], reverse=True)
+        metric_lw = [x[0] for x in sorted(self.cache.watermarks, key=lambda x: x[1], reverse=True)]
         if settings.MIN_TIMESTAMP_LAG:
           metric_lw = [x[0] for x in metric_lw if t - x[1] > settings.MIN_TIMESTAMP_LAG]
         if self.mdpu_flag and settings.MIN_DATAPOINTS_PER_UPDATE > 0:
@@ -141,7 +141,7 @@ class TimeSortedStrategy(DrainStrategy):
           # If there is nothing to do give a chance to sleep to the reader.
           yield None
         while metric_lw:
-          yield (metric_lw.pop())
+          yield metric_lw.pop()
         if settings.LOG_CACHE_QUEUE_SORTS and size:
           log.msg("Queue consumed in %.6f seconds" % (time.time() - t))
 

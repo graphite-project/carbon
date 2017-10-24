@@ -1,5 +1,5 @@
 from twisted.internet import defer, protocol, reactor
-from twisted.web.client import Agent, HTTPConnectionPool
+from twisted.web import client
 from twisted.web.http_headers import Headers
 from twisted.web.iweb import IBodyProducer
 from zope.interface import implements
@@ -10,8 +10,13 @@ except ImportError:
   from urllib.parse import urlencode
 
 
+class QuietHTTP11ClientFactory(client._HTTP11ClientFactory):
+    noisy = False
+
+
 # async http client connection pool
-pool = HTTPConnectionPool(reactor)
+pool = client.HTTPConnectionPool(reactor)
+pool._factory = QuietHTTP11ClientFactory
 
 
 class StringProducer(object):
@@ -61,7 +66,7 @@ def httpRequest(url, values=None, headers=None, method='POST'):
     response.deliverBody(SimpleReceiver(response, d))
     return d
 
-  return Agent(reactor, pool=pool).request(
+  return client.Agent(reactor, pool=pool).request(
     method,
     url,
     Headers(fullHeaders),

@@ -101,7 +101,8 @@ def writeCachedDataPoints():
                     (metric, archiveConfig, xFilesFactor, aggregationMethod))
       try:
         state.database.create(metric, archiveConfig, xFilesFactor, aggregationMethod)
-        state.database.tag(metric)
+        if settings.ENABLE_TAGS:
+          state.database.tag(metric)
         instrumentation.increment('creates')
       except Exception as e:
         log.err()
@@ -123,7 +124,7 @@ def writeCachedDataPoints():
       # will keep the first point in the list.
       datapoints = dict(datapoints).items()
       state.database.write(metric, datapoints)
-      if random.randint(1, settings.TAG_UPDATE_INTERVAL) == 1:  # nosec
+      if settings.ENABLE_TAGS and random.randint(1, settings.TAG_UPDATE_INTERVAL) == 1:  # nosec
         state.database.tag(metric)
       updateTime = time.time() - t1
     except Exception as e:

@@ -62,14 +62,14 @@ class TimeSeriesDatabase(with_metaclass(PluginRegistrar, object)):
   def tag(self, metric):
     from carbon.http import httpRequest
 
-    log.msg("Tagging %s" % metric)
+    log.debug("Tagging %s" % metric)
     t = time.time()
 
     def successHandler(result, *args, **kw):
-      log.msg("Tagged %s: %s in %s" % (metric, result, time.time() - t))
+      log.debug("Tagged %s: %s in %s" % (metric, result, time.time() - t))
 
     def errorHandler(err):
-      log.msg("Error tagging %s: %s" % (metric, err))
+      log.msg("Error tagging %s: %s" % (metric, err.getErrorMessage()))
 
     httpRequest(
       self.graphite_url + '/tags/tagSeries',

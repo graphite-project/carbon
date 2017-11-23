@@ -12,8 +12,8 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License."""
 
-import random
 import time
+import Queue
 
 from carbon import state
 from carbon.cache import MetricCache
@@ -49,6 +49,44 @@ if settings.MAX_UPDATES_PER_SECOND != float('inf'):
   capacity = settings.MAX_UPDATES_PER_SECOND
   fill_rate = settings.MAX_UPDATES_PER_SECOND
   UPDATE_BUCKET = TokenBucket(capacity, fill_rate, reactor)
+
+
+class TagQueue(object):
+  def __init__(self, maxsize=0, update_interval=1):
+    self.add_queue = Queue.Queue(maxsize)
+    self.update_queue = Queue.Queue(maxsize)
+    self.update_interval = update_interval
+    self.update_counter = 0
+
+  def add(self, metric):
+    try:
+      self.add_queue.put_nowait(metric)
+    except Queue.Full:
+      pass
+
+  def update(self, metric):
+    self.update_counter = self.update_counter % self.update_interval + 1
+    if self.update_counter == 1:
+      try:
+        self.update_queue.put_nowait(metric)
+      except Queue.Full:
+        pass
+
+  def getbatch(self, max=1):
+    batch = []
+    while len(batch) < max:
+      try:
+        batch.append(self.add_queue.get_nowait())
+      except Queue.Empty:
+        break
+    while len(batch) < max:
+      try:
+        batch.append(self.update_queue.get_nowait())
+      except Queue.Empty:
+        break
+    return batch
+
+tagQueue = TagQueue(maxsize=settings.TAG_QUEUE_SIZE, update_interval=settings.TAG_UPDATE_INTERVAL)
 
 
 @inlineCallbacks
@@ -102,7 +140,7 @@ def writeCachedDataPoints():
       try:
         state.database.create(metric, archiveConfig, xFilesFactor, aggregationMethod)
         if settings.ENABLE_TAGS:
-          state.database.tag(metric)
+          tagQueue.add(metric)
         instrumentation.increment('creates')
       except Exception as e:
         log.err()
@@ -124,8 +162,8 @@ def writeCachedDataPoints():
       # will keep the first point in the list.
       datapoints = dict(datapoints).items()
       state.database.write(metric, datapoints)
-      if settings.ENABLE_TAGS and random.randint(1, settings.TAG_UPDATE_INTERVAL) == 1:  # nosec
-        state.database.tag(metric)
+      if settings.ENABLE_TAGS:
+        tagQueue.update(metric)
       updateTime = time.time() - t1
     except Exception as e:
       log.err()
@@ -150,11 +188,32 @@ def writeForever():
       writeCachedDataPoints()
     except Exception:
       log.err()
-      # Back-off on error to let time to the backend to recover.
+      # Back-off on error to give the backend time to recover.
       reactor.callLater(0.1, writeForever)
     else:
       # Avoid churning CPU when there are no metrics are in the cache
       reactor.callLater(1, writeForever)
+
+
+def writeTags():
+  while True:
+    tags = tagQueue.getbatch(settings.TAG_BATCH_SIZE)
+    if not tags:
+      break
+    state.database.tag(*tags)
+
+
+def writeTagsForever():
+  if reactor.running:
+    try:
+      written = writeTags()
+    except Exception:
+      log.err()
+      # Back-off on error to give the backend time to recover.
+      reactor.callLater(0.1, writeTagsForever)
+    else:
+      # Avoid churning CPU when there are no series in the queue
+      reactor.callLater(1, writeTagsForever)
 
 
 def reloadStorageSchemas():
@@ -203,6 +262,8 @@ class WriterService(Service):
         self.aggregation_reload_task.start(60, False)
         reactor.addSystemEventTrigger('before', 'shutdown', shutdownModifyUpdateSpeed)
         reactor.callInThread(writeForever)
+        if settings.ENABLE_TAGS:
+          reactor.callInThread(writeTagsForever)
         Service.startService(self)
 
     def stopService(self):

@@ -137,7 +137,7 @@ CACHE_QUERY_PORT = 7002
 USE_FLOW_CONTROL = True
 
 # If enabled this setting is used to timeout metric client connection if no
-# metrics have been sent in specified time in seconds 
+# metrics have been sent in specified time in seconds
 #METRIC_CLIENT_IDLE_TIMEOUT = None
 
 # By default, carbon-cache will log every whisper update and cache hit.
@@ -207,7 +207,7 @@ WHISPER_FALLOCATE_CREATE = True
 
 # On systems which has a large number of metrics, an amount of Whisper write(2)'s
 # pageback sometimes cause disk thrashing due to memory shortage, so that abnormal
-# disk reads occur. Enabling this option makes it possible to decrease useless 
+# disk reads occur. Enabling this option makes it possible to decrease useless
 # page cache memory by posix_fadvise(2) with POSIX_FADVISE_RANDOM option.
 # WHISPER_FADVISE_RANDOM = False
 
@@ -312,6 +312,13 @@ WHISPER_FALLOCATE_CREATE = True
 # an update to the tag index, the default setting is once every 100 updates
 # TAG_UPDATE_INTERVAL = 100
 
+# Tag batch size, this specifies the maximum number of series to be sent to graphite-web in a single batch
+# TAG_BATCH_SIZE = 100
+
+# Tag queue size, this specifies the maximum number of series to be queued for sending to graphite-web
+# There are separate queues for new series and for updates to existing series
+# TAG_QUEUE_SIZE = 10000
+
 # To configure special settings for the carbon-cache instance 'b', uncomment this:
 #[cache:b]
 #LINE_RECEIVER_PORT = 2103
@@ -357,7 +364,7 @@ REPLICATION_FACTOR = 1
 
 # For REPLICATION_FACTOR >=2, set DIVERSE_REPLICAS to True to guarantee replicas
 # across distributed hosts. With this setting disabled, it's possible that replicas
-# may be sent to different caches on the same host. This has been the default 
+# may be sent to different caches on the same host. This has been the default
 # behavior since introduction of 'consistent-hashing' relay method.
 # Note that enabling this on an existing pre-0.9.14 cluster will require rebalancing
 # your metrics across the cluster nodes using a tool like Carbonate.
@@ -440,7 +447,7 @@ TIME_TO_DEFER_SENDING = 0.0001
 USE_FLOW_CONTROL = True
 
 # If enabled this setting is used to timeout metric client connection if no
-# metrics have been sent in specified time in seconds 
+# metrics have been sent in specified time in seconds
 #METRIC_CLIENT_IDLE_TIMEOUT = None
 
 # Set this to True to enable whitelisting and blacklisting of metrics in
@@ -538,7 +545,7 @@ MAX_QUEUE_SIZE = 10000
 USE_FLOW_CONTROL = True
 
 # If enabled this setting is used to timeout metric client connection if no
-# metrics have been sent in specified time in seconds 
+# metrics have been sent in specified time in seconds
 #METRIC_CLIENT_IDLE_TIMEOUT = None
 
 # This defines the maximum "message size" between carbon daemons.

@@ -195,12 +195,13 @@ def writeForever():
       reactor.callLater(1, writeForever)
 
 
+@inlineCallbacks
 def writeTags():
   while True:
     tags = tagQueue.getbatch(settings.TAG_BATCH_SIZE)
     if not tags:
       break
-    state.database.tag(*tags)
+    yield state.database.tag(*tags)
 
 
 def writeTagsForever():
@@ -213,7 +214,7 @@ def writeTagsForever():
       reactor.callLater(0.1, writeTagsForever)
     else:
       # Avoid churning CPU when there are no series in the queue
-      reactor.callLater(1, writeTagsForever)
+      reactor.callLater(0.2, writeTagsForever)
 
 
 def reloadStorageSchemas():

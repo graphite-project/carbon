@@ -67,11 +67,13 @@ class TimeSeriesDatabase(with_metaclass(PluginRegistrar, object)):
 
     def successHandler(result, *args, **kw):
       log.debug("Tagged %s in %s" % (', '.join(metrics), time.time() - t), type='tagdb')
+      return True
 
     def errorHandler(err):
       log.msg("Error tagging %s: %s" % (', '.join(metrics), err.getErrorMessage()), type='tagdb')
+      return err
 
-    httpRequest(
+    return httpRequest(
       self.graphite_url + '/tags/tagMultiSeries',
       [('path', metric) for metric in metrics]
     ).addCallback(successHandler).addErrback(errorHandler)

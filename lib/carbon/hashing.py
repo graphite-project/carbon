@@ -8,6 +8,7 @@ import sys
 try:
   import pyhash
   hasher = pyhash.fnv1a_32()
+
   def fnv32a(string, seed=0x811c9dc5):
     return hasher(string, seed=seed)
 except ImportError:
@@ -23,6 +24,7 @@ except ImportError:
       hval = hval ^ ord(s)
       hval = (hval * fnv_32_prime) % uint32_max
     return hval
+
 
 class ConsistentHashRing:
   def __init__(self, nodes, replica_count=100, hash_type='carbon_ch'):

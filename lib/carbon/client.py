@@ -116,13 +116,11 @@ class CarbonClientProtocol(object):
           instrumentation.prior_stats.get('metricsReceived', 0)))
 
     self.sendDatapointsNow(self.factory.takeSomeFromQueue())
-    if (self.factory.queueFull.called and
-        queueSize < SEND_QUEUE_LOW_WATERMARK):
+    if (self.factory.queueFull.called and queueSize < SEND_QUEUE_LOW_WATERMARK):
       if not self.factory.queueHasSpace.called:
         self.factory.queueHasSpace.callback(queueSize)
     if self.factory.hasQueuedDatapoints():
       self.factory.scheduleSend()
-
 
   def connectionQualityMonitor(self):
     """Checks to see if the connection for this factory appears to
@@ -137,7 +135,6 @@ class CarbonClientProtocol(object):
     True means that the total received is less than settings.MIN_RESET_STAT_FLOW
 
     False means that quality is bad
-
     """
     destination_sent = float(instrumentation.prior_stats.get(self.sent, 0))
     total_received = float(instrumentation.prior_stats.get('metricsReceived', 0))

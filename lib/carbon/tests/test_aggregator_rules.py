@@ -1,6 +1,6 @@
-import os
 import unittest
 from carbon.aggregator.rules import AggregationRule
+
 
 class AggregationRuleTest(unittest.TestCase):
 

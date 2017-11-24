@@ -14,20 +14,24 @@ strategies = {
     'timesorted': TimeSortedStrategy,
 }
 
+
 def command_store_foo():
     global count
     count = count + 1
     return metric_cache.store('foo', (count, 1.0))
+
 
 def command_store_foo_n():
     global count
     count = count + 1
     return metric_cache.store("foo.%d" % count, (count, 1.0))
 
+
 def command_drain():
     while metric_cache:
         metric_cache.drain_metric()
     return metric_cache.size
+
 
 def print_stats(n, t):
     usec = t * 1e6

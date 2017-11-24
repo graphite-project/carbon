@@ -2,7 +2,6 @@
 from sys import version_info
 from carbon.protocols import MetricReceiver, MetricLineReceiver, \
     MetricDatagramReceiver, MetricPickleReceiver
-from carbon.regexlist import WhiteList, BlackList
 from carbon import events
 from unittest import TestCase
 from mock import Mock, patch, call
@@ -26,7 +25,7 @@ class TestMetricReceiversHandler(TestCase):
     # be a pain to install and we don't want to make the CI
     # flaky because of that.
     try:
-      import carbon.manhole
+      import carbon.manhole  # NOQA
       expected_plugins.append('manhole')
     except ImportError:
       pass

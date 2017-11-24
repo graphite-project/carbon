@@ -54,7 +54,7 @@ class TestSetupPipeline(TestCase):
 
   @patch('carbon.service.setupRewriterProcessor', new=Mock())
   def test_parses_processor_args(self):
-    #XXX Patch doesnt work on this import directly
+    # XXX Patch doesnt work on this import directly
     rewrite_mock = Mock()
     Processor.plugins['rewrite'] = rewrite_mock
     setupPipeline(['rewrite:pre'], self.root_service_mock, self.settings)

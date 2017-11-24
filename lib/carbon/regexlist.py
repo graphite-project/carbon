@@ -1,4 +1,3 @@
-import time
 import re
 import os.path
 from carbon import log

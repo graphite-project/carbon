@@ -1,4 +1,3 @@
-import os
 import timeit
 
 from carbon.routers import DatapointRouter
@@ -30,7 +29,7 @@ def generateDestinations(n):
         host_id = i % 10
         instance_id = i
         port = 2000 + i
-        yield ('carbon%d' %  host_id, port, instance_id)
+        yield ('carbon%d' % host_id, port, instance_id)
 
 
 def benchmark(router_class):

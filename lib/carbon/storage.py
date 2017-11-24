@@ -12,13 +12,12 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License."""
 
-import os
 import re
 
-from os.path import join, exists
+from os.path import join
 from carbon.conf import OrderedConfigParser, settings
 from carbon.exceptions import CarbonConfigException
-from carbon.util import pickle, parseRetentionDef
+from carbon.util import parseRetentionDef
 from carbon import log, state
 
 
@@ -64,7 +63,8 @@ class Archive:
     self.points = int(points)
 
   def __str__(self):
-    return "Archive = (Seconds per point: %d, Datapoints to save: %d)" % (self.secondsPerPoint, self.points)
+    return "Archive = (Seconds per point: %d, Datapoints to save: %d)" % (
+      self.secondsPerPoint, self.points)
 
   def getTuple(self):
     return (self.secondsPerPoint, self.points)
@@ -151,6 +151,7 @@ def loadAggregationSchemas():
   schemaList.append(defaultAggregation)
   return schemaList
 
-defaultArchive = Archive(60, 60 * 24 * 7)  # default retention for unclassified data (7 days of minutely data)
+# default retention for unclassified data (7 days of minutely data)
+defaultArchive = Archive(60, 60 * 24 * 7)
 defaultSchema = DefaultSchema('default', [defaultArchive])
 defaultAggregation = DefaultSchema('default', (None, None))

@@ -21,7 +21,7 @@ lastUsageTime = time.time()
 
 # TODO(chrismd) refactor the graphite metrics hierarchy to be cleaner,
 # more consistent, and make room for frontend metrics.
-#metric_prefix = "Graphite.backend.%(program)s.%(instance)s." % settings
+# metric_prefix = "Graphite.backend.%(program)s.%(instance)s." % settings
 
 
 def increment(stat, increase=1):
@@ -30,12 +30,14 @@ def increment(stat, increase=1):
   except KeyError:
     stats[stat] = increase
 
+
 def max(stat, newval):
   try:
     if stats[stat] < newval:
       stats[stat] = newval
   except KeyError:
     stats[stat] = newval
+
 
 def append(stat, value):
   try:
@@ -133,7 +135,7 @@ def recordMetrics():
   # shared relay stats for relays & aggregators
   if settings.program in ['carbon-aggregator', 'carbon-relay']:
     prefix = 'destinations.'
-    relay_stats =  [(k,v) for (k,v) in myStats.items() if k.startswith(prefix)]
+    relay_stats = [(k, v) for (k, v) in myStats.items() if k.startswith(prefix)]
     for stat_name, stat_value in relay_stats:
       record(stat_name, stat_value)
       # Preserve the count of sent metrics so that the ratio of
@@ -206,5 +208,5 @@ class InstrumentationService(Service):
 
 
 # Avoid import circularities
-from carbon import state, events, cache
-from carbon.aggregator.buffers import BufferManager
+from carbon import state, events, cache  # NOQA
+from carbon.aggregator.buffers import BufferManager  # NOQA

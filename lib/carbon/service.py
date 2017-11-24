@@ -15,7 +15,7 @@ limitations under the License."""
 from os.path import exists
 
 from twisted.application.service import MultiService
-from twisted.application.internet import TCPServer, TCPClient
+from twisted.application.internet import TCPServer
 from twisted.internet.protocol import ServerFactory
 from twisted.python.components import Componentized
 from twisted.python.log import ILogObserver
@@ -37,7 +37,7 @@ try:
 except ImportError:
   pass
 try:
-  import carbon.protobuf
+  import carbon.protobuf  # NOQA
 except ImportError as e:
   pass
 
@@ -96,7 +96,6 @@ def setupPipeline(pipeline, root_service, settings):
     if processor in ['relay', 'write']:
       state.pipeline_processors_generated.append(plugin_class(*args))
 
-
   events.metricReceived.addHandler(run_pipeline)
   events.metricGenerated.addHandler(run_pipeline_generated)
 
@@ -130,6 +129,7 @@ def createAggregatorService(config):
 
   return root_service
 
+
 def createAggregatorCacheService(config):
   from carbon.conf import settings
 
@@ -141,6 +141,7 @@ def createAggregatorCacheService(config):
   setupReceivers(root_service, settings)
 
   return root_service
+
 
 def createRelayService(config):
   from carbon.conf import settings
@@ -160,12 +161,13 @@ def setupReceivers(root_service, settings):
 
 
 def setupAggregatorProcessor(root_service, settings):
-  from carbon.aggregator.processor import AggregationProcessor  # Register the plugin class
+  from carbon.aggregator.processor import AggregationProcessor  # NOQA Register the plugin class
   from carbon.aggregator.rules import RuleManager
 
   aggregation_rules_path = settings["aggregation-rules"]
   if not exists(aggregation_rules_path):
-    raise CarbonConfigException("aggregation processor: file does not exist {0}".format(aggregation_rules_path))
+    raise CarbonConfigException(
+      "aggregation processor: file does not exist {0}".format(aggregation_rules_path))
   RuleManager.read_from(aggregation_rules_path)
 
 
@@ -191,7 +193,7 @@ def setupRelayProcessor(root_service, settings):
 
 
 def setupWriterProcessor(root_service, settings):
-  from carbon import cache  # Register CacheFeedingProcessor
+  from carbon import cache  # NOQA Register CacheFeedingProcessor
   from carbon.protocols import CacheManagementHandler
   from carbon.writer import WriterService
   from carbon import events

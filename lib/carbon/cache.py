@@ -245,4 +245,4 @@ def MetricCache():
 
 
 # Avoid import circularities
-from carbon import state
+from carbon import state  # NOQA

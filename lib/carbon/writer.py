@@ -72,14 +72,14 @@ class TagQueue(object):
       except Queue.Full:
         pass
 
-  def getbatch(self, max=1):
+  def getbatch(self, maxsize=1):
     batch = []
-    while len(batch) < max:
+    while len(batch) < maxsize:
       try:
         batch.append(self.add_queue.get_nowait())
       except Queue.Empty:
         break
-    while len(batch) < max:
+    while len(batch) < maxsize:
       try:
         batch.append(self.update_queue.get_nowait())
       except Queue.Empty:
@@ -206,7 +206,7 @@ def writeTags():
 def writeTagsForever():
   if reactor.running:
     try:
-      written = writeTags()
+      writeTags()
     except Exception:
       log.err()
       # Back-off on error to give the backend time to recover.

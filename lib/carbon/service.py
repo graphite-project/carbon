@@ -38,7 +38,7 @@ except ImportError:
   pass
 try:
   import carbon.protobuf  # NOQA
-except ImportError as e:
+except ImportError:
   pass
 
 

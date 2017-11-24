@@ -40,9 +40,14 @@ from twisted.internet.defer import inlineCallbacks
 from twisted.internet import reactor
 from twisted.internet.protocol import ReconnectingClientFactory
 from twisted.application.internet import TCPClient
-from txamqp.protocol import AMQClient
-from txamqp.client import TwistedDelegate
-import txamqp.spec
+
+# txamqp is currently not ported to py3
+try:
+  from txamqp.protocol import AMQClient
+  from txamqp.client import TwistedDelegate
+  import txamqp.spec
+except:
+  raise ImportError
 
 try:
     import carbon

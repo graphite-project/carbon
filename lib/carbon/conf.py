@@ -504,7 +504,15 @@ def get_default_parser(usage="%prog [options] <start|stop|status>"):
         "--instance",
         default='a',
         help="Manage a specific carbon instance")
-
+    parser.add_option(
+        "--logfile",
+        default='None',
+        help="Log to a specified file, - for stdout")
+    parser.add_option(
+        "--logger",
+        default='None',
+        help="A fully-qualified name to a log observer factory to use for the initial log "
+             "observer. Takes precedence over --logfile and --syslog (when available).")
     return parser
 
 

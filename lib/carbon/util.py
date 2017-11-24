@@ -85,6 +85,10 @@ def run_twistd_plugin(filename):
         twistd_options.extend(["--pidfile", options.pidfile])
     if options.umask:
         twistd_options.extend(["--umask", options.umask])
+    if options.logger:
+        twistd_options.extend(["--logger", options.logger])
+    if options.logger:
+        twistd_options.extend(["--logfile", options.logfile])
     if options.syslog:
         twistd_options.append("--syslog")
 
@@ -96,7 +100,8 @@ def run_twistd_plugin(filename):
 
     for option_name, option_value in vars(options).items():
         if (option_value is not None and option_name not in (
-                "debug", "profile", "profiler", "pidfile", "umask", "nodaemon", "syslog")):
+                "debug", "profile", "profiler", "pidfile", "umask", "nodaemon", "syslog",
+                "logger", "logfile")):
             twistd_options.extend(["--%s" % option_name.replace("_", "-"), option_value])
 
     # Finally, append extra args so that twistd has a chance to process them.

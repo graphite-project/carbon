@@ -156,7 +156,7 @@ def createRelayService(config):
 def setupReceivers(root_service, settings):
   from carbon.protocols import MetricReceiver
 
-  for plugin_name, plugin_class in MetricReceiver.plugins.items():
+  for _, plugin_class in MetricReceiver.plugins.items():
     plugin_class.build(root_service)
 
 
@@ -196,7 +196,6 @@ def setupWriterProcessor(root_service, settings):
   from carbon import cache  # NOQA Register CacheFeedingProcessor
   from carbon.protocols import CacheManagementHandler
   from carbon.writer import WriterService
-  from carbon import events
 
   factory = ServerFactory()
   factory.protocol = CacheManagementHandler

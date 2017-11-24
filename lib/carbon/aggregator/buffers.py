@@ -4,7 +4,7 @@ from carbon.conf import settings
 from carbon import log
 
 
-class BufferManager:
+class _BufferManager:
   def __init__(self):
     self.buffers = {}
 
@@ -105,7 +105,7 @@ class IntervalBuffer:
 
 
 # Shared importable singleton
-BufferManager = BufferManager()
+BufferManager = _BufferManager()
 
 # Avoid import circularity
 from carbon import state  # NOQA

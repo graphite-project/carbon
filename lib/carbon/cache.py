@@ -81,7 +81,7 @@ class MaxStrategy(DrainStrategy):
   that infrequently or irregularly updated metrics may not be written
   until shutdown """
   def choose_item(self):
-    metric_name, size = max(self.cache.items(), key=lambda x: len(itemgetter(1)(x)))
+    metric_name, _ = max(self.cache.items(), key=lambda x: len(itemgetter(1)(x)))
     return metric_name
 
 

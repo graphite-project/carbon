@@ -253,7 +253,7 @@ class CarbonClientFactory(with_metaclass(PluginRegistrar, ReconnectingClientFact
     queue.
     """
     def yield_max_datapoints():
-      for count in range(settings.MAX_DATAPOINTS_PER_MESSAGE):
+      for _ in range(settings.MAX_DATAPOINTS_PER_MESSAGE):
         try:
           yield self.queue.popleft()
         except IndexError:
@@ -467,8 +467,6 @@ class CarbonClientManager(Service):
     state.events.resumeReceivingMetrics.addHandler(fake_factory.reinjectDatapoints)
 
   def createFactory(self, destination):
-    from carbon.conf import settings
-
     factory_name = settings["DESTINATION_PROTOCOL"]
     factory_class = CarbonClientFactory.plugins.get(factory_name)
 

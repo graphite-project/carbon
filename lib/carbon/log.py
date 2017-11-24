@@ -78,7 +78,8 @@ class CarbonLogObserver(object):
   def __call__(self, event):
     return self.observer(event)
 
-  def stdout_observer(self, event):
+  @staticmethod
+  def stdout_observer(event):
     stdout.write(formatEvent(event, includeType=True) + '\n')
     stdout.flush()
 

@@ -2,14 +2,14 @@ import carbon.client as carbon_client
 from carbon.routers import DatapointRouter
 from carbon.tests.util import TestSettings
 from carbon import instrumentation
-import carbon.service
+import carbon.service  # NOQA
 
 from carbon.carbon_pb2 import Payload
 from carbon.protobuf import CarbonProtobufClientFactory
 
 from twisted.internet import reactor
-from twisted.internet.defer import Deferred
-from twisted.internet.base import DelayedCall
+# from twisted.internet.defer import Deferred
+# from twisted.internet.base import DelayedCall
 from twisted.internet.task import deferLater
 from twisted.trial.unittest import TestCase
 from twisted.test.proto_helpers import StringTransport

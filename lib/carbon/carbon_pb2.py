@@ -2,29 +2,28 @@
 # source: carbon.proto
 
 import sys
-_b=sys.version_info[0]<3 and (lambda x:x) or (lambda x:x.encode('latin1'))
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import message as _message
 from google.protobuf import reflection as _reflection
 from google.protobuf import symbol_database as _symbol_database
-from google.protobuf import descriptor_pb2
 # @@protoc_insertion_point(imports)
+
 
 _sym_db = _symbol_database.Default()
 
-
-
+_b = sys.version_info[0] < 3 and (lambda x: x) or (lambda x: x.encode('latin1'))
 
 DESCRIPTOR = _descriptor.FileDescriptor(
   name='carbon.proto',
   package='carbon',
   syntax='proto3',
-  serialized_pb=_b('\n\x0c\x63\x61rbon.proto\x12\x06\x63\x61rbon\")\n\x05Point\x12\x11\n\ttimestamp\x18\x01 \x01(\r\x12\r\n\x05value\x18\x02 \x01(\x01\"7\n\x06Metric\x12\x0e\n\x06metric\x18\x01 \x01(\t\x12\x1d\n\x06points\x18\x02 \x03(\x0b\x32\r.carbon.Point\"*\n\x07Payload\x12\x1f\n\x07metrics\x18\x01 \x03(\x0b\x32\x0e.carbon.Metricb\x06proto3')
+  serialized_pb=_b('\n\x0c\x63\x61rbon.proto\x12\x06\x63\x61rbon\")\n\x05Point\x12\x11\n\ttimestamp'
+                   '\x18\x01 \x01(\r\x12\r\n\x05value\x18\x02 \x01(\x01\"7\n\x06Metric\x12\x0e\n'
+                   '\x06metric\x18\x01 \x01(\t\x12\x1d\n\x06points\x18\x02 \x03(\x0b\x32\r.carbon.'
+                   'Point\"*\n\x07Payload\x12\x1f\n\x07metrics\x18\x01 \x03(\x0b\x32\x0e.carbon.'
+                   'Metricb\x06proto3')
 )
 _sym_db.RegisterFileDescriptor(DESCRIPTOR)
-
-
-
 
 _POINT = _descriptor.Descriptor(
   name='Point',
@@ -139,25 +138,24 @@ DESCRIPTOR.message_types_by_name['Metric'] = _METRIC
 DESCRIPTOR.message_types_by_name['Payload'] = _PAYLOAD
 
 Point = _reflection.GeneratedProtocolMessageType('Point', (_message.Message,), dict(
-  DESCRIPTOR = _POINT,
-  __module__ = 'carbon_pb2'
+  DESCRIPTOR=_POINT,
+  __module__='carbon_pb2'
   # @@protoc_insertion_point(class_scope:carbon.Point)
-  ))
+))
 _sym_db.RegisterMessage(Point)
 
 Metric = _reflection.GeneratedProtocolMessageType('Metric', (_message.Message,), dict(
-  DESCRIPTOR = _METRIC,
-  __module__ = 'carbon_pb2'
+  DESCRIPTOR=_METRIC,
+  __module__='carbon_pb2'
   # @@protoc_insertion_point(class_scope:carbon.Metric)
-  ))
+))
 _sym_db.RegisterMessage(Metric)
 
 Payload = _reflection.GeneratedProtocolMessageType('Payload', (_message.Message,), dict(
-  DESCRIPTOR = _PAYLOAD,
-  __module__ = 'carbon_pb2'
+  DESCRIPTOR=_PAYLOAD,
+  __module__='carbon_pb2'
   # @@protoc_insertion_point(class_scope:carbon.Payload)
-  ))
+))
 _sym_db.RegisterMessage(Payload)
-
 
 # @@protoc_insertion_point(module_scope)

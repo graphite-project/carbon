@@ -1,8 +1,6 @@
 # -*- coding: utf-8 -*-
-from sys import version_info
 from carbon.protocols import MetricReceiver, MetricLineReceiver, \
     MetricDatagramReceiver, MetricPickleReceiver
-from carbon.regexlist import WhiteList, BlackList
 from carbon import events
 from unittest import TestCase
 from mock import Mock, patch, call
@@ -16,17 +14,20 @@ import time
 
 class TestMetricReceiversHandler(TestCase):
   def test_build(self):
+    expected_plugins = sorted(['line', 'udp', 'pickle', 'protobuf'])
+
     # amqp not supported with py3
-    if version_info >= (3, 0):
-      expected_plugins = sorted(['line', 'udp', 'pickle', 'protobuf'])
-    else:
-      expected_plugins = sorted(['line', 'udp', 'pickle', 'amqp', 'protobuf'])
+    try:
+      import carbon.amqp_listener
+      expected_plugins.append('amqp')
+    except ImportError:
+      pass
 
     # Can't always test manhole because 'cryptography' can
     # be a pain to install and we don't want to make the CI
     # flaky because of that.
     try:
-      import carbon.manhole
+      import carbon.manhole  # NOQA
       expected_plugins.append('manhole')
     except ImportError:
       pass

@@ -3,7 +3,7 @@ import socket
 import sys
 
 from twisted.internet.protocol import ServerFactory, DatagramProtocol
-from twisted.application.internet import TCPServer, UDPServer
+# from twisted.application.internet import TCPServer, UDPServer
 from twisted.application import service
 from twisted.internet.error import ConnectionDone
 from twisted.internet import reactor, tcp, udp
@@ -124,10 +124,12 @@ class MetricReceiver(CarbonServerProtocol, TimeoutMixin):
   def connectionLost(self, reason):
     if reason.check(ConnectionDone):
       if settings.LOG_LISTENER_CONN_SUCCESS:
-        log.listener("%s connection with %s closed cleanly" % (self.__class__.__name__, self.peerName))
+        log.listener(
+          "%s connection with %s closed cleanly" % (self.__class__.__name__, self.peerName))
 
     else:
-      log.listener("%s connection with %s lost: %s" % (self.__class__.__name__, self.peerName, reason.value))
+      log.listener(
+        "%s connection with %s lost: %s" % (self.__class__.__name__, self.peerName, reason.value))
 
     state.connectedMetricReceiverProtocols.remove(self)
     if settings.USE_FLOW_CONTROL:
@@ -143,7 +145,8 @@ class MetricReceiver(CarbonServerProtocol, TimeoutMixin):
       return
     if datapoint[1] != datapoint[1]:  # filter out NaN values
       return
-    if int(datapoint[0]) == -1:  # use current time if none given: https://github.com/graphite-project/carbon/issues/54
+    # use current time if none given: https://github.com/graphite-project/carbon/issues/54
+    if int(datapoint[0]) == -1:
       datapoint = (time.time(), datapoint[1])
     res = settings.MIN_TIMESTAMP_RESOLUTION
     if res:
@@ -237,7 +240,7 @@ class MetricPickleReceiver(MetricReceiver, Int32StringReceiver):
 
 
 class CacheManagementHandler(Int32StringReceiver):
-  MAX_LENGTH = 1024 ** 3 # 1mb
+  MAX_LENGTH = 1024 ** 3  # 1mb
 
   def connectionMade(self):
     peer = self.transport.getPeer()
@@ -259,7 +262,9 @@ class CacheManagementHandler(Int32StringReceiver):
       datapoints = list(cache.get(metric, {}).items())
       result = dict(datapoints=datapoints)
       if settings.LOG_CACHE_HITS:
-        log.query('[%s] cache query for \"%s\" returned %d values' % (self.peerAddr, metric, len(datapoints)))
+        log.query('[%s] cache query for \"%s\" returned %d values' % (
+          self.peerAddr, metric, len(datapoints)
+        ))
       instrumentation.increment('cacheQueries')
 
     elif request['type'] == 'cache-query-bulk':
@@ -271,8 +276,11 @@ class CacheManagementHandler(Int32StringReceiver):
       result = dict(datapointsByMetric=datapointsByMetric)
 
       if settings.LOG_CACHE_HITS:
-        log.query('[%s] cache query bulk for \"%d\" metrics returned %d values' %
-            (self.peerAddr, len(metrics), sum([len(datapoints) for datapoints in datapointsByMetric.values()])))
+        log.query('[%s] cache query bulk for \"%d\" metrics returned %d values' % (
+          self.peerAddr,
+          len(metrics),
+          sum([len(datapoints) for datapoints in datapointsByMetric.values()])
+        ))
       instrumentation.increment('cacheBulkQueries')
       instrumentation.append('cacheBulkQuerySize', len(metrics))
 
@@ -290,5 +298,5 @@ class CacheManagementHandler(Int32StringReceiver):
 
 
 # Avoid import circularities
-from carbon.cache import MetricCache
-from carbon import instrumentation
+from carbon.cache import MetricCache  # NOQA
+from carbon import instrumentation  # NOQA

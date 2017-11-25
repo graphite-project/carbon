@@ -1,9 +1,12 @@
 import carbon.client as carbon_client
-from carbon.client import CarbonPickleClientFactory, CarbonPickleClientProtocol, CarbonLineClientProtocol, CarbonClientManager
+from carbon.client import (
+  CarbonPickleClientFactory, CarbonPickleClientProtocol, CarbonLineClientProtocol,
+  CarbonClientManager
+)
 from carbon.routers import DatapointRouter
 from carbon.tests.util import TestSettings
 from carbon import instrumentation
-import carbon.service
+import carbon.service  # NOQA
 
 from twisted.internet import reactor
 from twisted.internet.defer import Deferred
@@ -117,6 +120,7 @@ class CarbonClientFactoryTest(TestCase):
 @patch('carbon.state.instrumentation', Mock(spec=instrumentation))
 class CarbonClientManagerTest(TestCase):
   timeout = 1.0
+
   def setUp(self):
     self.router_mock = Mock(spec=DatapointRouter)
     self.factory_mock = Mock(spec=CarbonPickleClientFactory)

@@ -22,7 +22,7 @@ class RewriteProcessor(Processor):
     yield (metric, datapoint)
 
 
-class RewriteRuleManager:
+class _RewriteRuleManager:
   def __init__(self):
     self.rulesets = defaultdict(list)
     self.rules_file = None
@@ -94,4 +94,4 @@ class RewriteRule:
 
 
 # Ghetto singleton
-RewriteRuleManager = RewriteRuleManager()
+RewriteRuleManager = _RewriteRuleManager()

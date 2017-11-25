@@ -1,7 +1,10 @@
 import time
 from unittest import TestCase
 from mock import Mock, PropertyMock, patch
-from carbon.cache import MetricCache, _MetricCache, DrainStrategy, MaxStrategy, RandomStrategy, SortedStrategy, TimeSortedStrategy
+from carbon.cache import (
+  MetricCache, _MetricCache, DrainStrategy, MaxStrategy, RandomStrategy, SortedStrategy,
+  TimeSortedStrategy
+)
 
 
 class MetricCacheTest(TestCase):

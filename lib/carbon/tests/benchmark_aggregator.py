@@ -1,7 +1,7 @@
 import timeit
 import time
 
-from carbon.aggregator.processor import AggregationProcessor, RuleManager, settings
+from carbon.aggregator.processor import AggregationProcessor, RuleManager
 from carbon.aggregator.buffers import BufferManager
 from carbon.tests.util import print_stats
 from carbon.conf import settings
@@ -42,7 +42,6 @@ def _bench_aggregator(name):
 
     buf = None
     for n in [1, 1000, 10000, 100000, 1000000, 10000000]:
-        count = 0
         processor = AggregationProcessor()
         processor.process(METRIC, (now, 1))
 
@@ -64,6 +63,7 @@ def _bench_aggregator(name):
 
 def main():
     settings.LOG_AGGREGATOR_MISSES = False
+
     class _Fake(object):
         def metricGenerated(self, metric, datapoint):
             pass

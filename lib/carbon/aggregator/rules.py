@@ -1,4 +1,3 @@
-import time
 import re
 
 from os.path import exists, getmtime
@@ -71,7 +70,7 @@ class RuleManager(object):
       left_side, right_side = line.split('=', 1)
       output_pattern, frequency = left_side.split()
       method, input_pattern = right_side.split()
-      frequency = int( frequency.lstrip('(').rstrip(')') )
+      frequency = int(frequency.lstrip('(').rstrip(')'))
       return AggregationRule(input_pattern, output_pattern, method, frequency)
 
     except ValueError:
@@ -125,8 +124,8 @@ class AggregationRule(object):
         i = input_part.find('<<')
         j = input_part.find('>>')
         pre = input_part[:i]
-        post = input_part[j+2:]
-        field_name = input_part[i+2:j]
+        post = input_part[j + 2:]
+        field_name = input_part[i + 2:j]
         regex_part = '%s(?P<%s>.+)%s' % (pre, field_name, post)
 
       else:
@@ -134,8 +133,8 @@ class AggregationRule(object):
         j = input_part.find('>')
         if i > -1 and j > i:
           pre = input_part[:i]
-          post = input_part[j+1:]
-          field_name = input_part[i+1:j]
+          post = input_part[j + 1:]
+          field_name = input_part[i + 1:j]
           regex_part = '%s(?P<%s>[^.]+)%s' % (pre, field_name, post)
         elif input_part == '*':
           regex_part = '[^.]+'
@@ -153,18 +152,19 @@ class AggregationRule(object):
 
 def avg(values):
   if values:
-    return float( sum(values) ) / len(values)
+    return float(sum(values)) / len(values)
+
 
 def count(values):
   if values:
     return len(values)
 
 AGGREGATION_METHODS = {
-  'sum'   : sum,
-  'avg'   : avg,
-  'min'   : min,
-  'max'   : max,
-  'count' : count
+  'sum': sum,
+  'avg': avg,
+  'min': min,
+  'max': max,
+  'count': count
 }
 
 # Importable singleton

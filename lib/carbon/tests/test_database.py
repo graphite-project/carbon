@@ -24,7 +24,8 @@ class WhisperDatabaseTest(TestCase):
 
     def test_getTaggedFilesystemPath(self):
         result = self.database.getFilesystemPath('stats.example.counts;tag1=value1')
-        self.assertEquals(result, '/tmp/_tagged/872/252/stats-example-counts;tag1=value1.wsp')  # nosec
+        self.assertEquals(
+            result, '/tmp/_tagged/872/252/stats-example-counts;tag1=value1.wsp')  # nosec
 
 
 class CeresDatabaseTest(TestCase):

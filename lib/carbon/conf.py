@@ -238,12 +238,14 @@ class CarbonCacheOptions(usage.Options):
         settings["program"] = program
 
         # Normalize and expand paths
-        settings["STORAGE_DIR"] = os.path.normpath(os.path.expanduser(settings["STORAGE_DIR"]))
-        settings["LOCAL_DATA_DIR"] = os.path.normpath(os.path.expanduser(settings["LOCAL_DATA_DIR"]))
-        settings["WHITELISTS_DIR"] = os.path.normpath(os.path.expanduser(settings["WHITELISTS_DIR"]))
-        settings["PID_DIR"] = os.path.normpath(os.path.expanduser(settings["PID_DIR"]))
-        settings["LOG_DIR"] = os.path.normpath(os.path.expanduser(settings["LOG_DIR"]))
-        settings["pidfile"] = os.path.normpath(os.path.expanduser(settings["pidfile"]))
+        def cleanpath(path):
+          return os.path.normpath(os.path.expanduser(path))
+        settings["STORAGE_DIR"] = cleanpath(settings["STORAGE_DIR"])
+        settings["LOCAL_DATA_DIR"] = cleanpath(settings["LOCAL_DATA_DIR"])
+        settings["WHITELISTS_DIR"] = cleanpath(settings["WHITELISTS_DIR"])
+        settings["PID_DIR"] = cleanpath(settings["PID_DIR"])
+        settings["LOG_DIR"] = cleanpath(settings["LOG_DIR"])
+        settings["pidfile"] = cleanpath(settings["pidfile"])
 
         # Set process uid/gid by changing the parent config, if a user was
         # provided in the configuration file.
@@ -277,7 +279,7 @@ class CarbonCacheOptions(usage.Options):
 
         settings.CACHE_SIZE_LOW_WATERMARK = settings.MAX_CACHE_SIZE * 0.95
 
-        if not "action" in self:
+        if "action" not in self:
             self["action"] = "start"
         self.handleAction()
 
@@ -368,7 +370,7 @@ class CarbonCacheOptions(usage.Options):
 
             if _process_alive(pid):
                 print("%s (instance %s) is running with pid %d" %
-                       (program, instance, pid))
+                      (program, instance, pid))
                 raise SystemExit(0)
             else:
                 print("%s (instance %s) is not running" % (program, instance))
@@ -388,7 +390,7 @@ class CarbonCacheOptions(usage.Options):
                     raise SystemExit(1)
                 if _process_alive(pid):
                     print("%s (instance %s) is already running with pid %d" %
-                           (program, instance, pid))
+                          (program, instance, pid))
                     raise SystemExit(1)
                 else:
                     print("Removing stale pidfile %s" % pidfile)
@@ -401,13 +403,11 @@ class CarbonCacheOptions(usage.Options):
                 if not os.path.exists(settings["PID_DIR"]):
                     try:
                         os.makedirs(settings["PID_DIR"])
-                    except OSError as exc: # Python >2.5
+                    except OSError as exc:  # Python >2.5
                         if exc.errno == errno.EEXIST and os.path.isdir(settings["PID_DIR"]):
                            pass
                         else:
                            raise
-
-
 
             print("Starting %s (instance %s)" % (program, instance))
 
@@ -422,7 +422,7 @@ class CarbonAggregatorOptions(CarbonCacheOptions):
     optParameters = [
         ["rules", "", None, "Use the given aggregation rules file."],
         ["rewrite-rules", "", None, "Use the given rewrite rules file."],
-        ] + CarbonCacheOptions.optParameters
+    ] + CarbonCacheOptions.optParameters
 
     def postOptions(self):
         CarbonCacheOptions.postOptions(self)
@@ -441,7 +441,7 @@ class CarbonRelayOptions(CarbonCacheOptions):
     optParameters = [
         ["rules", "", None, "Use the given relay rules file."],
         ["aggregation-rules", "", None, "Use the given aggregation rules file."],
-        ] + CarbonCacheOptions.optParameters
+    ] + CarbonCacheOptions.optParameters
 
     def postOptions(self):
         CarbonCacheOptions.postOptions(self)
@@ -562,7 +562,7 @@ def read_config(program, options, **kwargs):
         graphite_root = os.environ.get('GRAPHITE_ROOT')
     if graphite_root is None:
         raise CarbonConfigException("Either ROOT_DIR or GRAPHITE_ROOT "
-                         "needs to be provided.")
+                                    "needs to be provided.")
 
     # Default config directory to root-relative, unless overriden by the
     # 'GRAPHITE_CONF_DIR' environment variable.
@@ -594,8 +594,6 @@ def read_config(program, options, **kwargs):
         settings.setdefault(
             "WHITELISTS_DIR", join(settings["STORAGE_DIR"], "lists"))
 
-
-
     # Read configuration options from program-specific section.
     section = program[len("carbon-"):]
     config = options["config"]
@@ -615,15 +613,13 @@ def read_config(program, options, **kwargs):
                           "%s:%s" % (section, options["instance"]))
         settings["pidfile"] = (
             options["pidfile"] or
-            join(settings["PID_DIR"], "%s-%s.pid" %
-                 (program, options["instance"])))
-        settings["LOG_DIR"] = (options["logdir"] or
-                              join(settings["LOG_DIR"],
-                                "%s-%s" % (program, options["instance"])))
+            join(settings["PID_DIR"], "%s-%s.pid" % (program, options["instance"])))
+        settings["LOG_DIR"] = (
+            options["logdir"] or
+            join(settings["LOG_DIR"], "%s-%s" % (program, options["instance"])))
     else:
         settings["pidfile"] = (
-            options["pidfile"] or
-            join(settings["PID_DIR"], '%s.pid' % program))
+            options["pidfile"] or join(settings["PID_DIR"], '%s.pid' % program))
         settings["LOG_DIR"] = (options["logdir"] or settings["LOG_DIR"])
 
     update_STORAGE_DIR_deps()

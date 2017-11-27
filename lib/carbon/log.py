@@ -61,6 +61,36 @@ class CarbonLogFile(DailyLogFile):
 @implementer(ILogObserver)
 class CarbonLogObserver(object):
 
+  def __init__(self):
+    self._raven_client = None
+
+  def raven_client(self):
+    if self._raven_client is not None:
+      return self._raven_client
+
+    # Import here to avoid dependency hell.
+    try:
+      import raven
+    except ImportError:
+      return None
+    from carbon.conf import settings
+
+    if settings.RAVEN_DSN is None:
+      return None
+    self._raven_client = raven.Client(dsn=settings.RAVEN_DSN)
+    return self._raven_client
+
+  def log_to_raven(self, event):
+    if not event.get('isError') or 'failure' not in event:
+      return
+    client = self.raven_client()
+    if client is None:
+      return
+    f = event['failure']
+    client.captureException(
+      (f.type, f.value, f.getTracebackObject())
+    )
+
   def log_to_dir(self, logdir):
     self.logdir = logdir
     self.console_logfile = CarbonLogFile('console.log', logdir)
@@ -76,6 +106,7 @@ class CarbonLogObserver(object):
     self.observer = syslog_observer
 
   def __call__(self, event):
+    self.log_to_raven(event)
     return self.observer(event)
 
   @staticmethod

@@ -5,6 +5,7 @@ from twisted.application.service import IServiceMaker
 
 from carbon import conf
 
+
 @implementer(IServiceMaker, IPlugin)
 class CarbonAggregatorServiceMaker(object):
 

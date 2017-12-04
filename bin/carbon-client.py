@@ -14,7 +14,6 @@ See the License for the specific language governing permissions and
 limitations under the License."""
 
 import sys
-import imp
 from os.path import dirname, join, abspath, exists
 from optparse import OptionParser
 
@@ -35,22 +34,24 @@ try:
 except ImportError:
   pass
 
-from twisted.internet import stdio, reactor, defer
-from twisted.protocols.basic import LineReceiver
-from carbon.routers import ConsistentHashingRouter, RelayRulesRouter
-from carbon.client import CarbonClientManager
-from carbon import log, events
+from twisted.internet import stdio, reactor, defer  # noqa
+from twisted.protocols.basic import LineReceiver  # noqa
+from carbon.routers import ConsistentHashingRouter, RelayRulesRouter  # noqa
+from carbon.client import CarbonClientManager  # noqa
+from carbon import log, events  # noqa
 
 
 option_parser = OptionParser(usage="%prog [options] <host:port:instance> <host:port:instance> ...")
 option_parser.add_option('--debug', action='store_true', help="Log debug info to stdout")
 option_parser.add_option('--keyfunc', help="Use a custom key function (path/to/module.py:myFunc)")
 option_parser.add_option('--replication', type='int', default=1, help='Replication factor')
-option_parser.add_option('--routing', default='consistent-hashing',
+option_parser.add_option(
+  '--routing', default='consistent-hashing',
   help='Routing method: "consistent-hashing" (default) or "relay"')
-option_parser.add_option('--diverse-replicas', action='store_true', help="Spread replicas across diff. servers")
-option_parser.add_option('--relayrules', default=default_relayrules,
-  help='relay-rules.conf file to use for relay routing')
+option_parser.add_option(
+  '--diverse-replicas', action='store_true', help="Spread replicas across diff. servers")
+option_parser.add_option(
+  '--relayrules', default=default_relayrules, help='relay-rules.conf file to use for relay routing')
 
 options, args = option_parser.parse_args()
 
@@ -74,7 +75,7 @@ for arg in args:
     instance = parts[2]
   else:
     instance = None
-  destinations.append( (host, port, instance) )
+  destinations.append((host, port, instance))
 
 if options.debug:
   log.logToStdout()
@@ -104,26 +105,31 @@ class StdinMetricsReader(LineReceiver):
   delimiter = '\n'
 
   def lineReceived(self, line):
-    #log.msg("[DEBUG] lineReceived(): %s" % line)
+    # log.msg("[DEBUG] lineReceived(): %s" % line)
     try:
       (metric, value, timestamp) = line.split()
       datapoint = (float(timestamp), float(value))
-      assert datapoint[1] == datapoint[1] # filter out NaNs
+      assert datapoint[1] == datapoint[1]  # filter out NaNs
       client_manager.sendDatapoint(metric, datapoint)
     except ValueError:
       log.err(None, 'Dropping invalid line: %s' % line)
 
   def connectionLost(self, reason):
     log.msg('stdin disconnected')
+
     def startShutdown(results):
       log.msg("startShutdown(%s)" % str(results))
       allStopped = client_manager.stopAllClients()
       allStopped.addCallback(shutdown)
+
     firstConnectsAttempted.addCallback(startShutdown)
 
-stdio.StandardIO( StdinMetricsReader() )
+
+stdio.StandardIO(StdinMetricsReader())
 
 exitCode = 0
+
+
 def shutdown(results):
   global exitCode
   for success, result in results:

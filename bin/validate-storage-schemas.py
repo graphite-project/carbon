@@ -15,7 +15,7 @@ limitations under the License."""
 
 import sys
 import whisper
-from os.path import dirname, exists, join, realpath
+from os.path import dirname, join, realpath
 
 try:
   from ConfigParser import ConfigParser
@@ -46,8 +46,10 @@ for section in config_parser.sections():
     try:
       archives.append(whisper.parseRetentionDef(retention))
     except ValueError as e:
-      print("  - Error: Section '%s' contains an invalid item in its retention definition ('%s')" % \
-        (section, retention))
+      print(
+        "  - Error: Section '%s' contains an invalid item in its retention definition ('%s')" %
+        (section, retention)
+      )
       print("    %s" % e)
       section_failed = True
 
@@ -55,8 +57,10 @@ for section in config_parser.sections():
     try:
       whisper.validateArchiveList(archives)
     except whisper.InvalidConfiguration as e:
-      print("  - Error: Section '%s' contains an invalid retention definition ('%s')" % \
-        (section, ','.join(retentions)))
+      print(
+        "  - Error: Section '%s' contains an invalid retention definition ('%s')" %
+        (section, ','.join(retentions))
+      )
       print("    %s" % e)
 
   if section_failed:
@@ -65,6 +69,6 @@ for section in config_parser.sections():
     print("  OK")
 
 if errors_found:
-  raise SystemExit( "Storage-schemas configuration '%s' failed validation" % SCHEMAS_FILE)
+  raise SystemExit("Storage-schemas configuration '%s' failed validation" % SCHEMAS_FILE)
 
 print("Storage-schemas configuration '%s' is valid" % SCHEMAS_FILE)

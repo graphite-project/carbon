@@ -59,21 +59,23 @@ class TimeSeriesDatabase(with_metaclass(PluginRegistrar, object)):
     "Validate that the database can handle the given archiveList."
     pass
 
-  def tag(self, metric):
+  def tag(self, *metrics):
     from carbon.http import httpRequest
 
-    log.debug("Tagging %s" % metric)
+    log.debug("Tagging %s" % ', '.join(metrics), type='tagdb')
     t = time.time()
 
     def successHandler(result, *args, **kw):
-      log.debug("Tagged %s: %s in %s" % (metric, result, time.time() - t))
+      log.debug("Tagged %s in %s" % (', '.join(metrics), time.time() - t), type='tagdb')
+      return True
 
     def errorHandler(err):
-      log.msg("Error tagging %s: %s" % (metric, err.getErrorMessage()))
+      log.msg("Error tagging %s: %s" % (', '.join(metrics), err.getErrorMessage()), type='tagdb')
+      return err
 
-    httpRequest(
-      self.graphite_url + '/tags/tagSeries',
-      {'path': metric}
+    return httpRequest(
+      self.graphite_url + '/tags/tagMultiSeries',
+      [('path', metric) for metric in metrics]
     ).addCallback(successHandler).addErrback(errorHandler)
 
 

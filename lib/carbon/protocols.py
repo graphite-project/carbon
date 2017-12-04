@@ -229,7 +229,7 @@ class MetricPickleReceiver(MetricReceiver, Int32StringReceiver):
 
       try:
         datapoint = (float(value), float(timestamp))  # force proper types
-      except ValueError:
+      except (ValueError, TypeError):
         continue
 
       # convert python2 unicode objects to str/bytes

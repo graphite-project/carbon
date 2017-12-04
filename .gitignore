@@ -5,3 +5,11 @@ dist
 *.pyc
 .idea
 *.iml
+.venv
+.coverage
+coverage.xml
+.tox
+conf/*.conf
+storage
+_trial_temp
+htmlcov

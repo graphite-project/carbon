@@ -110,6 +110,7 @@ def writeCachedDataPoints():
         # XXX This behavior should probably be configurable to no tdrop metrics
         # when rate limitng unless our cache is too big or some other legit
         # reason.
+        instrumentation.increment('droppedCreates')
         continue
 
       archiveConfig = None

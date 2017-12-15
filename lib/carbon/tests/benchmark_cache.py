@@ -76,7 +76,7 @@ if __name__ == '__main__':
         print("CACHE_WRITE_STRATEGY: %s" % name)
         for n in [1000, 10000, 100000, 1000000]:
             # remove me when strategy is fast
-            if (name == 'max' and n > 10000) or (name == 'random' and n > 100000):
+            if (name == 'max' and n > 10000) or (name == 'random' and n > 10000):
                 print("    datapoints: %-10d [skipped]" % n)
                 continue
             count = 0

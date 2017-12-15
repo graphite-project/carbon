@@ -13,7 +13,7 @@ See the License for the specific language governing permissions and
 limitations under the License."""
 
 import time
-import Queue
+from six.moves import queue
 
 from carbon import state
 from carbon.cache import MetricCache
@@ -53,15 +53,15 @@ if settings.MAX_UPDATES_PER_SECOND != float('inf'):
 
 class TagQueue(object):
   def __init__(self, maxsize=0, update_interval=1):
-    self.add_queue = Queue.Queue(maxsize)
-    self.update_queue = Queue.Queue(maxsize)
+    self.add_queue = queue.Queue(maxsize)
+    self.update_queue = queue.Queue(maxsize)
     self.update_interval = update_interval
     self.update_counter = 0
 
   def add(self, metric):
     try:
       self.add_queue.put_nowait(metric)
-    except Queue.Full:
+    except queue.Full:
       pass
 
   def update(self, metric):
@@ -69,7 +69,7 @@ class TagQueue(object):
     if self.update_counter == 1:
       try:
         self.update_queue.put_nowait(metric)
-      except Queue.Full:
+      except queue.Full:
         pass
 
   def getbatch(self, maxsize=1):
@@ -77,12 +77,12 @@ class TagQueue(object):
     while len(batch) < maxsize:
       try:
         batch.append(self.add_queue.get_nowait())
-      except Queue.Empty:
+      except queue.Empty:
         break
     while len(batch) < maxsize:
       try:
         batch.append(self.update_queue.get_nowait())
-      except Queue.Empty:
+      except queue.Empty:
         break
     return batch
 

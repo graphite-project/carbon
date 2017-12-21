@@ -161,8 +161,16 @@ class ConsistentHashRingTestFNV1A(unittest.TestCase):
         hashring = ConsistentHashRing(hosts, hash_type='fnv1a_ch')
         self.assertEqual(hashring.compute_ring_position('hosts.worker1.cpu'),
                          59573)
+        self.assertEqual(hashring.compute_ring_position('hosts.worker1.load'),
+                         57163)
         self.assertEqual(hashring.compute_ring_position('hosts.worker2.cpu'),
                          35749)
+        self.assertEqual(hashring.compute_ring_position('hosts.worker2.network'),
+                         43584)
+        self.assertEqual(hashring.compute_ring_position('hosts.worker3.cpu'),
+                         12600)
+        self.assertEqual(hashring.compute_ring_position('hosts.worker3.irq'),
+                         10052)
 
     def test_chr_get_node_fnv1a(self):
         hosts = [("127.0.0.1", "ba603c36342304ed77953f84ac4d357b"),

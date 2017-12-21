@@ -38,13 +38,10 @@ class ConsistentHashRing:
   def compute_ring_position(self, key):
     if self.hash_type == 'fnv1a_ch':
       if sys.version_info >= (3, 0):
-        big_hash = '{:x}'.format(int(fnv32a(key)))
+        big_hash = int(fnv32a(key))
       else:
-        big_hash = '{:x}'.format(int(fnv32a(str(key))))
-      if len(big_hash) > 4:
-          small_hash = int(big_hash[:4], 16) ^ int(big_hash[4:], 16)
-      else:
-          small_hash = int(big_hash, 16)
+        big_hash = int(fnv32a(str(key)))
+      small_hash = (big_hash >> 16) ^ (big_hash & 0xffff)
     else:
       if sys.version_info >= (3, 0):
         big_hash = md5(key.encode('utf-8')).hexdigest()

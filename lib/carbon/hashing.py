@@ -31,9 +31,7 @@ except ImportError:
 
 
 def compactHash(string):
-  hash = md5()
-  hash.update(string.encode('utf-8'))
-  return hash.hexdigest()
+  return md5(string.encode('utf-8')).hexdigest()
 
 
 class ConsistentHashRing:
@@ -52,7 +50,7 @@ class ConsistentHashRing:
       big_hash = int(fnv32a(key.encode('utf-8')))
       small_hash = (big_hash >> 16) ^ (big_hash & 0xffff)
     else:
-      big_hash = compactHash(str(key))
+      big_hash = compactHash(key)
       small_hash = int(big_hash[:4], 16)
     return small_hash
 

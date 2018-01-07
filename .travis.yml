@@ -19,11 +19,18 @@ matrix:
         - TOXENV=py36
     - python: 3.6
       env:
+        - TOXENV=py36-pyhash
+    - python: 3.6
+      env:
         - TOXENV=lint
 
 env:
   - TOXENV=py27
+  - TOXENV=py27-pyhash
   - TOXENV=lint
+
+before_install:
+  - bash -c "if [[ '$TOXENV' == *pyhash* ]]; then sudo apt-get -qq update; sudo apt-get install -y libboost-python-dev; fi"
 
 install:
   - pip install tox

@@ -96,7 +96,7 @@ class MetricReceiver(CarbonServerProtocol, TimeoutMixin):
 
   def connectionMade(self):
     self.setTimeout(settings.METRIC_CLIENT_IDLE_TIMEOUT)
-    enableTcpKeepAlive(self.transport)
+    enableTcpKeepAlive(self.transport, settings.TCP_KEEPALIVE, settings)
     self.peerName = self.getPeerName()
 
     if settings.LOG_LISTENER_CONN_SUCCESS:

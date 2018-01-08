@@ -43,10 +43,8 @@ def dropprivs(user):
   return (uid, gid)
 
 
-def enableTcpKeepAlive(transport):
-  from carbon.conf import settings
-
-  if not settings.TCP_KEEPALIVE or not hasattr(transport, 'getHandle'):
+def enableTcpKeepAlive(transport, enable, settings):
+  if not enable or not hasattr(transport, 'getHandle'):
     return
 
   fd = transport.getHandle()

@@ -37,7 +37,7 @@ class CarbonClientProtocol(object):
     self.batchesSent = 'destinations.%s.batchesSent' % self.destinationName
 
     self.slowConnectionReset = 'destinations.%s.slowConnectionReset' % self.destinationName
-    enableTcpKeepAlive(self.transport)
+    enableTcpKeepAlive(self.transport, settings.TCP_KEEPALIVE, settings)
 
     d = self.factory.connectionMade
     # Setup a new deferred before calling the callback to allow callbacks

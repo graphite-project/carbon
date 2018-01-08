@@ -18,7 +18,7 @@ class UtilTest(TestCase):
             def setTcpKeepAlive(self, value):
                 s.setsockopt(socket.SOL_TCP, socket.SO_KEEPALIVE, value)
 
-        enableTcpKeepAlive(_Transport())
+        enableTcpKeepAlive(_Transport(), True, None)
         self.assertEquals(s.getsockopt(socket.SOL_TCP, socket.SO_KEEPALIVE), 1)
 
 

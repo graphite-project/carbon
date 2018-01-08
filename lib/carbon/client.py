@@ -413,7 +413,7 @@ class CarbonLineClientProtocol(CarbonClientProtocol, LineOnlyReceiver):
 
   def _sendDatapointsNow(self, datapoints):
     for metric, datapoint in datapoints:
-        self.sendLine("%s %s %d" % (metric, datapoint[1], datapoint[0]))
+        self.sendLine("%s %f %d" % (metric, datapoint[1], datapoint[0]))
 
 
 class CarbonLineClientFactory(CarbonClientFactory):

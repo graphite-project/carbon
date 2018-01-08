@@ -4,7 +4,10 @@ from __future__ import with_statement
 
 import os
 from glob import glob
-from six.moves import configparser
+try:
+    from ConfigParser import ConfigParser, DuplicateSectionError  # Python 2
+except ImportError:
+    from configparser import ConfigParser, DuplicateSectionError  # Python 3
 
 
 # Graphite historically has an install prefix set in setup.cfg. Being in a
@@ -16,7 +19,7 @@ from six.moves import configparser
 # required for installations from a source tarball because running
 # ``python setup.py sdist`` will re-add the prefix to the tarball's
 # ``setup.cfg``.
-cf = configparser.ConfigParser()
+cf = ConfigParser()
 
 with open('setup.cfg', 'r') as f:
     orig_setup_cfg = f.read()
@@ -36,7 +39,7 @@ else:
     print('#' * 80)
     try:
         cf.add_section('install')
-    except configparser.DuplicateSectionError:
+    except DuplicateSectionError:
         pass
     if not cf.has_option('install', 'prefix'):
         cf.set('install', 'prefix', '/opt/graphite')

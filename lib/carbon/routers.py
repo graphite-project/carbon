@@ -1,5 +1,5 @@
 import imp
-from carbon.hashing import ConsistentHashRing
+from carbon.hashing import ConsistentHashRing, carbonHash
 from carbon.util import PluginRegistrar
 from six import with_metaclass
 from six.moves import xrange
@@ -77,7 +77,8 @@ class ConsistentHashingRouter(DatapointRouter):
     self.replication_factor = int(replication_factor)
     self.diverse_replicas = diverse_replicas
     self.instance_ports = {}  # { (server, instance) : port }
-    self.ring = ConsistentHashRing([])
+    hash_type = settings.ROUTER_HASH_TYPE or 'carbon_ch'
+    self.ring = ConsistentHashRing([], hash_type=hash_type)
 
   def addDestination(self, destination):
     (server, port, instance) = destination
@@ -184,60 +185,59 @@ class AggregatedConsistentHashingRouter(DatapointRouter):
     for destination in destinations:
       yield destination
 
-try:
-  import mmh3
-except ImportError:
-  pass
-else:
-  class FastHashRing(object):
-    """A very fast hash 'ring'.
 
-    Instead of trying to avoid rebalancing data when changing
-    the list of nodes we try to making routing as fast as we
-    can. It's good enough because the current rebalancing
-    tools performances depend on the total number of metrics
-    and not the number of metrics to rebalance.
-    """
+class FastHashRing(object):
+  """A very fast hash 'ring'.
 
-    def __init__(self):
-      self.nodes = set()
-      self.sorted_nodes = []
+  Instead of trying to avoid rebalancing data when changing
+  the list of nodes we try to making routing as fast as we
+  can. It's good enough because the current rebalancing
+  tools performances depend on the total number of metrics
+  and not the number of metrics to rebalance.
+  """
 
-    def _hash(self, key):
-      return mmh3.hash(key)
+  def __init__(self, settings):
+    self.nodes = set()
+    self.sorted_nodes = []
+    self.hash_type = settings.ROUTER_HASH_TYPE or 'mmh3_ch'
 
-    def _update_nodes(self):
-      self.sorted_nodes = sorted(
-        [(self._hash(str(n)), n) for n in self.nodes],
-        key=lambda v: v[0]
-      )
+  def _hash(self, key):
+    return carbonHash(key, self.hash_type)
 
-    def add_node(self, node):
-      self.nodes.add(node)
-      self._update_nodes()
+  def _update_nodes(self):
+    self.sorted_nodes = sorted(
+      [(self._hash(str(n)), n) for n in self.nodes],
+      key=lambda v: v[0]
+    )
 
-    def remove_node(self, node):
-      self.nodes.discard(node)
-      self._update_nodes()
+  def add_node(self, node):
+    self.nodes.add(node)
+    self._update_nodes()
 
-    def get_nodes(self, key):
-      seed = self._hash(key) % len(self.nodes)
+  def remove_node(self, node):
+    self.nodes.discard(node)
+    self._update_nodes()
 
-      for n in xrange(seed, seed + len(self.nodes)):
-        yield self.sorted_nodes[n % len(self.sorted_nodes)][1]
+  def get_nodes(self, key):
+    seed = self._hash(key) % len(self.nodes)
 
-  class FastHashingRouter(ConsistentHashingRouter):
-    """Same as ConsistentHashingRouter but using FastHashRing."""
-    plugin_name = 'fast-hashing'
+    for n in xrange(seed, seed + len(self.nodes)):
+      yield self.sorted_nodes[n % len(self.sorted_nodes)][1]
 
-    def __init__(self, settings):
-      super(FastHashingRouter, self).__init__(settings)
-      self.ring = FastHashRing()
 
-  class FastAggregatedHashingRouter(AggregatedConsistentHashingRouter):
-    """Same as AggregatedConsistentHashingRouter but using FastHashRing."""
-    plugin_name = 'fast-aggregated-hashing'
+class FastHashingRouter(ConsistentHashingRouter):
+  """Same as ConsistentHashingRouter but using FastHashRing."""
+  plugin_name = 'fast-hashing'
 
-    def __init__(self, settings):
-      super(FastAggregatedHashingRouter, self).__init__(settings)
-      self.hash_router.ring = FastHashRing()
+  def __init__(self, settings):
+    super(FastHashingRouter, self).__init__(settings)
+    self.ring = FastHashRing(settings)
+
+
+class FastAggregatedHashingRouter(AggregatedConsistentHashingRouter):
+  """Same as AggregatedConsistentHashingRouter but using FastHashRing."""
+  plugin_name = 'fast-aggregated-hashing'
+
+  def __init__(self, settings):
+    super(FastAggregatedHashingRouter, self).__init__(settings)
+    self.hash_router.ring = FastHashRing(settings)

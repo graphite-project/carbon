@@ -8,6 +8,7 @@ from six.moves import xrange
 REPLICATION_FACTORS = [1, 4]
 DIVERSE_REPLICAS = [True, False]
 N_DESTINATIONS = [1, 16, 32, 48]
+HASH_TYPES = [None, 'carbon_ch', 'fnv1a_ch', 'mmh3_ch']
 
 
 def print_stats(r, t):
@@ -33,28 +34,38 @@ def generateDestinations(n):
 
 
 def benchmark(router_class):
-    for replication_factor in REPLICATION_FACTORS:
-        for diverse_replicas in DIVERSE_REPLICAS:
-            for n_destinations in N_DESTINATIONS:
-                destinations = list(generateDestinations(n_destinations))
-                settings = createSettings()
-                settings['REPLICATION_FACTOR'] = replication_factor
-                settings['DIVERSE_REPLICAS'] = diverse_replicas
-                settings['DESTINATIONS'] = destinations
+    for hash_type in HASH_TYPES:
+        for replication_factor in REPLICATION_FACTORS:
+            for diverse_replicas in DIVERSE_REPLICAS:
+                for n_destinations in N_DESTINATIONS:
+                    _benchmark(
+                        router_class, replication_factor,
+                        diverse_replicas, n_destinations, hash_type
+                    )
 
-                router = router_class(settings)
-                router.__count = 0  # Ugly hack for timeit !
-                router.__id = (
-                    ' deplication_factor: %d' % replication_factor +
-                    ' diverse_replicas: %d' % diverse_replicas +
-                    ' n_destinations: %-5d' % n_destinations)
-                settings.DESTINATIONS = []
-                for destination in destinations:
-                    router.addDestination(destination)
-                    settings.DESTINATIONS.append(
-                        '%s:%s:%s' % (
-                            destination[0], destination[1], destination[2]))
-                benchmark_router(router)
+
+def _benchmark(router_class, replication_factor, diverse_replicas, n_destinations, hash_type):
+    destinations = list(generateDestinations(n_destinations))
+    settings = createSettings()
+    settings['REPLICATION_FACTOR'] = replication_factor
+    settings['DIVERSE_REPLICAS'] = diverse_replicas
+    settings['DESTINATIONS'] = destinations
+    settings['ROUTER_HASH_TYPE'] = hash_type
+
+    router = router_class(settings)
+    router.__count = 0  # Ugly hack for timeit !
+    router.__id = (
+        ' replication_factor: %d' % replication_factor +
+        ' diverse_replicas: %d' % diverse_replicas +
+        ' n_destinations: %-5d' % n_destinations +
+        ' hash_type: %s' % hash_type)
+    settings.DESTINATIONS = []
+    for destination in destinations:
+        router.addDestination(destination)
+        settings.DESTINATIONS.append(
+            '%s:%s:%s' % (
+                destination[0], destination[1], destination[2]))
+    benchmark_router(router)
 
 
 def benchmark_router(router):

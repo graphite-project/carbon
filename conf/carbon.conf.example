@@ -515,6 +515,17 @@ MIN_RESET_INTERVAL=121
 # Enable TCP Keep Alive (http://tldp.org/HOWTO/TCP-Keepalive-HOWTO/overview.html).
 # Default settings will send a probe every 30s. Default is False.
 # TCP_KEEPALIVE=True
+# The interval between the last data packet sent (simple ACKs are not
+# considered data) and the first keepalive probe; after the connection is marked
+# to need keepalive, this counter is not used any further.
+# TCP_KEEPIDLE=10
+# The interval between subsequential keepalive probes, regardless of what
+# the connection has exchanged in the meantime.
+# TCP_KEEPINTVL=30
+# The number of unacknowledged probes to send before considering the connection
+# dead and notifying the application layer.
+# TCP_KEEPCNT=2
+
 
 [aggregator]
 LINE_RECEIVER_INTERFACE = 0.0.0.0

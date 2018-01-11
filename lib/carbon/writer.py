@@ -184,16 +184,16 @@ def writeCachedDataPoints():
 
 
 def writeForever():
-  if reactor.running:
+  while reactor.running:
     try:
       writeCachedDataPoints()
     except Exception:
       log.err()
       # Back-off on error to give the backend time to recover.
-      reactor.callLater(0.1, writeForever)
+      time.sleep(0.1)
     else:
       # Avoid churning CPU when there are no metrics are in the cache
-      reactor.callLater(1, writeForever)
+      time.sleep(1)
 
 
 @inlineCallbacks
@@ -206,16 +206,16 @@ def writeTags():
 
 
 def writeTagsForever():
-  if reactor.running:
+  while reactor.running:
     try:
       writeTags()
     except Exception:
       log.err()
       # Back-off on error to give the backend time to recover.
-      reactor.callLater(0.1, writeTagsForever)
+      time.sleep(0.1)
     else:
       # Avoid churning CPU when there are no series in the queue
-      reactor.callLater(0.2, writeTagsForever)
+      time.sleep(0.2)
 
 
 def reloadStorageSchemas():

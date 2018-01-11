@@ -13,7 +13,7 @@ class _BufferManager:
 
   def get_buffer(self, metric_path):
     if metric_path not in self.buffers:
-      log.aggregator("Allocating new metric buffer for %s" % metric_path)
+      log.debug("Allocating new metric buffer for %s" % metric_path)
       self.buffers[metric_path] = MetricBuffer(metric_path)
 
     return self.buffers[metric_path]

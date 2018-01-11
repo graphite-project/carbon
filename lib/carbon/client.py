@@ -225,9 +225,9 @@ class CarbonClientFactory(with_metaclass(PluginRegistrar, ReconnectingClientFact
     self.connectedProtocol = None
     self.queueEmpty = Deferred()
     self.queueFull = Deferred()
-    self.queueFull.addCallback(self.queueFullCallback)
+    self.queueFull.addCallbacks(self.queueFullCallback, log.err)
     self.queueHasSpace = Deferred()
-    self.queueHasSpace.addCallback(self.queueSpaceCallback)
+    self.queueHasSpace.addCallbacks(self.queueSpaceCallback, log.err)
     # Args: {'connector': connector, 'reason': reason}
     self.connectFailed = Deferred()
     # Args: {'connector': connector, 'reason': reason}
@@ -262,10 +262,10 @@ class CarbonClientFactory(with_metaclass(PluginRegistrar, ReconnectingClientFact
     if self.queueFull.called:
       log.clients('%s send queue has space available' % self.connectedProtocol)
       self.queueFull = Deferred()
-      self.queueFull.addCallback(self.queueFullCallback)
+      self.queueFull.addCallbacks(self.queueFullCallback, log.err)
       state.events.cacheSpaceAvailable()
     self.queueHasSpace = Deferred()
-    self.queueHasSpace.addCallback(self.queueSpaceCallback)
+    self.queueHasSpace.addCallbacks(self.queueSpaceCallback, log.err)
 
   def buildProtocol(self, addr):
     self.connectedProtocol = self.clientProtocol()
@@ -439,7 +439,7 @@ class CarbonClientFactory(with_metaclass(PluginRegistrar, ReconnectingClientFact
       self.queue.clear()
 
   def disconnect(self):
-    self.queueEmpty.addCallback(lambda result: self.stopConnecting())
+    self.queueEmpty.addCallbacks(lambda result: self.stopConnecting(), log.err)
     readyToStop = DeferredList(
       [self.connectionLost, self.connectFailed],
       fireOnOneCallback=True,
@@ -594,7 +594,9 @@ class CarbonClientManager(Service):
 
     self.router.removeDestination(destination)
     stopCompleted = factory.disconnect()
-    stopCompleted.addCallback(lambda result: self.disconnectClient(destination))
+    stopCompleted.addCallbacks(
+        lambda result: self.disconnectClient(destination), log.err
+    )
     return stopCompleted
 
   def disconnectClient(self, destination):

@@ -10,6 +10,7 @@ except ImportError:
 
 from hashlib import sha256
 from os.path import abspath, basename, dirname
+import socket
 from time import time
 from twisted.internet import defer
 from twisted.python.util import initgroups
@@ -40,6 +41,23 @@ def dropprivs(user):
   os.setregid(gid, gid)
   os.setreuid(uid, uid)
   return (uid, gid)
+
+
+def enableTcpKeepAlive(transport, enable, settings):
+  if not enable or not hasattr(transport, 'getHandle'):
+    return
+
+  fd = transport.getHandle()
+  if fd.type != socket.SOCK_STREAM:
+    return
+
+  transport.setTcpKeepAlive(1)
+  for attr in ['TCP_KEEPIDLE', 'TCP_KEEPINTVL', 'TCP_KEEPCNT']:
+    flag = getattr(socket, attr, None)
+    value = getattr(settings, attr, None)
+    if not flag or value is None:
+      continue
+    fd.setsockopt(socket.SOL_TCP, flag, value)
 
 
 def run_twistd_plugin(filename):

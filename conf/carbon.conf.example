@@ -312,12 +312,16 @@ WHISPER_FALLOCATE_CREATE = True
 # an update to the tag index, the default setting is once every 100 updates
 # TAG_UPDATE_INTERVAL = 100
 
+
 # Tag batch size, this specifies the maximum number of series to be sent to graphite-web in a single batch
 # TAG_BATCH_SIZE = 100
 
 # Tag queue size, this specifies the maximum number of series to be queued for sending to graphite-web
 # There are separate queues for new series and for updates to existing series
 # TAG_QUEUE_SIZE = 10000
+
+# Set to enable Sentry.io exception monitoring.
+# RAVEN_DSN='YOUR_DSN_HERE'.
 
 # To configure special settings for the carbon-cache instance 'b', uncomment this:
 #[cache:b]
@@ -494,6 +498,10 @@ MIN_RESET_RATIO=0.9
 # below (2*CARBON_METRIC_INTERVAL) + 1 second will result in a lot of
 # reset connections for no good reason.
 MIN_RESET_INTERVAL=121
+
+# Enable TCP Keep Alive (http://tldp.org/HOWTO/TCP-Keepalive-HOWTO/overview.html).
+# Default settings will send a probe every 30s. Default is False.
+# TCP_KEEPALIVE=True
 
 [aggregator]
 LINE_RECEIVER_INTERFACE = 0.0.0.0

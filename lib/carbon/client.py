@@ -11,6 +11,7 @@ from carbon.conf import settings
 from carbon.util import pickle
 from carbon import instrumentation, log, pipeline, state
 from carbon.util import PluginRegistrar
+from carbon.util import enableTcpKeepAlive
 
 try:
     import signal
@@ -36,6 +37,7 @@ class CarbonClientProtocol(object):
     self.batchesSent = 'destinations.%s.batchesSent' % self.destinationName
 
     self.slowConnectionReset = 'destinations.%s.slowConnectionReset' % self.destinationName
+    enableTcpKeepAlive(self.transport, settings.TCP_KEEPALIVE, settings)
 
     d = self.factory.connectionMade
     # Setup a new deferred before calling the callback to allow callbacks
@@ -413,7 +415,7 @@ class CarbonLineClientProtocol(CarbonClientProtocol, LineOnlyReceiver):
 
   def _sendDatapointsNow(self, datapoints):
     for metric, datapoint in datapoints:
-        self.sendLine("%s %s %d" % (metric, datapoint[1], datapoint[0]))
+        self.sendLine("%s %f %d" % (metric, datapoint[1], datapoint[0]))
 
 
 class CarbonLineClientFactory(CarbonClientFactory):

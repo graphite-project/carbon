@@ -183,10 +183,11 @@ def writeCachedDataPoints():
             pointCount, metric, updateTime))
 
 
+@inlineCallbacks
 def writeForever():
   while reactor.running:
     try:
-      writeCachedDataPoints()
+      yield writeCachedDataPoints()
     except Exception:
       log.err()
       # Back-off on error to give the backend time to recover.
@@ -205,10 +206,11 @@ def writeTags():
     yield state.database.tag(*tags)
 
 
+@inlineCallbacks
 def writeTagsForever():
   while reactor.running:
     try:
-      writeTags()
+      yield writeTags()
     except Exception:
       log.err()
       # Back-off on error to give the backend time to recover.

@@ -2,7 +2,7 @@ import unittest
 
 from carbon.aggregator.rules import AGGREGATION_METHODS
 
-PERCENTILE_METHODS = [ 'p999', 'p99', 'p95', 'p90', 'p80', 'p75', 'p50']
+PERCENTILE_METHODS = ['p999', 'p99', 'p95', 'p90', 'p80', 'p75', 'p50']
 VALUES = [4, 8, 15, 16, 23, 42]
 
 
@@ -17,8 +17,8 @@ class AggregationMethodTest(unittest.TestCase):
 
     def test_percentile_order(self):
         for method in PERCENTILE_METHODS:
-            a = AGGREGATION_METHODS[method]([1,2,3,4,5])
-            b = AGGREGATION_METHODS[method]([3,2,1,4,5])
+            a = AGGREGATION_METHODS[method]([1, 2, 3, 4, 5])
+            b = AGGREGATION_METHODS[method]([3, 2, 1, 4, 5])
             self.assertTrue(almost_equal(a, b))
 
     def test_percentile_values(self):
@@ -34,4 +34,3 @@ class AggregationMethodTest(unittest.TestCase):
 
         for (method, result) in examples:
             self.assertTrue(almost_equal(AGGREGATION_METHODS[method](VALUES), result))
-

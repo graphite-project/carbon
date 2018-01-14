@@ -9,6 +9,7 @@ from twisted.internet.error import ConnectionDone
 from twisted.internet import reactor, tcp, udp
 from twisted.protocols.basic import LineOnlyReceiver, Int32StringReceiver
 from twisted.protocols.policies import TimeoutMixin
+from twisted.web import server, resource, http
 from carbon import log, events, state, management
 from carbon.conf import settings
 from carbon.regexlist import WhiteList, BlackList
@@ -89,6 +90,24 @@ class CarbonServerProtocol(with_metaclass(PluginRegistrar, object)):
     service.setServiceParent(root_service)
 
 
+def metricReceived(metric, datapoint):
+  if BlackList and metric in BlackList:
+    instrumentation.increment('blacklistMatches')
+    return
+  if WhiteList and metric not in WhiteList:
+    instrumentation.increment('whitelistRejects')
+    return
+  if datapoint[1] != datapoint[1]:  # filter out NaN values
+    return
+  # use current time if none given: https://github.com/graphite-project/carbon/issues/54
+  if int(datapoint[0]) == -1:
+    datapoint = (time.time(), datapoint[1])
+  res = settings.MIN_TIMESTAMP_RESOLUTION
+  if res:
+    datapoint = (int(datapoint[0]) // res * res, datapoint[1])
+  events.metricReceived(metric, datapoint)
+
+
 class MetricReceiver(CarbonServerProtocol, TimeoutMixin):
   """ Base class for all metric receiving protocols, handles flow
   control events and connection state logging.
@@ -140,21 +159,7 @@ class MetricReceiver(CarbonServerProtocol, TimeoutMixin):
       events.resumeReceivingMetrics.removeHandler(self.resumeReceiving)
 
   def metricReceived(self, metric, datapoint):
-    if BlackList and metric in BlackList:
-      instrumentation.increment('blacklistMatches')
-      return
-    if WhiteList and metric not in WhiteList:
-      instrumentation.increment('whitelistRejects')
-      return
-    if datapoint[1] != datapoint[1]:  # filter out NaN values
-      return
-    # use current time if none given: https://github.com/graphite-project/carbon/issues/54
-    if int(datapoint[0]) == -1:
-      datapoint = (time.time(), datapoint[1])
-    res = settings.MIN_TIMESTAMP_RESOLUTION
-    if res:
-      datapoint = (int(datapoint[0]) // res * res, datapoint[1])
-    events.metricReceived(metric, datapoint)
+    metricReceived(metric, datapoint)
     self.resetTimeout()
 
 
@@ -240,6 +245,100 @@ class MetricPickleReceiver(MetricReceiver, Int32StringReceiver):
         metric = metric.encode('utf-8')
 
       self.metricReceived(metric, datapoint)
+
+
+class MetricHttpReceiver(MetricReceiver):
+  plugin_name = 'http'
+
+  @classmethod
+  def build(cls, root_service):
+    plugin_up = cls.plugin_name.upper()
+    interface = settings.get('%s_RECEIVER_INTERFACE' % plugin_up, None)
+    port = int(settings.get('%s_RECEIVER_PORT' % plugin_up, 0))
+
+    if not port:
+      return
+
+    class Root(resource.Resource):
+      def getChild(self, path, request):
+        if path == 'prometheus':
+          return Prometheus()
+
+        return NotFound()
+
+    class Prometheus(resource.Resource):
+      def render_POST(self, request):
+        # import snappy and protobuf
+        try:
+          import snappy
+        except ImportError:
+          raise Exception('snappy support is required, please pip install python-snappy')
+
+        try:
+          from carbon.prometheus.remote_pb2 import WriteRequest
+        except ImportError:
+          raise Exception('protobuf support is required, please pip install protobuf')
+
+        # validate, uncompress & parse request
+        if not request.requestHeaders.hasHeader('content-encoding') or \
+            request.requestHeaders.getRawHeaders('content-encoding')[0] != 'snappy':
+          raise Exception('Expected snappy content encoding')
+
+        if not request.requestHeaders.hasHeader('content-type') or \
+            request.requestHeaders.getRawHeaders('content-type')[0] != 'application/x-protobuf':
+          raise Exception('Expected protobuf encoding')
+
+        try:
+          body = snappy.uncompress(request.content.read())
+        except Exception as err:
+          raise Exception('Error uncompressing request body: %s' % err)
+
+        writeReq = WriteRequest()
+
+        try:
+          writeReq.ParseFromString(body)
+        except Exception as err:
+          raise Exception('Error parsing request body: %s' % err)
+
+        # log.debug(writeReq)
+
+        for timeseries in writeReq.timeseries:
+          name = ''
+          tags = []
+
+          for label in timeseries.labels:
+            if label.name == '__name__':
+              name = label.value
+            else:
+              tags.append(label.name + '=' + label.value)
+
+          if not name:
+            raise Exception('No series name found')
+
+          if tags:
+            name = name + ';' + ';'.join(sorted(tags))
+
+          for sample in timeseries.samples:
+            metricReceived(name, (float(sample.timestamp) / 1000, float(sample.value)))
+
+        return 'OK'
+
+    class NotFound(resource.Resource):
+      def render_GET(self, request):
+        request.setResponseCode(http.NOT_FOUND)
+        return 'Not Found'
+
+      def render_POST(self, request):
+        request.setResponseCode(http.NOT_FOUND)
+        return 'Not Found'
+
+      def getChild(self, path, request):
+        return NotFound()
+
+    factory = server.Site(Root())
+
+    service = CarbonService(interface, port, cls, factory)
+    service.setServiceParent(root_service)
 
 
 class CacheManagementHandler(Int32StringReceiver):

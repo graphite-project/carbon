@@ -161,6 +161,7 @@ def count(values):
   if values:
     return len(values)
 
+
 def percentile(factor):
   def func(values):
     if values:
@@ -177,18 +178,18 @@ def percentile(factor):
   return func
 
 AGGREGATION_METHODS = {
-  'sum'   : sum,
-  'avg'   : avg,
-  'min'   : min,
-  'max'   : max,
-  'p50'   : percentile(0.50),
-  'p75'   : percentile(0.75),
-  'p80'   : percentile(0.80),
-  'p90'   : percentile(0.90),
-  'p95'   : percentile(0.95),
-  'p99'   : percentile(0.99),
-  'p999'  : percentile(0.999),
-  'count' : count
+  'sum': sum,
+  'avg': avg,
+  'min': min,
+  'max': max,
+  'p50': percentile(0.50),
+  'p75': percentile(0.75),
+  'p80': percentile(0.80),
+  'p90': percentile(0.90),
+  'p95': percentile(0.95),
+  'p99': percentile(0.99),
+  'p999': percentile(0.999),
+  'count': count,
 }
 
 # Importable singleton

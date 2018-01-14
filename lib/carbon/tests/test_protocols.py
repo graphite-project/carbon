@@ -14,7 +14,7 @@ import time
 
 class TestMetricReceiversHandler(TestCase):
   def test_build(self):
-    expected_plugins = sorted(['line', 'udp', 'pickle', 'protobuf'])
+    expected_plugins = sorted(['http', 'line', 'udp', 'pickle', 'protobuf'])
 
     # amqp not supported with py3
     try:

@@ -280,12 +280,16 @@ class MetricHttpReceiver(MetricReceiver):
           raise Exception('protobuf support is required, please pip install protobuf')
 
         # validate, uncompress & parse request
-        if not request.requestHeaders.hasHeader('content-encoding') or \
-            request.requestHeaders.getRawHeaders('content-encoding')[0] != 'snappy':
+        if (
+          not request.requestHeaders.hasHeader('content-encoding') or
+          request.requestHeaders.getRawHeaders('content-encoding')[0] != 'snappy'
+        ):
           raise Exception('Expected snappy content encoding')
 
-        if not request.requestHeaders.hasHeader('content-type') or \
-            request.requestHeaders.getRawHeaders('content-type')[0] != 'application/x-protobuf':
+        if (
+          not request.requestHeaders.hasHeader('content-type') or
+          request.requestHeaders.getRawHeaders('content-type')[0] != 'application/x-protobuf'
+        ):
           raise Exception('Expected protobuf encoding')
 
         try:

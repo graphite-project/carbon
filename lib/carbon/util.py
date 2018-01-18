@@ -11,8 +11,7 @@ except ImportError:
 from hashlib import sha256
 from os.path import abspath, basename, dirname
 import socket
-from time import time
-from twisted.internet import defer
+from time import sleep, time
 from twisted.python.util import initgroups
 from twisted.scripts.twistd import runApp
 from carbon.log import setDebugEnabled
@@ -267,7 +266,7 @@ def get_unpickler(insecure=False):
 class TokenBucket(object):
   '''This is a basic tokenbucket rate limiter implementation for use in
   enforcing various configurable rate limits'''
-  def __init__(self, capacity, fill_rate, reactor):
+  def __init__(self, capacity, fill_rate):
     '''Capacity is the total number of tokens the bucket can hold, fill rate is
     the rate in tokens (or fractional tokens) to be added to the bucket per
     second.'''
@@ -275,41 +274,27 @@ class TokenBucket(object):
     self._tokens = float(capacity)
     self.fill_rate = float(fill_rate)
     self.timestamp = time()
-    self.reactor = reactor
 
   def drain(self, cost, blocking=False):
     '''Given a number of tokens (or fractions) drain will return True and
     drain the number of tokens from the bucket if the capacity allows,
     otherwise we return false and leave the contents of the bucket.'''
-    if not blocking:
-      if cost <= self.tokens:
-        self._tokens -= cost
-        return True
-
-      return False
-
-    d = defer.Deferred()
-
     if cost <= self.tokens:
       self._tokens -= cost
-      d.callback(True)
-      return d
+      return True
+
+    if not blocking:
+      return False
 
     tokens_needed = cost - self._tokens
     seconds_per_token = 1 / self.fill_rate
     seconds_left = seconds_per_token * tokens_needed
     time_to_sleep = self.timestamp + seconds_left - time()
-    if time_to_sleep <= 0:
-      self._tokens -= cost
-      d.callback(True)
-      return d
+    if time_to_sleep > 0:
+      sleep(time_to_sleep)
 
-    def drain_and_return(val):
-      self._tokens -= cost
-      return d.callback(val)
-
-    self.reactor.callLater(time_to_sleep, drain_and_return, True)
-    return d
+    self._tokens -= cost
+    return True
 
   def setCapacityAndFillRate(self, new_capacity, new_fill_rate):
     delta = float(new_capacity) - self.capacity

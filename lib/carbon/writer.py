@@ -25,12 +25,12 @@ from carbon.util import TokenBucket
 from twisted.internet import reactor
 from twisted.internet.task import LoopingCall
 from twisted.application.service import Service
-from twisted.internet.defer import inlineCallbacks
 
 try:
     import signal
 except ImportError:
     log.msg("Couldn't import signal module")
+
 
 SCHEMAS = loadStorageSchemas()
 AGGREGATION_SCHEMAS = loadAggregationSchemas()
@@ -43,12 +43,12 @@ UPDATE_BUCKET = None
 if settings.MAX_CREATES_PER_MINUTE != float('inf'):
   capacity = settings.MAX_CREATES_PER_MINUTE
   fill_rate = float(settings.MAX_CREATES_PER_MINUTE) / 60
-  CREATE_BUCKET = TokenBucket(capacity, fill_rate, reactor)
+  CREATE_BUCKET = TokenBucket(capacity, fill_rate)
 
 if settings.MAX_UPDATES_PER_SECOND != float('inf'):
   capacity = settings.MAX_UPDATES_PER_SECOND
   fill_rate = settings.MAX_UPDATES_PER_SECOND
-  UPDATE_BUCKET = TokenBucket(capacity, fill_rate, reactor)
+  UPDATE_BUCKET = TokenBucket(capacity, fill_rate)
 
 
 class TagQueue(object):
@@ -89,7 +89,6 @@ class TagQueue(object):
 tagQueue = TagQueue(maxsize=settings.TAG_QUEUE_SIZE, update_interval=settings.TAG_UPDATE_INTERVAL)
 
 
-@inlineCallbacks
 def writeCachedDataPoints():
   "Write datapoints until the MetricCache is completely empty"
 
@@ -153,7 +152,7 @@ def writeCachedDataPoints():
     waitTime = 0
     if UPDATE_BUCKET:
       t1 = time.time()
-      yield UPDATE_BUCKET.drain(1, blocking=True)
+      UPDATE_BUCKET.drain(1, blocking=True)
       waitTime = time.time() - t1
 
     try:
@@ -183,11 +182,10 @@ def writeCachedDataPoints():
             pointCount, metric, updateTime))
 
 
-@inlineCallbacks
 def writeForever():
   while reactor.running:
     try:
-      yield writeCachedDataPoints()
+      writeCachedDataPoints()
     except Exception:
       log.err()
       # Back-off on error to give the backend time to recover.
@@ -197,20 +195,18 @@ def writeForever():
       time.sleep(1)
 
 
-@inlineCallbacks
 def writeTags():
   while True:
     tags = tagQueue.getbatch(settings.TAG_BATCH_SIZE)
     if not tags:
       break
-    yield state.database.tag(*tags)
+    state.database.tag(*tags)
 
 
-@inlineCallbacks
 def writeTagsForever():
   while reactor.running:
     try:
-      yield writeTags()
+      writeTags()
     except Exception:
       log.err()
       # Back-off on error to give the backend time to recover.

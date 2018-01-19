@@ -88,7 +88,7 @@ try:
         scripts=glob('bin/*'),
         package_data={ 'carbon' : ['*.xml'] },
         data_files=install_files,
-        install_requires=['Twisted', 'txAMQP', 'cachetools'],
+        install_requires=['Twisted', 'txAMQP', 'cachetools', 'urllib3'],
         classifiers=(
             'Intended Audience :: Developers',
             'Natural Language :: English',

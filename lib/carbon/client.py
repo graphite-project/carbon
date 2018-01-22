@@ -415,7 +415,11 @@ class CarbonLineClientProtocol(CarbonClientProtocol, LineOnlyReceiver):
 
   def _sendDatapointsNow(self, datapoints):
     for metric, datapoint in datapoints:
-        self.sendLine("%s %f %d" % (metric, datapoint[1], datapoint[0]))
+      if isinstance(datapoint[1], float):
+        value = ("%.10f" % datapoint[1]).rstrip('0').rstrip('.')
+      else:
+        value = "%d" % datapoint[1]
+      self.sendLine("%s %s %d" % (metric, value, datapoint[0]))
 
 
 class CarbonLineClientFactory(CarbonClientFactory):

@@ -70,12 +70,22 @@ class CarbonLineClientProtocolTest(TestCase):
     self.protocol = CarbonLineClientProtocol()
     self.protocol.sendLine = Mock()
 
-  def test_send_datapoints_now(self):
-    datapoint = ('foo.bar', (1000000000, 1.0))
-    expected_line_to_send = "foo.bar 1.000000 1000000000"
+  def test_send_datapoints(self):
+    calls = [
+      (('foo.bar', (1000000000, 1.0)), "foo.bar 1 1000000000"),
+      (('foo.bar', (1000000000, 1.1)), "foo.bar 1.1 1000000000"),
+      (('foo.bar', (1000000000, 1.123456789123)), "foo.bar 1.1234567891 1000000000"),
+      (('foo.bar', (1000000000, 1)), "foo.bar 1 1000000000"),
+      (('foo.bar', (1000000000, 1.498566361088E12)), "foo.bar 1498566361088 1000000000"),
+    ]
 
-    self.protocol._sendDatapointsNow([datapoint])
-    self.protocol.sendLine.assert_called_once_with(expected_line_to_send)
+    i = 0
+    for (datapoint, expected_line_to_send) in calls:
+      i += 1
+
+      self.protocol._sendDatapointsNow([datapoint])
+      self.assertEqual(self.protocol.sendLine.call_count, i)
+      self.protocol.sendLine.assert_called_with(expected_line_to_send)
 
 
 @patch('carbon.state.instrumentation', Mock(spec=instrumentation))

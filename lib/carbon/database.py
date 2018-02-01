@@ -88,6 +88,7 @@ else:
       super(WhisperDatabase, self).__init__(settings)
 
       self.data_dir = settings.LOCAL_DATA_DIR
+      self.tag_hash_filenames = settings.TAG_HASH_FILENAMES
       self.sparse_create = settings.WHISPER_SPARSE_CREATE
       self.fallocate_create = settings.WHISPER_FALLOCATE_CREATE
       if settings.WHISPER_AUTOFLUSH:
@@ -152,7 +153,10 @@ else:
       return whisper.setAggregationMethod(wsp_path, value)
 
     def getFilesystemPath(self, metric):
-      return join(self.data_dir, TaggedSeries.encode(metric, sep) + '.wsp')
+      return join(
+        self.data_dir,
+        TaggedSeries.encode(metric, sep, hash_only=self.tag_hash_filenames) + '.wsp'
+      )
 
     def validateArchiveList(self, archiveList):
       try:
@@ -174,6 +178,7 @@ else:
       super(CeresDatabase, self).__init__(settings)
 
       self.data_dir = settings.LOCAL_DATA_DIR
+      self.tag_hash_filenames = settings.TAG_HASH_FILENAMES
       ceres.setDefaultNodeCachingBehavior(settings.CERES_NODE_CACHING_BEHAVIOR)
       ceres.setDefaultSliceCachingBehavior(settings.CERES_SLICE_CACHING_BEHAVIOR)
       ceres.MAX_SLICE_GAP = int(settings.CERES_MAX_SLICE_GAP)
@@ -187,26 +192,30 @@ else:
 
       self.tree = ceres.CeresTree(self.data_dir)
 
+    def encode(self, metric):
+      return TaggedSeries.encode(metric, hash_only=self.tag_hash_filenames)
+
     def write(self, metric, datapoints):
-      self.tree.store(TaggedSeries.encode(metric), datapoints)
+      self.tree.store(self.encode(metric), datapoints)
 
     def exists(self, metric):
-      return self.tree.hasNode(TaggedSeries.encode(metric))
+      return self.tree.hasNode(self.encode(metric))
 
     def create(self, metric, retentions, xfilesfactor, aggregation_method):
-      self.tree.createNode(TaggedSeries.encode(metric), retentions=retentions,
+      self.tree.createNode(self.encode(metric),
+                           retentions=retentions,
                            timeStep=retentions[0][0],
                            xFilesFactor=xfilesfactor,
                            aggregationMethod=aggregation_method)
 
     def getMetadata(self, metric, key):
-      return self.tree.getNode(TaggedSeries.encode(metric)).readMetadata()[key]
+      return self.tree.getNode(self.encode(metric)).readMetadata()[key]
 
     def setMetadata(self, metric, key, value):
-      node = self.tree.getNode(TaggedSeries.encode(metric))
+      node = self.tree.getNode(self.encode(metric))
       metadata = node.readMetadata()
       metadata[key] = value
       node.writeMetadata(metadata)
 
     def getFilesystemPath(self, metric):
-      return self.tree.getFilesystemPath(TaggedSeries.encode(metric))
+      return self.tree.getFilesystemPath(self.encode(metric))

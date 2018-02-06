@@ -1,5 +1,7 @@
 import re
 
+from math import floor, ceil
+
 from os.path import exists, getmtime
 from twisted.internet.task import LoopingCall
 from cachetools import TTLCache, LRUCache
@@ -159,12 +161,35 @@ def count(values):
   if values:
     return len(values)
 
+
+def percentile(factor):
+  def func(values):
+    if values:
+      values = sorted(values)
+      rank = factor * (len(values) - 1)
+      rank_left = int(floor(rank))
+      rank_right = int(ceil(rank))
+
+      if rank_left == rank_right:
+        return values[rank_left]
+      else:
+        return values[rank_left] * (rank_right - rank) + values[rank_right] * (rank - rank_left)
+
+  return func
+
 AGGREGATION_METHODS = {
   'sum': sum,
   'avg': avg,
   'min': min,
   'max': max,
-  'count': count
+  'p50': percentile(0.50),
+  'p75': percentile(0.75),
+  'p80': percentile(0.80),
+  'p90': percentile(0.90),
+  'p95': percentile(0.95),
+  'p99': percentile(0.99),
+  'p999': percentile(0.999),
+  'count': count,
 }
 
 # Importable singleton

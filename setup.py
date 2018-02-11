@@ -76,7 +76,7 @@ install_files += init_scripts
 try:
     setup(
         name='carbon',
-        version='1.1.1',
+        version='1.1.2',
         url='http://graphiteapp.org/',
         author='Chris Davis',
         author_email='chrismd@gmail.com',

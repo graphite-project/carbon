@@ -303,7 +303,7 @@ WHISPER_FALLOCATE_CREATE = True
 # BIND_PATTERNS = #
 
 # URL of graphite-web instance, this is used to add incoming series to the tag database
-# GRAPHITE_URL = http://127.0.0.1:8000
+# GRAPHITE_URL = http://127.0.0.1:80
 
 # Tag support, when enabled carbon will make HTTP calls to graphite-web to update the tag index
 # ENABLE_TAGS = True

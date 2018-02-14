@@ -127,8 +127,8 @@ else:
       if exists(self.getFilesystemPath(metric)):
         return True
       # if we're using hashed filenames and a non-hashed file exists then move it to the new name
-      if self.tag_hash_filenames and exists(self.getFilesystemPath(metric, False)):
-        os.rename(self.getFilesystemPath(metric, False), self.getFilesystemPath(metric))
+      if self.tag_hash_filenames and exists(self._getFilesystemPath(metric, False)):
+        os.rename(self._getFilesystemPath(metric, False), self.getFilesystemPath(metric))
         return True
       return False
 
@@ -158,9 +158,10 @@ else:
       wsp_path = self.getFilesystemPath(metric)
       return whisper.setAggregationMethod(wsp_path, value)
 
-    def getFilesystemPath(self, metric, tag_hash_filenames=None):
-      if tag_hash_filenames is None:
-        tag_hash_filenames = self.tag_hash_filenames
+    def getFilesystemPath(self, metric):
+      return self._getFilesystemPath(metric, self.tag_hash_filenames)
+
+    def _getFilesystemPath(self, metric, tag_hash_filenames):
       return join(
         self.data_dir,
         TaggedSeries.encode(metric, sep, hash_only=tag_hash_filenames) + '.wsp'
@@ -213,7 +214,7 @@ else:
         return True
       # if we're using hashed filenames and a non-hashed file exists then move it to the new name
       if self.tag_hash_filenames and self.tree.hasNode(self.encode(metric, False)):
-        os.rename(self.getFilesystemPath(metric, False), self.getFilesystemPath(metric))
+        os.rename(self._getFilesystemPath(metric, False), self.getFilesystemPath(metric))
         return True
       return False
 
@@ -233,5 +234,8 @@ else:
       metadata[key] = value
       node.writeMetadata(metadata)
 
-    def getFilesystemPath(self, metric, tag_hash_filenames=None):
+    def getFilesystemPath(self, metric):
+      return self._getFilesystemPath(metric, self.tag_hash_filenames)
+
+    def _getFilesystemPath(self, metric, tag_hash_filenames):
       return self.tree.getFilesystemPath(self.encode(metric, tag_hash_filenames))

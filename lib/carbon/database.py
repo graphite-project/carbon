@@ -124,7 +124,13 @@ else:
       whisper.update_many(path, datapoints)
 
     def exists(self, metric):
-      return exists(self.getFilesystemPath(metric))
+      if exists(self.getFilesystemPath(metric)):
+        return True
+      # if we're using hashed filenames and a non-hashed file exists then move it to the new name
+      if self.tag_hash_filenames and exists(self.getFilesystemPath(metric, False)):
+        os.rename(self.getFilesystemPath(metric, False), self.getFilesystemPath(metric))
+        return True
+      return False
 
     def create(self, metric, retentions, xfilesfactor, aggregation_method):
       path = self.getFilesystemPath(metric)
@@ -152,10 +158,12 @@ else:
       wsp_path = self.getFilesystemPath(metric)
       return whisper.setAggregationMethod(wsp_path, value)
 
-    def getFilesystemPath(self, metric):
+    def getFilesystemPath(self, metric, tag_hash_filenames=None):
+      if tag_hash_filenames is None:
+        tag_hash_filenames = self.tag_hash_filenames
       return join(
         self.data_dir,
-        TaggedSeries.encode(metric, sep, hash_only=self.tag_hash_filenames) + '.wsp'
+        TaggedSeries.encode(metric, sep, hash_only=tag_hash_filenames) + '.wsp'
       )
 
     def validateArchiveList(self, archiveList):
@@ -192,14 +200,22 @@ else:
 
       self.tree = ceres.CeresTree(self.data_dir)
 
-    def encode(self, metric):
-      return TaggedSeries.encode(metric, hash_only=self.tag_hash_filenames)
+    def encode(self, metric, tag_hash_filenames=None):
+      if tag_hash_filenames is None:
+        tag_hash_filenames = self.tag_hash_filenames
+      return TaggedSeries.encode(metric, hash_only=tag_hash_filenames)
 
     def write(self, metric, datapoints):
       self.tree.store(self.encode(metric), datapoints)
 
     def exists(self, metric):
-      return self.tree.hasNode(self.encode(metric))
+      if self.tree.hasNode(self.encode(metric)):
+        return True
+      # if we're using hashed filenames and a non-hashed file exists then move it to the new name
+      if self.tag_hash_filenames and self.tree.hasNode(self.encode(metric, False)):
+        os.rename(self.getFilesystemPath(metric, False), self.getFilesystemPath(metric))
+        return True
+      return False
 
     def create(self, metric, retentions, xfilesfactor, aggregation_method):
       self.tree.createNode(self.encode(metric),
@@ -217,5 +233,5 @@ else:
       metadata[key] = value
       node.writeMetadata(metadata)
 
-    def getFilesystemPath(self, metric):
-      return self.tree.getFilesystemPath(self.encode(metric))
+    def getFilesystemPath(self, metric, tag_hash_filenames=None):
+      return self.tree.getFilesystemPath(self.encode(metric, tag_hash_filenames))

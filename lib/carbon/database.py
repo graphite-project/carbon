@@ -88,6 +88,7 @@ else:
       super(WhisperDatabase, self).__init__(settings)
 
       self.data_dir = settings.LOCAL_DATA_DIR
+      self.tag_hash_filenames = settings.TAG_HASH_FILENAMES
       self.sparse_create = settings.WHISPER_SPARSE_CREATE
       self.fallocate_create = settings.WHISPER_FALLOCATE_CREATE
       if settings.WHISPER_AUTOFLUSH:
@@ -123,7 +124,13 @@ else:
       whisper.update_many(path, datapoints)
 
     def exists(self, metric):
-      return exists(self.getFilesystemPath(metric))
+      if exists(self.getFilesystemPath(metric)):
+        return True
+      # if we're using hashed filenames and a non-hashed file exists then move it to the new name
+      if self.tag_hash_filenames and exists(self._getFilesystemPath(metric, False)):
+        os.rename(self._getFilesystemPath(metric, False), self.getFilesystemPath(metric))
+        return True
+      return False
 
     def create(self, metric, retentions, xfilesfactor, aggregation_method):
       path = self.getFilesystemPath(metric)
@@ -152,7 +159,13 @@ else:
       return whisper.setAggregationMethod(wsp_path, value)
 
     def getFilesystemPath(self, metric):
-      return join(self.data_dir, TaggedSeries.encode(metric, sep) + '.wsp')
+      return self._getFilesystemPath(metric, self.tag_hash_filenames)
+
+    def _getFilesystemPath(self, metric, tag_hash_filenames):
+      return join(
+        self.data_dir,
+        TaggedSeries.encode(metric, sep, hash_only=tag_hash_filenames) + '.wsp'
+      )
 
     def validateArchiveList(self, archiveList):
       try:
@@ -174,6 +187,7 @@ else:
       super(CeresDatabase, self).__init__(settings)
 
       self.data_dir = settings.LOCAL_DATA_DIR
+      self.tag_hash_filenames = settings.TAG_HASH_FILENAMES
       ceres.setDefaultNodeCachingBehavior(settings.CERES_NODE_CACHING_BEHAVIOR)
       ceres.setDefaultSliceCachingBehavior(settings.CERES_SLICE_CACHING_BEHAVIOR)
       ceres.MAX_SLICE_GAP = int(settings.CERES_MAX_SLICE_GAP)
@@ -187,26 +201,41 @@ else:
 
       self.tree = ceres.CeresTree(self.data_dir)
 
+    def encode(self, metric, tag_hash_filenames=None):
+      if tag_hash_filenames is None:
+        tag_hash_filenames = self.tag_hash_filenames
+      return TaggedSeries.encode(metric, hash_only=tag_hash_filenames)
+
     def write(self, metric, datapoints):
-      self.tree.store(TaggedSeries.encode(metric), datapoints)
+      self.tree.store(self.encode(metric), datapoints)
 
     def exists(self, metric):
-      return self.tree.hasNode(TaggedSeries.encode(metric))
+      if self.tree.hasNode(self.encode(metric)):
+        return True
+      # if we're using hashed filenames and a non-hashed file exists then move it to the new name
+      if self.tag_hash_filenames and self.tree.hasNode(self.encode(metric, False)):
+        os.rename(self._getFilesystemPath(metric, False), self.getFilesystemPath(metric))
+        return True
+      return False
 
     def create(self, metric, retentions, xfilesfactor, aggregation_method):
-      self.tree.createNode(TaggedSeries.encode(metric), retentions=retentions,
+      self.tree.createNode(self.encode(metric),
+                           retentions=retentions,
                            timeStep=retentions[0][0],
                            xFilesFactor=xfilesfactor,
                            aggregationMethod=aggregation_method)
 
     def getMetadata(self, metric, key):
-      return self.tree.getNode(TaggedSeries.encode(metric)).readMetadata()[key]
+      return self.tree.getNode(self.encode(metric)).readMetadata()[key]
 
     def setMetadata(self, metric, key, value):
-      node = self.tree.getNode(TaggedSeries.encode(metric))
+      node = self.tree.getNode(self.encode(metric))
       metadata = node.readMetadata()
       metadata[key] = value
       node.writeMetadata(metadata)
 
     def getFilesystemPath(self, metric):
-      return self.tree.getFilesystemPath(TaggedSeries.encode(metric))
+      return self._getFilesystemPath(metric, self.tag_hash_filenames)
+
+    def _getFilesystemPath(self, metric, tag_hash_filenames):
+      return self.tree.getFilesystemPath(self.encode(metric, tag_hash_filenames))

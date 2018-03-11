@@ -312,6 +312,9 @@ WHISPER_FALLOCATE_CREATE = True
 # an update to the tag index, the default setting is once every 100 updates
 # TAG_UPDATE_INTERVAL = 100
 
+# Tag hash filenames, this specifies whether tagged metric filenames should use the hash of the metric name
+# or a human-readable name, using hashed names avoids issues with path length when using a large number of tags
+# TAG_HASH_FILENAMES = True
 
 # Tag batch size, this specifies the maximum number of series to be sent to graphite-web in a single batch
 # TAG_BATCH_SIZE = 100

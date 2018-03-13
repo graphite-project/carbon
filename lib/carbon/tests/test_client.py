@@ -89,9 +89,9 @@ class CarbonLineClientProtocolTest(TestCase):
       self.protocol.sendLine.assert_called_with(expected_line_to_send)
 
   def test_send_datapoints_now_timestamp(self):
-    now_ms = time.time() * 1000
+    now_ms = int(time.time() * 1000)
     datapoint = ('foo.bar', (1000000000, now_ms))
-    expected_line_to_send = "foo.bar %f 1000000000" % now_ms
+    expected_line_to_send = "foo.bar %s 1000000000" % now_ms
 
     self.protocol._sendDatapointsNow([datapoint])
     self.protocol.sendLine.assert_called_once_with(expected_line_to_send)

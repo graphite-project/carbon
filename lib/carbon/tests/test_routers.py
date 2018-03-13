@@ -48,6 +48,8 @@ class TestOtherRouters(unittest.TestCase):
                 continue
 
             router = routers.DatapointRouter.plugins[plugin](settings)
+            self.assertEquals(len(list(router.getDestinations('foo.bar'))), 0)
+
             for destination in DESTINATIONS:
                 router.addDestination(parseDestination(destination))
             self.assertEquals(len(list(router.getDestinations('foo.bar'))),

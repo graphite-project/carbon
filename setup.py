@@ -58,9 +58,9 @@ else:
   setup_kwargs = dict()
 
 
-storage_dirs = [ ('storage/ceres', []), ('storage/whisper',[]),
-                 ('storage/lists',[]), ('storage/log',[]),
-                 ('storage/rrd',[]) ]
+storage_dirs = [ ('storage/ceres/dummy.txt', []), ('storage/whisper/dummy.txt',[]),
+                 ('storage/lists',[]), ('storage/log/dummy.txt',[]),
+                 ('storage/rrd/dummy.txt',[]) ]
 conf_files = [ ('conf', glob('conf/*.example')) ]
 
 install_files = storage_dirs + conf_files

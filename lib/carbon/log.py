@@ -21,7 +21,7 @@ class CarbonLogFile(DailyLogFile):
     """
     openMode = self.defaultMode or 0o777
     self._file = os.fdopen(os.open(
-      self.path, os.O_CREAT | os.O_RDWR, openMode), 'r+', 1)
+      self.path, os.O_CREAT | os.O_RDWR, openMode), 'rb+', 1)
     self.closed = False
     # Try our best to update permissions for files which already exist.
     if self.defaultMode:

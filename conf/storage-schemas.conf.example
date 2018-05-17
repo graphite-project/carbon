@@ -14,6 +14,9 @@
 #           Valid:    60s:7d,300s:30d (300/60 = 5)
 #           Invalid:  180s:7d,300s:30d (300/180 = 3.333)
 #
+# This retention is set at the time the first metric is sent.
+# Changing this file will not affect already-created .wsp files.
+# Use whisper-resize.py to change existing data files.
 
 # Carbon's internal metrics. This entry should match what is specified in
 # CARBON_METRIC_PREFIX and CARBON_METRIC_INTERVAL settings

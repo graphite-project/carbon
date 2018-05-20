@@ -76,6 +76,20 @@ class HashIntegrityTest(unittest.TestCase):
             len([n[0] for n in ring.ring]),
             len(set([n[0] for n in ring.ring])))
 
+    def test_10_get_node(self):
+        """Trigger bisect on identical first key, see: issues/766"""
+        ring = ConsistentHashRing([], replica_count=1)
+        ring.add_node(("1", "1"))
+        n = ring.get_node("('1', '1'):0")
+        self.assertEqual(('1', '1'), n)
+
+    def test_11_get_nodes(self):
+        """Trigger bisect on identical first key, see: issues/766"""
+        ring = ConsistentHashRing([], replica_count=1)
+        ring.add_node(("1", "1"))
+        n = ring.get_nodes("('1', '1'):0")
+        self.assertEqual([('1', '1')], list(n))
+
 
 class FNVHashIntegrityTest(unittest.TestCase):
 

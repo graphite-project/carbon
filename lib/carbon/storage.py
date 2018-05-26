@@ -86,10 +86,16 @@ def loadStorageSchemas():
 
     try:
       retentions = options['retentions'].split(',')
-      archives = [Archive.fromString(s) for s in retentions]
     except KeyError:
       log.err("Schema %s missing 'retentions', skipping" % section)
       continue
+
+    try:
+      archives = [Archive.fromString(s) for s in retentions]
+    except ValueError as exc:
+      log.err("{msg} in section [{section}] in {fn}".format(
+        msg=exc, section=section.title(), fn=STORAGE_SCHEMAS_CONFIG))
+      raise SystemExit(1)
 
     if pattern:
       mySchema = PatternSchema(section, pattern, archives)

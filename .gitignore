@@ -13,3 +13,4 @@ conf/*.conf
 storage
 _trial_temp
 htmlcov
+*.swp

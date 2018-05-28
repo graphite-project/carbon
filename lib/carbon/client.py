@@ -259,7 +259,7 @@ class CarbonClientFactory(with_metaclass(PluginRegistrar, ReconnectingClientFact
         try:
           yield self.queue.popleft()
         except IndexError:
-          raise StopIteration
+          return
     return list(yield_max_datapoints())
 
   def checkQueue(self):

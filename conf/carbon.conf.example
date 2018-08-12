@@ -400,6 +400,16 @@ DESTINATIONS = 127.0.0.1:2004
 # extended with CarbonClientFactory plugins and defaults to "pickle".
 # DESTINATION_PROTOCOL = pickle
 
+# This defines the wire transport, either none or ssl.
+# If SSL is used any TCP connection will be upgraded to TLS1.  The system's
+# trust authority will be used unless DESTINATION_SSL_CA is specified in
+# which case an alternative certificate authority chain will be used for
+# verifying the remote certificate.
+# To use SSL you'll need the cryptography, service_identity, and twisted >= 14
+# DESTINATION_TRANSPORT = none
+# DESTINATION_SSL_CA=/path/to/private-ca.crt
+
+
 # When using consistent hashing it sometime makes sense to make
 # the ring dynamic when you don't want to loose points when a
 # single destination is down. Replication is an answer to that

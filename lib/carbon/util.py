@@ -15,6 +15,11 @@ from time import sleep, time
 from twisted.python.util import initgroups
 from twisted.scripts.twistd import runApp
 from carbon.log import setDebugEnabled
+try:
+    from OpenSSL import SSL
+except ImportError:
+    SSL = None
+
 
 # BytesIO is needed on py3 as StringIO does not operate on byte input anymore
 # We could use BytesIO on py2 as well but it is slower than StringIO
@@ -47,6 +52,9 @@ def enableTcpKeepAlive(transport, enable, settings):
     return
 
   fd = transport.getHandle()
+  if SSL:
+      if type(fd) == SSL.Connection:
+          return
   if fd.type != socket.SOCK_STREAM:
     return
 

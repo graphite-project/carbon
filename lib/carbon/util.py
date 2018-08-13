@@ -53,7 +53,7 @@ def enableTcpKeepAlive(transport, enable, settings):
 
   fd = transport.getHandle()
   if SSL:
-      if type(fd) == SSL.Connection:
+      if isinstance(fd, SSL.Connection):
           return
   if fd.type != socket.SOCK_STREAM:
     return

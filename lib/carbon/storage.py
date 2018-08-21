@@ -157,6 +157,7 @@ def loadAggregationSchemas():
   schemaList.append(defaultAggregation)
   return schemaList
 
+
 # default retention for unclassified data (7 days of minutely data)
 defaultArchive = Archive(60, 60 * 24 * 7)
 defaultSchema = DefaultSchema('default', [defaultArchive])

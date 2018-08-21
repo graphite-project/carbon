@@ -86,6 +86,7 @@ class TagQueue(object):
         break
     return batch
 
+
 tagQueue = TagQueue(maxsize=settings.TAG_QUEUE_SIZE, update_interval=settings.TAG_UPDATE_INTERVAL)
 
 

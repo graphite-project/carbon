@@ -58,5 +58,6 @@ class RegexList:
 
   __bool__ = __nonzero__  # py2/3 compatibility
 
+
 WhiteList = RegexList()
 BlackList = RegexList()

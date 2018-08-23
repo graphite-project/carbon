@@ -8,8 +8,8 @@ from twisted.internet.address import IPv4Address
 from twisted.internet.interfaces import IResolverSimple, IResolutionReceiver
 from twisted.internet.error import DNSLookupError
 
-# Inspired from /twisted/internet/_resolver.py
 
+# Inspired from /twisted/internet/_resolver.py
 @implementer(IResolutionReceiver)
 class RandomWins(object):
     """
@@ -30,7 +30,6 @@ class RandomWins(object):
         @param resolution: See L{IResolutionReceiver.resolutionBegan}
         """
         self._resolution = resolution
-
 
     def addressResolved(self, address):
         """
@@ -61,7 +60,6 @@ class ComplexResolverSimplifier(object):
         @param nameResolver: The L{IHostnameResolver} to use.
         """
         self._nameResolver = nameResolver
-
 
     def getHostByName(self, name, timeouts=()):
         """

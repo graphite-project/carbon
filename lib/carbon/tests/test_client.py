@@ -19,6 +19,7 @@ from mock import Mock, patch
 from pickle import loads as pickle_loads
 from struct import unpack, calcsize
 
+import time
 
 INT32_FORMAT = '!I'
 INT32_SIZE = calcsize(INT32_FORMAT)
@@ -86,6 +87,14 @@ class CarbonLineClientProtocolTest(TestCase):
       self.protocol._sendDatapointsNow([datapoint])
       self.assertEqual(self.protocol.sendLine.call_count, i)
       self.protocol.sendLine.assert_called_with(expected_line_to_send)
+
+  def test_send_datapoints_now_timestamp(self):
+    now_ms = int(time.time() * 1000)
+    datapoint = ('foo.bar', (1000000000, now_ms))
+    expected_line_to_send = "foo.bar %s 1000000000" % now_ms
+
+    self.protocol._sendDatapointsNow([datapoint])
+    self.protocol.sendLine.assert_called_once_with(expected_line_to_send)
 
 
 @patch('carbon.state.instrumentation', Mock(spec=instrumentation))

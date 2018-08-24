@@ -415,7 +415,7 @@ DESTINATIONS = 127.0.0.1:2004
 # The following example will balance the load between :0 and :1.
 ## DESTINATIONS = foo:2001:0, foo:2001:1
 ## RELAY_METHOD = rules
-# Noet: this is currently incompatible with USE_RATIO_RESET which gets
+# Note: this is currently incompatible with USE_RATIO_RESET which gets
 # disabled if  this option is enabled.
 # DESTINATIONS_POOL_REPLICAS = False
 

@@ -46,7 +46,7 @@ try:
   from txamqp.protocol import AMQClient
   from txamqp.client import TwistedDelegate
   import txamqp.spec
-except:
+except ImportError:
   raise ImportError
 
 try:
@@ -259,6 +259,7 @@ def main():
                   options.password, vhost=options.vhost,
                   exchange_name=options.exchange, verbose=options.verbose)
     reactor.run()
+
 
 if __name__ == "__main__":
     main()

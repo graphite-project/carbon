@@ -282,14 +282,15 @@ class CarbonClientFactory(with_metaclass(PluginRegistrar, ReconnectingClientFact
        authority = None
        if settings['DESTINATION_SSL_CA']:
            try:
-               f = open(settings['DESTINATION_SSL_CA'])
+             with open(settings['DESTINATION_SSL_CA']) as f:
                authority = ssl.Certificate.loadPEM(f.read())
            except IOError:
              print("Failed to read CA chain: %s" % settings['DESTINATION_SSL_CA'])
              raise SystemExit(1)
        # Twisted 14 introduced this function, it might not be around on older installs.
        if hasattr(ssl, "optionsForClientTLS"):
-           client = ssl.optionsForClientTLS(self.host.decode('utf-8'), authority)
+           from six import u
+           client = ssl.optionsForClientTLS(u(self.host), authority)
        else:
            client = CAReplaceClientContextFactory(settings['DESTINATION_SSL_CA'])
        self.connector = reactor.connectSSL(self.host, self.port, self, client)

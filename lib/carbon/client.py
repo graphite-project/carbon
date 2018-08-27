@@ -14,6 +14,15 @@ from carbon.util import PluginRegistrar
 from carbon.util import enableTcpKeepAlive
 
 try:
+    from OpenSSL import SSL
+except ImportError:
+    SSL = None
+try:
+    from twisted.internet import ssl
+except ImportError:
+    ssl = None
+
+try:
     import signal
 except ImportError:
     log.debug("Couldn't import signal module")
@@ -31,6 +40,7 @@ class CarbonClientProtocol(object):
     self.transport.registerProducer(self, streaming=True)
     # Define internal metric names
     self.lastResetTime = time()
+    self.destination = self.factory.destination
     self.destinationName = self.factory.destinationName
     self.queuedUntilReady = 'destinations.%s.queuedUntilReady' % self.destinationName
     self.sent = 'destinations.%s.sent' % self.destinationName
@@ -169,6 +179,27 @@ class CarbonClientProtocol(object):
   __repr__ = __str__
 
 
+class CAReplaceClientContextFactory:
+    """A context factory for SSL clients needing a different CA chain."""
+
+    isClient = 1
+    # SSLv23_METHOD allows SSLv2, SSLv3, and TLSv1.  We disable SSLv2 below,
+    # though.
+    method = SSL.SSLv23_METHOD if SSL else None
+
+    _cafile = None
+
+    def __init__(self, file=None):
+        self._cafile = file
+
+    def getContext(self):
+        ctx = SSL.Context(self.method)
+        ctx.set_options(SSL.OP_NO_SSLv2)
+        if self._cafile is not None:
+            ctx.use_certificate_chain_file(self._cafile)
+        return ctx
+
+
 class CarbonClientFactory(with_metaclass(PluginRegistrar, ReconnectingClientFactory, object)):
   plugins = {}
   maxDelay = 5
@@ -234,7 +265,26 @@ class CarbonClientFactory(with_metaclass(PluginRegistrar, ReconnectingClientFact
 
   def startConnecting(self):  # calling this startFactory yields recursion problems
     self.started = True
-    self.connector = reactor.connectTCP(self.host, self.port, self)
+    if settings['DESTINATION_TRANSPORT'] == "ssl":
+       if not SSL or not ssl:
+           print("SSL destination transport request, but no Python OpenSSL available.")
+           raise SystemExit(1)
+       authority = None
+       if settings['DESTINATION_SSL_CA']:
+           try:
+               f = open(settings['DESTINATION_SSL_CA'])
+               authority = ssl.Certificate.loadPEM(f.read())
+           except IOError:
+             print("Failed to read CA chain: %s" % settings['DESTINATION_SSL_CA'])
+             raise SystemExit(1)
+       # Twisted 14 introduced this function, it might not be around on older installs.
+       if hasattr(ssl, "optionsForClientTLS"):
+           client = ssl.optionsForClientTLS(self.host.decode('utf-8'), authority)
+       else:
+           client = CAReplaceClientContextFactory(settings['DESTINATION_SSL_CA'])
+       self.connector = reactor.connectSSL(self.host, self.port, self, client)
+    else:
+       self.connector = reactor.connectTCP(self.host, self.port, self)
 
   def stopConnecting(self):
     self.started = False
@@ -259,7 +309,7 @@ class CarbonClientFactory(with_metaclass(PluginRegistrar, ReconnectingClientFact
         try:
           yield self.queue.popleft()
         except IndexError:
-          raise StopIteration
+          return
     return list(yield_max_datapoints())
 
   def checkQueue(self):
@@ -320,7 +370,7 @@ class CarbonClientFactory(with_metaclass(PluginRegistrar, ReconnectingClientFact
   def clientConnectionMade(self, client):
     log.clients("%s::connectionMade (%s)" % (self, client))
     self.resetDelay()
-    self.destinationUp(client.factory.destination)
+    self.destinationUp(client.destination)
     self.connectionMade.addCallbacks(self.clientConnectionMade, log.err)
     return client
 
@@ -330,7 +380,7 @@ class CarbonClientFactory(with_metaclass(PluginRegistrar, ReconnectingClientFact
         self, connector.host, connector.port, reason.getErrorMessage()))
     self.connectedProtocol = None
 
-    self.destinationDown(connector.factory.destination)
+    self.destinationDown(self.destination)
 
     args = dict(connector=connector, reason=reason)
     d = self.connectionLost
@@ -342,7 +392,7 @@ class CarbonClientFactory(with_metaclass(PluginRegistrar, ReconnectingClientFact
     log.clients("%s::clientConnectionFailed (%s:%d) %s" % (
         self, connector.host, connector.port, reason.getErrorMessage()))
 
-    self.destinationDown(connector.factory.destination)
+    self.destinationDown(self.destination)
 
     args = dict(connector=connector, reason=reason)
     d = self.connectFailed

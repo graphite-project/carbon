@@ -68,7 +68,8 @@ def getCpuUsage():
 
 
 def getMemUsage():
-  rss_pages = int(open('/proc/self/statm').read().split()[1])
+  with open('/proc/self/statm') as statm:
+    rss_pages = int(statm.read().split()[1])
   return rss_pages * PAGESIZE
 
 

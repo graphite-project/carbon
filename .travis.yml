@@ -1,7 +1,8 @@
 # http://travis-ci.org/#!/graphite-project/carbon
 language: python
 python: 2.7
-sudo: false
+# sudo is needed to install libboost-python-dev, which is required by pyhash
+sudo: required
 
 matrix:
   include:
@@ -17,10 +18,19 @@ matrix:
     - python: 3.6
       env:
         - TOXENV=py36
-    - python: 3.6
+    - python: 3.7
+      dist: xenial
+      sudo: true
       env:
-        - TOXENV=py36-pyhash
-    - python: 3.6
+        - TOXENV=py37
+    - python: 3.7
+      dist: xenial
+      sudo: true
+      env:
+        - TOXENV=py37-pyhash
+    - python: 3.7
+      dist: xenial
+      sudo: true
       env:
         - TOXENV=lint
 

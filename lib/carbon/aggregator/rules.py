@@ -177,6 +177,7 @@ def percentile(factor):
 
   return func
 
+
 AGGREGATION_METHODS = {
   'sum': sum,
   'avg': avg,

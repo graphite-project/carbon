@@ -220,7 +220,7 @@ class FastHashRing(object):
 
   def get_nodes(self, key):
     if not self.nodes:
-      raise StopIteration()
+      return
 
     seed = self._hash(key) % len(self.nodes)
 

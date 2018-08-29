@@ -10,3 +10,4 @@ connectedMetricReceiverProtocols = set()
 pipeline_processors = []
 pipeline_processors_generated = []
 database = None
+listeningPorts = []

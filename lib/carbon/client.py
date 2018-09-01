@@ -12,7 +12,6 @@ from carbon.conf import settings
 from carbon.util import pickle
 from carbon.util import PluginRegistrar
 from carbon.util import enableTcpKeepAlive
-from carbon.resolver import setUpRandomResolver
 from carbon import instrumentation, log, pipeline, state
 
 try:
@@ -28,6 +27,17 @@ try:
     import signal
 except ImportError:
     log.debug("Couldn't import signal module")
+
+try:
+  import twisted as _twisted
+  twisted_version = tuple(map(int, getattr(_twisted, '__version__', '0').split('.')))
+  if twisted_version >= (17, 1):
+    from carbon.resolver import setUpRandomResolver
+  else:
+    setUpRandomResolver = None
+  del _twisted
+except ImportError:
+  setUpRandomResolver = None
 
 
 SEND_QUEUE_LOW_WATERMARK = settings.MAX_QUEUE_SIZE * settings.QUEUE_LOW_WATERMARK_PCT
@@ -528,7 +538,11 @@ class CarbonClientManager(Service):
         # If we decide to open multiple TCP connection to a replica, we probably
         # want to try to also load-balance accross hosts. In this case we need
         # to make sure rfc3484 doesn't get in the way.
-        setUpRandomResolver(reactor)
+        if setUpRandomResolver:
+          setUpRandomResolver(reactor)
+        else:
+          print("You need Twisted >= 17.1.0 for using DESTINATION_POOL_REPLICAS.")
+          raise SystemExit(1)
 
     self.router = router
     self.client_factories = {}  # { destination : CarbonClientFactory() }

@@ -31,7 +31,7 @@ except ImportError:
 try:
     from carbon.resolver import setUpRandomResolver
 except ImportError:
-  setUpRandomResolver = None
+    setUpRandomResolver = None
 
 
 SEND_QUEUE_LOW_WATERMARK = settings.MAX_QUEUE_SIZE * settings.QUEUE_LOW_WATERMARK_PCT

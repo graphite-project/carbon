@@ -18,21 +18,42 @@ from six import with_metaclass
 from carbon.util import enableTcpKeepAlive
 
 
-class CarbonReceiverFactory(ServerFactory):
-  def buildProtocol(self, addr):
-    from carbon.conf import settings
+def checkIfAcceptingConnections():
+  clients = len(state.connectedMetricReceiverProtocols)
+  max_clients = settings.MAX_RECEIVER_CONNECTIONS
 
-    # Don't establish the connection if we have reached the limit.
-    if len(state.connectedMetricReceiverProtocols) < settings.MAX_RECEIVER_CONNECTIONS:
+  if clients < max_clients:
+    for port in state.listeningPorts:
+      if port.paused:
+        log.listener(
+          "Resuming %s (%d/%d connections)" % (port, clients, max_clients))
+        port.resumeProducing()
+        port.paused = False
+  else:
+    for port in state.listeningPorts:
+      if not port.paused:
+        log.listener(
+          "Pausing %s (%d/%d connections)" % (port, clients, max_clients))
+        port.pauseProducing()
+        port.paused = True
+
+
+class CarbonReceiverFactory(ServerFactory):
+
+  def buildProtocol(self, addr):
+    clients = len(state.connectedMetricReceiverProtocols)
+    max_clients = settings.MAX_RECEIVER_CONNECTIONS
+
+    if clients < max_clients:
       return ServerFactory.buildProtocol(self, addr)
     else:
       return None
 
 
 class CarbonService(service.Service):
-    """creates our own socket to support SO_REUSEPORT
-    to be removed when twisted supports it natively
-    see https://github.com/twisted/twisted/pull/759
+    """Create our own socket to support SO_REUSEPORT.
+    To be removed when twisted supports it natively
+    See: https://github.com/twisted/twisted/pull/759.
     """
     factory = None
     protocol = None
@@ -61,6 +82,8 @@ class CarbonService(service.Service):
             carbon_sock.listen(tmp_port.backlog)
             self._port = reactor.adoptStreamPort(
                 carbon_sock.fileno(), socket.AF_INET, self.factory)
+            state.listeningPorts.append(self._port)
+            self._port.paused = False
         carbon_sock.close()
 
     def stopService(self):
@@ -107,6 +130,7 @@ class MetricReceiver(CarbonServerProtocol, TimeoutMixin):
       self.pauseReceiving()
 
     state.connectedMetricReceiverProtocols.add(self)
+    checkIfAcceptingConnections()
     if settings.USE_FLOW_CONTROL:
       events.pauseReceivingMetrics.addHandler(self.pauseReceiving)
       events.resumeReceivingMetrics.addHandler(self.resumeReceiving)
@@ -135,6 +159,7 @@ class MetricReceiver(CarbonServerProtocol, TimeoutMixin):
         "%s connection with %s lost: %s" % (self.__class__.__name__, self.peerName, reason.value))
 
     state.connectedMetricReceiverProtocols.remove(self)
+    checkIfAcceptingConnections()
     if settings.USE_FLOW_CONTROL:
       events.pauseReceivingMetrics.removeHandler(self.pauseReceiving)
       events.resumeReceivingMetrics.removeHandler(self.resumeReceiving)

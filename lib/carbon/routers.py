@@ -219,6 +219,9 @@ class FastHashRing(object):
     self._update_nodes()
 
   def get_nodes(self, key):
+    if not self.nodes:
+      return
+
     seed = self._hash(key) % len(self.nodes)
 
     for n in xrange(seed, seed + len(self.nodes)):

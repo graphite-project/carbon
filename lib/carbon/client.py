@@ -1,4 +1,4 @@
-from collections import deque
+from collections import deque, defaultdict
 from time import time
 from six import with_metaclass
 
@@ -7,11 +7,13 @@ from twisted.internet import reactor
 from twisted.internet.defer import Deferred, DeferredList
 from twisted.internet.protocol import ReconnectingClientFactory
 from twisted.protocols.basic import LineOnlyReceiver, Int32StringReceiver
+
 from carbon.conf import settings
 from carbon.util import pickle
-from carbon import instrumentation, log, pipeline, state
 from carbon.util import PluginRegistrar
 from carbon.util import enableTcpKeepAlive
+from carbon.resolver import setUpRandomResolver
+from carbon import instrumentation, log, pipeline, state
 
 try:
     from OpenSSL import SSL
@@ -121,11 +123,10 @@ class CarbonClientProtocol(object):
     if not self.factory.hasQueuedDatapoints():
       return
 
-    if settings.USE_RATIO_RESET is True:
-      if not self.connectionQualityMonitor():
-        self.resetConnectionForQualityReasons("Sent: {0}, Received: {1}".format(
-          instrumentation.prior_stats.get(self.sent, 0),
-          instrumentation.prior_stats.get('metricsReceived', 0)))
+    if not self.connectionQualityMonitor():
+      self.resetConnectionForQualityReasons("Sent: {0}, Received: {1}".format(
+        instrumentation.prior_stats.get(self.sent, 0),
+        instrumentation.prior_stats.get('metricsReceived', 0)))
 
     self.sendDatapointsNow(self.factory.takeSomeFromQueue())
     if (self.factory.queueFull.called and queueSize < SEND_QUEUE_LOW_WATERMARK):
@@ -148,8 +149,16 @@ class CarbonClientProtocol(object):
 
     False means that quality is bad
     """
+    if not settings.USE_RATIO_RESET:
+      return True
+
+    if settings.DESTINATION_POOL_REPLICAS:
+        received = self.factory.attemptedRelays
+    else:
+        received = 'metricsReceived'
+
     destination_sent = float(instrumentation.prior_stats.get(self.sent, 0))
-    total_received = float(instrumentation.prior_stats.get('metricsReceived', 0))
+    total_received = float(instrumentation.prior_stats.get(received, 0))
     instrumentation.increment(self.slowConnectionReset, 0)
     if total_received < settings.MIN_RESET_STAT_FLOW:
       return True
@@ -216,9 +225,9 @@ class CarbonClientFactory(with_metaclass(PluginRegistrar, ReconnectingClientFact
     self.connectedProtocol = None
     self.queueEmpty = Deferred()
     self.queueFull = Deferred()
-    self.queueFull.addCallback(self.queueFullCallback)
+    self.queueFull.addCallbacks(self.queueFullCallback, log.err)
     self.queueHasSpace = Deferred()
-    self.queueHasSpace.addCallback(self.queueSpaceCallback)
+    self.queueHasSpace.addCallbacks(self.queueSpaceCallback, log.err)
     # Args: {'connector': connector, 'reason': reason}
     self.connectFailed = Deferred()
     # Args: {'connector': connector, 'reason': reason}
@@ -253,10 +262,10 @@ class CarbonClientFactory(with_metaclass(PluginRegistrar, ReconnectingClientFact
     if self.queueFull.called:
       log.clients('%s send queue has space available' % self.connectedProtocol)
       self.queueFull = Deferred()
-      self.queueFull.addCallback(self.queueFullCallback)
+      self.queueFull.addCallbacks(self.queueFullCallback, log.err)
       state.events.cacheSpaceAvailable()
     self.queueHasSpace = Deferred()
-    self.queueHasSpace.addCallback(self.queueSpaceCallback)
+    self.queueHasSpace.addCallbacks(self.queueSpaceCallback, log.err)
 
   def buildProtocol(self, addr):
     self.connectedProtocol = self.clientProtocol()
@@ -265,6 +274,7 @@ class CarbonClientFactory(with_metaclass(PluginRegistrar, ReconnectingClientFact
 
   def startConnecting(self):  # calling this startFactory yields recursion problems
     self.started = True
+
     if settings['DESTINATION_TRANSPORT'] == "ssl":
        if not SSL or not ssl:
            print("SSL destination transport request, but no Python OpenSSL available.")
@@ -272,19 +282,20 @@ class CarbonClientFactory(with_metaclass(PluginRegistrar, ReconnectingClientFact
        authority = None
        if settings['DESTINATION_SSL_CA']:
            try:
-               f = open(settings['DESTINATION_SSL_CA'])
+             with open(settings['DESTINATION_SSL_CA']) as f:
                authority = ssl.Certificate.loadPEM(f.read())
            except IOError:
              print("Failed to read CA chain: %s" % settings['DESTINATION_SSL_CA'])
              raise SystemExit(1)
        # Twisted 14 introduced this function, it might not be around on older installs.
        if hasattr(ssl, "optionsForClientTLS"):
-           client = ssl.optionsForClientTLS(self.host.decode('utf-8'), authority)
+           from six import u
+           client = ssl.optionsForClientTLS(u(self.host), authority)
        else:
            client = CAReplaceClientContextFactory(settings['DESTINATION_SSL_CA'])
        self.connector = reactor.connectSSL(self.host, self.port, self, client)
     else:
-       self.connector = reactor.connectTCP(self.host, self.port, self)
+      self.connector = reactor.connectTCP(self.host, self.port, self)
 
   def stopConnecting(self):
     self.started = False
@@ -429,7 +440,7 @@ class CarbonClientFactory(with_metaclass(PluginRegistrar, ReconnectingClientFact
       self.queue.clear()
 
   def disconnect(self):
-    self.queueEmpty.addCallback(lambda result: self.stopConnecting())
+    self.queueEmpty.addCallbacks(lambda result: self.stopConnecting(), log.err)
     readyToStop = DeferredList(
       [self.connectionLost, self.connectFailed],
       fireOnOneCallback=True,
@@ -513,8 +524,16 @@ class FakeClientFactory(object):
 
 class CarbonClientManager(Service):
   def __init__(self, router):
+    if settings.DESTINATION_POOL_REPLICAS:
+        # If we decide to open multiple TCP connection to a replica, we probably
+        # want to try to also load-balance accross hosts. In this case we need
+        # to make sure rfc3484 doesn't get in the way.
+        setUpRandomResolver(reactor)
+
     self.router = router
     self.client_factories = {}  # { destination : CarbonClientFactory() }
+    # { destination[0:2]: set(CarbonClientFactory()) }
+    self.pooled_factories = defaultdict(set)
 
     # This fake factory will be used as a buffer when we did not manage
     # to connect to any destination.
@@ -558,6 +577,7 @@ class CarbonClientManager(Service):
 
     factory = self.createFactory(destination)
     self.client_factories[destination] = factory
+    self.pooled_factories[destination[0:2]].add(factory)
 
     connectAttempted = DeferredList(
         [factory.connectionMade, factory.connectFailed],
@@ -575,11 +595,14 @@ class CarbonClientManager(Service):
 
     self.router.removeDestination(destination)
     stopCompleted = factory.disconnect()
-    stopCompleted.addCallback(lambda result: self.disconnectClient(destination))
+    stopCompleted.addCallbacks(
+        lambda result: self.disconnectClient(destination), log.err
+    )
     return stopCompleted
 
   def disconnectClient(self, destination):
     factory = self.client_factories.pop(destination)
+    self.pooled_factories[destination[0:2]].remove(factory)
     c = factory.connector
     if c and c.state == 'connecting' and not factory.hasQueuedDatapoints():
       c.stopConnecting()
@@ -600,13 +623,35 @@ class CarbonClientManager(Service):
       return [None]
     return destinations
 
+  def getFactories(self, metric):
+    destinations = self.getDestinations(metric)
+    factories = set()
+
+    if not settings.DESTINATION_POOL_REPLICAS:
+      # Simple case, with only one replica per destination.
+      for d in destinations:
+        # If we can't find it, we add to the 'fake' factory / buffer.
+        factories.add(self.client_factories.get(d))
+    else:
+      # Here we might have multiple replicas per destination.
+      for d in destinations:
+        if d is None:
+          # d == None means there are no destinations currently available, so
+          # we just put the data into our fake factory / buffer.
+          factories.add(self.client_factories[None])
+        else:
+          # Else we take the replica with the smallest queue size.
+          key = d[0:2]  # Take only host:port, not instance.
+          factories.add(min(self.pooled_factories[key], key=lambda f: f.queueSize))
+    return factories
+
   def sendDatapoint(self, metric, datapoint):
-    for destination in self.getDestinations(metric):
-      self.client_factories[destination].sendDatapoint(metric, datapoint)
+    for factory in self.getFactories(metric):
+      factory.sendDatapoint(metric, datapoint)
 
   def sendHighPriorityDatapoint(self, metric, datapoint):
-    for destination in self.getDestinations(metric):
-      self.client_factories[destination].sendHighPriorityDatapoint(metric, datapoint)
+    for factory in self.getFactories(metric):
+      factory.sendHighPriorityDatapoint(metric, datapoint)
 
   def __str__(self):
     return "<%s[%x]>" % (self.__class__.__name__, id(self))

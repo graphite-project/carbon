@@ -29,13 +29,7 @@ except ImportError:
     log.debug("Couldn't import signal module")
 
 try:
-  import twisted as _twisted
-  twisted_version = tuple(map(int, getattr(_twisted, '__version__', '0').split('.')))
-  if twisted_version >= (17, 1):
     from carbon.resolver import setUpRandomResolver
-  else:
-    setUpRandomResolver = None
-  del _twisted
 except ImportError:
   setUpRandomResolver = None
 
@@ -541,7 +535,7 @@ class CarbonClientManager(Service):
         if setUpRandomResolver:
           setUpRandomResolver(reactor)
         else:
-          print("You need Twisted >= 17.1.0 for using DESTINATION_POOL_REPLICAS.")
+          print("Import error, you probably need Twisted >= 17.1.0 for using DESTINATION_POOL_REPLICAS.")
           raise SystemExit(1)
 
     self.router = router

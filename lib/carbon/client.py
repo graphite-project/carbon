@@ -535,7 +535,7 @@ class CarbonClientManager(Service):
         if setUpRandomResolver:
           setUpRandomResolver(reactor)
         else:
-          print("Import error, you probably need Twisted >= 17.1.0 for using DESTINATION_POOL_REPLICAS.")
+          print("Import error, Twisted >= 17.1.0 needed for using DESTINATION_POOL_REPLICAS.")
           raise SystemExit(1)
 
     self.router = router

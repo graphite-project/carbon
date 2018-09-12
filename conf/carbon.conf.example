@@ -198,6 +198,7 @@ WHISPER_AUTOFLUSH = False
 # allocation and zero-ing. Enabling this option may allow a large increase of
 # MAX_CREATES_PER_MINUTE. If enabled on an OS or filesystem that is unsupported
 # this option will gracefully fallback to standard POSIX file access methods.
+# If enabled, disables WHISPER_SPARSE_CREATE regardless of the value.
 WHISPER_FALLOCATE_CREATE = True
 
 # Enabling this option will cause Whisper to lock each Whisper file it writes

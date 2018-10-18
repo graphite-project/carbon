@@ -22,7 +22,7 @@ from carbon.conf import settings
 from carbon import log, instrumentation
 from carbon.util import TokenBucket
 
-from twisted.internet import reactor
+from twisted.internet import reactor, threads
 from twisted.internet.task import LoopingCall
 from twisted.application.service import Service
 
@@ -184,16 +184,16 @@ def writeCachedDataPoints():
 
 
 def writeForever():
-  while reactor.running:
-    try:
-      writeCachedDataPoints()
-    except Exception:
-      log.err()
-      # Back-off on error to give the backend time to recover.
-      time.sleep(0.1)
-    else:
-      # Avoid churning CPU when there are no metrics are in the cache
-      time.sleep(1)
+  def handleOk(result):
+    # Avoid churning CPU when there are no series in the queue
+    reactor.callLater(1, writeForever)
+
+  def handleErr(err):
+    log.msg('Error writing data points: %s' % err)
+    # Back-off on error to give the backend time to recover.
+    reactor.callLater(0.1, writeForever)
+
+  threads.deferToThread(writeCachedDataPoints).addCallbacks(handleOk, handleErr)
 
 
 def writeTags():
@@ -205,16 +205,16 @@ def writeTags():
 
 
 def writeTagsForever():
-  while reactor.running:
-    try:
-      writeTags()
-    except Exception:
-      log.err()
-      # Back-off on error to give the backend time to recover.
-      time.sleep(0.1)
-    else:
-      # Avoid churning CPU when there are no series in the queue
-      time.sleep(0.2)
+  def handleOk(result):
+    # Avoid churning CPU when there are no series in the queue
+    reactor.callLater(1, writeTagsForever)
+
+  def handleErr(err):
+    log.msg('Error writing tags: %s' % err)
+    # Back-off on error to give the backend time to recover.
+    reactor.callLater(0.1, writeTagsForever)
+
+  threads.deferToThread(writeTags).addCallbacks(handleOk, handleErr)
 
 
 def reloadStorageSchemas():
@@ -262,9 +262,9 @@ class WriterService(Service):
         self.storage_reload_task.start(60, False)
         self.aggregation_reload_task.start(60, False)
         reactor.addSystemEventTrigger('before', 'shutdown', shutdownModifyUpdateSpeed)
-        reactor.callInThread(writeForever)
+        reactor.callLater(0.1, writeForever)
         if settings.ENABLE_TAGS:
-          reactor.callInThread(writeTagsForever)
+          reactor.callLater(0.1, writeTagsForever)
         Service.startService(self)
 
     def stopService(self):

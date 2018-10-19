@@ -186,7 +186,7 @@ def writeCachedDataPoints():
 def writeForever():
   def handleOk(result):
     # Avoid churning CPU when there are no series in the queue
-    reactor.callLater(1, writeForever)
+    reactor.callLater(0.2, writeForever)
 
   def handleErr(err):
     log.msg('Error writing data points: %s' % err)
@@ -207,7 +207,7 @@ def writeTags():
 def writeTagsForever():
   def handleOk(result):
     # Avoid churning CPU when there are no series in the queue
-    reactor.callLater(1, writeTagsForever)
+    reactor.callLater(0.2, writeTagsForever)
 
   def handleErr(err):
     log.msg('Error writing tags: %s' % err)

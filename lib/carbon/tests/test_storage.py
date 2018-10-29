@@ -53,7 +53,7 @@ class ExistingConfigSchemaLoadingTest(TestCase):
         schema_list = loadStorageSchemas()
         self.assertEquals(len(schema_list), 3)
         expected = [
-            PatternSchema('carbon', '^carbon\.', [Archive.fromString('60:90d')]),
+            PatternSchema('carbon', r'^carbon\.', [Archive.fromString('60:90d')]),
             PatternSchema('default_1min_for_1day', '.*', [Archive.fromString('60s:1d')])
         ]
         for schema, expected_schema in zip(schema_list[:-1], expected):
@@ -74,9 +74,9 @@ class ExistingConfigSchemaLoadingTest(TestCase):
         schema_list = loadAggregationSchemas()
         self.assertEquals(len(schema_list), 5)
         expected = [
-            PatternSchema('min', '\.min$', (0.1, 'min')),
-            PatternSchema('max', '\.max$', (0.1, 'max')),
-            PatternSchema('sum', '\.count$', (0, 'sum')),
+            PatternSchema('min', r'\.min$', (0.1, 'min')),
+            PatternSchema('max', r'\.max$', (0.1, 'max')),
+            PatternSchema('sum', r'\.count$', (0, 'sum')),
             PatternSchema('default_average', '.*', (0.5, 'average'))
         ]
         for schema, expected_schema in zip(schema_list[:-1], expected):

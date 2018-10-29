@@ -1,7 +1,7 @@
 import carbon.client as carbon_client
 from carbon.client import (
   CarbonPickleClientFactory, CarbonPickleClientProtocol, CarbonLineClientProtocol,
-  CarbonClientManager
+  CarbonClientManager, RelayProcessor
 )
 from carbon.routers import DatapointRouter
 from carbon.tests.util import TestSettings
@@ -188,3 +188,30 @@ class CarbonClientManagerTest(TestCase):
     self.client_mgr.startClient(dest)
     self.client_mgr.stopClient(dest)
     self.router_mock.removeDestination.assert_called_once_with(dest)
+
+@patch('carbon.state.instrumentation', Mock(spec=instrumentation))
+class RelayProcessorTest(TestCase):
+  timeout = 1.0
+
+  def setUp(self):
+    carbon_client.settings = TestSettings()  # reset to defaults
+    self.client_mgr_mock = Mock(spec=CarbonClientManager)
+    self.client_mgr_patch = patch(
+      'carbon.state.client_manager', new=self.client_mgr_mock)
+    self.client_mgr_patch.start()
+    #carbon_client.settings = TestSettings()
+
+  def tearDown(self):
+    self.client_mgr_patch.stop()
+
+  def test_relay_normalized(self):
+    carbon_client.settings.TAG_RELAY_NORMALIZED = True
+    relayProcessor = RelayProcessor()
+    relayProcessor.process('my.metric;foo=a;bar=b', (0.0, 0.0))
+    self.client_mgr_mock.sendDatapoint.assert_called_once_with('my.metric;bar=b;foo=a', (0.0, 0.0))
+
+  def test_relay_unnormalized(self):
+    carbon_client.settings.TAG_RELAY_NORMALIZED = False
+    relayProcessor = RelayProcessor()
+    relayProcessor.process('my.metric;foo=a;bar=b', (0.0, 0.0))
+    self.client_mgr_mock.sendDatapoint.assert_called_once_with('my.metric;foo=a;bar=b', (0.0, 0.0))

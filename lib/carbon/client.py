@@ -10,7 +10,7 @@ from twisted.protocols.basic import LineOnlyReceiver, Int32StringReceiver
 
 from carbon.conf import settings
 from carbon.util import pickle
-from carbon.util import PluginRegistrar
+from carbon.util import PluginRegistrar, TaggedSeries
 from carbon.util import enableTcpKeepAlive
 from carbon import instrumentation, log, pipeline, state
 
@@ -669,5 +669,13 @@ class RelayProcessor(pipeline.Processor):
   plugin_name = 'relay'
 
   def process(self, metric, datapoint):
+    if settings.TAG_RELAY_NORMALIZED:
+      # normalize metric name
+      try:
+        metric = TaggedSeries.parse(metric).path
+      except Exception as err:
+        log.msg('Error parsing metric %s: %s' % (metric, err))
+        # continue anyway with processing the unnormalized metric for robustness
+
     state.client_manager.sendDatapoint(metric, datapoint)
     return pipeline.Processor.NO_OUTPUT

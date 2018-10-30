@@ -92,8 +92,8 @@ class TestMetricReceiver(TestCase):
 
     def test_allowlist_metricReceived(self):
         """ metrics which don't match should be dropped """
-        regexes = [re.compile('.*\.is\.allowed\..*'),
-                   re.compile('^жопа\.驢\.γάιδαρος$')]
+        regexes = [re.compile(r'.*\.is\.allowed\..*'),
+                   re.compile(r'^жопа\.驢\.γάιδαρος$')]
 
         metrics = [('this.metric.is.allowed.a', (1, 2)),
                    ('this.metric.is.not_allowed.a', (3, 4)),
@@ -109,7 +109,7 @@ class TestMetricReceiver(TestCase):
 
     def test_disallowlist_metricReceived(self):
         """ metrics which match should be dropped """
-        regexes = [re.compile('.*\.invalid\.metric\..*'),
+        regexes = [re.compile(r'.*\.invalid\.metric\..*'),
                    re.compile('^osioł.الاغ.नितंब$')]
 
         metrics = [('some.invalid.metric.a', (1, 2)),

@@ -11,7 +11,7 @@ class Processor(with_metaclass(PluginRegistrar, object)):
     "override me if you want"
 
   def process(self, metric, datapoint):
-    raise NotImplemented()
+    raise NotImplementedError()
 
 
 def run_pipeline_generated(metric, datapoint):

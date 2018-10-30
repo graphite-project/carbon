@@ -189,6 +189,7 @@ class CarbonClientManagerTest(TestCase):
     self.client_mgr.stopClient(dest)
     self.router_mock.removeDestination.assert_called_once_with(dest)
 
+
 @patch('carbon.state.instrumentation', Mock(spec=instrumentation))
 class RelayProcessorTest(TestCase):
   timeout = 1.0
@@ -199,7 +200,6 @@ class RelayProcessorTest(TestCase):
     self.client_mgr_patch = patch(
       'carbon.state.client_manager', new=self.client_mgr_mock)
     self.client_mgr_patch.start()
-    #carbon_client.settings = TestSettings()
 
   def tearDown(self):
     self.client_mgr_patch.stop()

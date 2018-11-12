@@ -158,13 +158,16 @@ class _MetricCache(defaultdict):
 
   @property
   def counts(self):
-    return [(metric, len(datapoints)) for (metric, datapoints) in self.items()]
+    with self.lock:
+      return [(metric, len(datapoints)) for (metric, datapoints)
+              in self.items()]
 
   @property
   def watermarks(self):
-    return [(metric, min(datapoints.keys()), max(datapoints.keys()))
-            for (metric, datapoints) in self.items()
-            if datapoints]
+    with self.lock:
+      return [(metric, min(datapoints.keys()), max(datapoints.keys()))
+              for (metric, datapoints) in self.items()
+              if datapoints]
 
   @property
   def is_full(self):

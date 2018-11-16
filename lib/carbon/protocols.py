@@ -234,7 +234,10 @@ class MetricDatagramReceiver(MetricReceiver, DatagramProtocol):
 
 class MetricPickleReceiver(MetricReceiver, Int32StringReceiver):
   plugin_name = "pickle"
-  MAX_LENGTH = 2 ** 20
+
+  def __init__(self):
+    super(MetricPickleReceiver, self).__init__()
+    self.MAX_LENGTH = settings.PICKLE_RECEIVER_MAX_LENGTH
 
   def connectionMade(self):
     MetricReceiver.connectionMade(self)

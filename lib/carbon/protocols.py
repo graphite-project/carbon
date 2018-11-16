@@ -244,8 +244,10 @@ class MetricPickleReceiver(MetricReceiver, Int32StringReceiver):
     try:
       datapoints = self.unpickler.loads(data)
     # Pickle can throw a wide range of exceptions
-    except (pickle.UnpicklingError, ValueError, IndexError, ImportError, KeyError):
-      log.listener('invalid pickle received from %s, ignoring' % self.peerName)
+    except (pickle.UnpicklingError, ValueError, IndexError, ImportError,
+            KeyError, EOFError) as exc:
+      log.listener('invalid pickle received from %s, error: "%s", ignoring' % (
+                   self.peerName, exc))
       return
 
     for raw in datapoints:

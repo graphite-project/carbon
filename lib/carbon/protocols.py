@@ -237,7 +237,7 @@ class MetricPickleReceiver(MetricReceiver, Int32StringReceiver):
 
   def __init__(self):
     super(MetricPickleReceiver, self).__init__()
-    self.MAX_LENGTH = settings.MAX_PICKLE_STRING_LENGTH
+    self.MAX_LENGTH = settings.PICKLE_RECEIVER_MAX_LENGTH
 
   def connectionMade(self):
     MetricReceiver.connectionMade(self)

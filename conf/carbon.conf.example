@@ -110,6 +110,12 @@ UDP_RECEIVER_PORT = 2003
 PICKLE_RECEIVER_INTERFACE = 0.0.0.0
 PICKLE_RECEIVER_PORT = 2004
 
+# Set the maximum length for a received pickle string (in bytes).
+# If the string length is bigger, the receiver will silently close connection.
+# Useful for big metric batches.
+# Default value is 1 Mb
+PICKLE_RECEIVER_MAX_LENGTH = 1048576
+
 # Set the interface and port for the protobuf listener.  Setting the interface to
 # 0.0.0.0 listens on all interfaces.  Port can be set to 0 to disable this
 # listener if it is not required.
@@ -345,6 +351,7 @@ LINE_RECEIVER_INTERFACE = 0.0.0.0
 LINE_RECEIVER_PORT = 2013
 PICKLE_RECEIVER_INTERFACE = 0.0.0.0
 PICKLE_RECEIVER_PORT = 2014
+PICKLE_RECEIVER_MAX_LENGTH = 1048576
 
 # Carbon-relay has several options for metric routing controlled by RELAY_METHOD
 #

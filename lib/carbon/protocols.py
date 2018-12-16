@@ -234,7 +234,10 @@ class MetricDatagramReceiver(MetricReceiver, DatagramProtocol):
 
 class MetricPickleReceiver(MetricReceiver, Int32StringReceiver):
   plugin_name = "pickle"
-  MAX_LENGTH = 2 ** 20
+
+  def __init__(self):
+    super(MetricPickleReceiver, self).__init__()
+    self.MAX_LENGTH = settings.PICKLE_RECEIVER_MAX_LENGTH
 
   def connectionMade(self):
     MetricReceiver.connectionMade(self)
@@ -244,8 +247,10 @@ class MetricPickleReceiver(MetricReceiver, Int32StringReceiver):
     try:
       datapoints = self.unpickler.loads(data)
     # Pickle can throw a wide range of exceptions
-    except (pickle.UnpicklingError, ValueError, IndexError, ImportError, KeyError):
-      log.listener('invalid pickle received from %s, ignoring' % self.peerName)
+    except (pickle.UnpicklingError, ValueError, IndexError, ImportError,
+            KeyError, EOFError) as exc:
+      log.listener('invalid pickle received from %s, error: "%s", ignoring' % (
+                   self.peerName, exc))
       return
 
     for raw in datapoints:

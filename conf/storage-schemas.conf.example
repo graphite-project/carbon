@@ -7,6 +7,11 @@
 #    pattern = regex
 #    retentions = timePerPoint:timeToStore, timePerPoint:timeToStore, ...
 #
+# name: Arbitrary unique name for the rule
+# pattern: Regular expression to match against the metric name. For syntax see:
+#          https://docs.python.org/3/library/re.html#regular-expression-syntax
+# retentions: Retention schema for the metric
+#
 # Remember: To support accurate aggregation from higher to lower resolution
 #           archives, the precision of a longer retention archive must be
 #           cleanly divisible by precision of next lower retention archive.
@@ -24,6 +29,6 @@
 pattern = ^carbon\.
 retentions = 60:90d
 
-[default_1min_for_1day]
+[default]
 pattern = .*
-retentions = 60s:1d
+retentions = 60s:1d,5m:30d,1h:3y

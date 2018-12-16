@@ -110,6 +110,12 @@ UDP_RECEIVER_PORT = 2003
 PICKLE_RECEIVER_INTERFACE = 0.0.0.0
 PICKLE_RECEIVER_PORT = 2004
 
+# Set the maximum length for a received pickle string (in bytes).
+# If the string length is bigger, the receiver will silently close connection.
+# Useful for big metric batches.
+# Default value is 1 Mb
+PICKLE_RECEIVER_MAX_LENGTH = 1048576
+
 # Set the interface and port for the protobuf listener.  Setting the interface to
 # 0.0.0.0 listens on all interfaces.  Port can be set to 0 to disable this
 # listener if it is not required.
@@ -198,6 +204,7 @@ WHISPER_AUTOFLUSH = False
 # allocation and zero-ing. Enabling this option may allow a large increase of
 # MAX_CREATES_PER_MINUTE. If enabled on an OS or filesystem that is unsupported
 # this option will gracefully fallback to standard POSIX file access methods.
+# If enabled, disables WHISPER_SPARSE_CREATE regardless of the value.
 WHISPER_FALLOCATE_CREATE = True
 
 # Enabling this option will cause Whisper to lock each Whisper file it writes
@@ -344,6 +351,7 @@ LINE_RECEIVER_INTERFACE = 0.0.0.0
 LINE_RECEIVER_PORT = 2013
 PICKLE_RECEIVER_INTERFACE = 0.0.0.0
 PICKLE_RECEIVER_PORT = 2014
+PICKLE_RECEIVER_MAX_LENGTH = 1048576
 
 # Carbon-relay has several options for metric routing controlled by RELAY_METHOD
 #
@@ -368,6 +376,18 @@ RELAY_METHOD = rules
 # If you use consistent-hashing you can add redundancy by replicating every
 # datapoint to more than one machine.
 REPLICATION_FACTOR = 1
+
+# When relaying tagged metrics, you should consider setting TAG_RELAY_NORMALIZED
+# to True so that metrics are normalized before they are relayed. Without
+# normalization, there might be inconsistencies between the destination selected
+# by the consistent-hashing method and where graphite-web actually expects the
+# metrics to end up (carbon-cache and thus graphite-web always normalize). In
+# this case, graphite-web query results will be missing some of the data that
+# hasn't been written to disk yet by carbon-cache. This increases CPU usage
+# though, so you might leave this off if you know that only normalized metrics
+# will be received by your relay, for example because an upstream relay already
+# does normalization.
+#TAG_RELAY_NORMALIZED = False
 
 # For REPLICATION_FACTOR >=2, set DIVERSE_REPLICAS to True to guarantee replicas
 # across distributed hosts. With this setting disabled, it's possible that replicas

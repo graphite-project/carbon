@@ -72,6 +72,9 @@ init_scripts = [ ('examples/init.d', ['distro/redhat/init.d/carbon-cache',
                                       'distro/redhat/init.d/carbon-aggregator']) ]
 install_files += init_scripts
 
+def read(fname):
+    with open(os.path.join(os.path.dirname(__file__), fname)) as f:
+        return f.read()
 
 try:
     setup(
@@ -82,7 +85,8 @@ try:
         author_email='chrismd@gmail.com',
         license='Apache Software License 2.0',
         description='Backend data caching and persistence daemon for Graphite',
-        long_description='Backend data caching and persistence daemon for Graphite',
+        long_description=read('README.md'),
+        long_description_content_type='text/markdown',
         packages=['carbon', 'carbon.aggregator', 'twisted.plugins'],
         package_dir={'' : 'lib'},
         scripts=glob('bin/*'),

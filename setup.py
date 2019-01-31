@@ -41,7 +41,7 @@ setup(
     package_data={'carbon': ['*.xml']},
     data_files=install_files,
     install_requires=['Twisted', 'txAMQP', 'cachetools', 'urllib3'],
-    classifiers=(
+    classifiers=[
         'Intended Audience :: Developers',
         'Natural Language :: English',
         'License :: OSI Approved :: Apache Software License',
@@ -55,6 +55,6 @@ setup(
         'Programming Language :: Python :: 3.7',
         'Programming Language :: Python :: Implementation :: CPython',
         'Programming Language :: Python :: Implementation :: PyPy',
-    ),
+    ],
     zip_safe=False
 )

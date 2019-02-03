@@ -9,7 +9,7 @@ except ImportError:
   import __builtin__
 
 from hashlib import sha256
-from os.path import abspath, basename, dirname
+from os.path import basename
 import socket
 from time import sleep, time
 from twisted.python.util import initgroups
@@ -70,10 +70,6 @@ def enableTcpKeepAlive(transport, enable, settings):
 def run_twistd_plugin(filename):
     from carbon.conf import get_parser
     from twisted.scripts.twistd import ServerOptions
-
-    bin_dir = dirname(abspath(filename))
-    root_dir = dirname(bin_dir)
-    os.environ.setdefault('GRAPHITE_ROOT', root_dir)
 
     program = basename(filename).split('.')[0]
 

@@ -14,19 +14,11 @@ See the License for the specific language governing permissions and
 limitations under the License."""
 
 import sys
-from os.path import dirname, join, abspath, exists
+from os.path import join, exists
 from optparse import OptionParser
 
-# Figure out where we're installed
-BIN_DIR = dirname(abspath(__file__))
-ROOT_DIR = dirname(BIN_DIR)
-CONF_DIR = join(ROOT_DIR, 'conf')
+CONF_DIR = join(sys.prefix, 'conf')
 default_relayrules = join(CONF_DIR, 'relay-rules.conf')
-
-# Make sure that carbon's 'lib' dir is in the $PYTHONPATH if we're running from
-# source.
-LIB_DIR = join(ROOT_DIR, 'lib')
-sys.path.insert(0, LIB_DIR)
 
 try:
   from twisted.internet import epollreactor

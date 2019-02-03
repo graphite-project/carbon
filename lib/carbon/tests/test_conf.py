@@ -5,7 +5,6 @@ from os import makedirs
 from os.path import dirname, join
 from unittest import TestCase
 from carbon.conf import get_default_parser, parse_options, read_config
-from carbon.exceptions import CarbonConfigException
 
 
 class FakeParser(object):
@@ -100,18 +99,6 @@ class ReadConfigTest(TestCase):
                 f.write(content)
 
         return path
-
-    def test_root_dir_is_required(self):
-        """
-        At minimum, the caller must provide a 'ROOT_DIR' setting.
-        """
-        try:
-            read_config("carbon-foo", FakeOptions(config=None))
-        except CarbonConfigException as e:
-            self.assertEqual("Either ROOT_DIR or GRAPHITE_ROOT "
-                             "needs to be provided.", str(e))
-        else:
-            self.fail("Did not raise exception.")
 
     def test_config_is_not_required(self):
         """

@@ -14,3 +14,5 @@ storage
 _trial_temp
 htmlcov
 *.swp
+lib/twisted/plugins/dropin.cache
+lib/carbon.egg-info/

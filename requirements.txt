@@ -1,4 +1,4 @@
 Twisted>=13.2.0
-git+git://github.com/graphite-project/whisper.git@0.9.13#egg=whisper
+git+git://github.com/graphite-project/whisper.git@0.9.16#egg=whisper
 mocker==1.1.1
 mock

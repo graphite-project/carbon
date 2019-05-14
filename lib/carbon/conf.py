@@ -352,6 +352,12 @@ class CarbonCacheOptions(usage.Options):
                 pf.close()
             except ValueError:
                 print("Failed to parse pid from pidfile %s" % pidfile)
+                pf.close()
+                try:
+                    print("removing corrupted pidfile %s" % pidfile)
+                    os.unlink(pidfile)
+                except IOError:
+                    print("Could not remove pidfile %s" % pidfile)
                 raise SystemExit(1)
             except IOError:
                 print("Could not read pidfile %s" % pidfile)
@@ -377,6 +383,12 @@ class CarbonCacheOptions(usage.Options):
                 pf.close()
             except ValueError:
                 print("Failed to parse pid from pidfile %s" % pidfile)
+                pf.close()
+                try:
+                    print("removing corrupted pidfile %s" % pidfile)
+                    os.unlink(pidfile)
+                except IOError:
+                    print("Could not remove pidfile %s" % pidfile)
                 raise SystemExit(1)
             except IOError:
                 print("Failed to read pid from %s" % pidfile)
@@ -398,6 +410,12 @@ class CarbonCacheOptions(usage.Options):
                     pf.close()
                 except ValueError:
                     print("Failed to parse pid from pidfile %s" % pidfile)
+                    pf.close()
+                    try:
+                        print("removing corrupted pidfile %s" % pidfile)
+                        os.unlink(pidfile)
+                    except IOError:
+                        print("Could not remove pidfile %s" % pidfile)
                     raise SystemExit(1)
                 except IOError:
                     print("Could not read pidfile %s" % pidfile)

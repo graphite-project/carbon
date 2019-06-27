@@ -392,7 +392,12 @@ class TaggedSeries(object):
   @staticmethod
   def sanitize_name_as_tag_value(name):
     """take a metric name and sanitize it so it is guaranteed to be a valid tag value"""
-    return name.replace('~', '')
+    sanitized = name.lstrip('~')
+
+    if len(sanitized) == 0:
+      raise Exception('Cannot use metric name %s as tag value, results in emptry string' % (name))
+
+    return sanitized
 
   @staticmethod
   def format(tags):

@@ -26,28 +26,41 @@ class UtilTest(TestCase):
         test_cases = [
             {
                 'original': "my~.test.abc",
-                'expected': "my.test.abc",
+                'expected': "my~.test.abc",
             }, {
                 'original': "a.b.c",
                 'expected': "a.b.c",
             }, {
                 'original': "~~a~~.~~~b~~~.~~~c~~~",
-                'expected': "a.b.c",
+                'expected': "a~~.~~~b~~~.~~~c~~~",
             }, {
                 'original': "a.b.c~",
-                'expected': "a.b.c",
+                'expected': "a.b.c~",
             }, {
                 'original': "~a.b.c",
                 'expected': "a.b.c",
             }, {
                 'original': "~a~",
-                'expected': "a",
+                'expected': "a~",
+            }, {
+                'original': "~~~",
+                'raises': True,
+            }, {
+                'original': "~",
+                'raises': True,
             },
         ]
 
         for test_case in test_cases:
-            result = TaggedSeries.sanitize_name_as_tag_value(test_case['original'])
-            self.assertEquals(result, test_case['expected'])
+            if test_case.get('raises', False):
+                self.assertRaises(
+                    Exception,
+                    TaggedSeries.sanitize_name_as_tag_value,
+                    test_case['original'],
+                )
+            else:
+                result = TaggedSeries.sanitize_name_as_tag_value(test_case['original'])
+                self.assertEquals(result, test_case['expected'])
 
 
 # Destinations have the form:

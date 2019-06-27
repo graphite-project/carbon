@@ -365,7 +365,7 @@ class TaggedSeries(object):
       tags[m.group(1)] = m.group(2).replace(r'\"', '"').replace(r'\\', '\\')
       rawtags = rawtags[len(m.group(0)):]
 
-    tags['name'] = metric
+    tags['name'] = cls.sanitize_name_as_tag_value(metric)
     return cls(metric, tags)
 
   @classmethod
@@ -386,8 +386,13 @@ class TaggedSeries(object):
 
       tags[tag[0]] = tag[1]
 
-    tags['name'] = metric
+    tags['name'] = cls.sanitize_name_as_tag_value(metric)
     return cls(metric, tags)
+
+  @staticmethod
+  def sanitize_name_as_tag_value(name):
+    """take a metric name and sanitize it so it is guaranteed to be a valid tag value"""
+    return name.replace('~', '')
 
   @staticmethod
   def format(tags):

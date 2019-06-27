@@ -4,6 +4,7 @@ from unittest import TestCase
 
 from carbon.util import parseDestinations
 from carbon.util import enableTcpKeepAlive
+from carbon.util import TaggedSeries
 
 
 class UtilTest(TestCase):
@@ -20,6 +21,33 @@ class UtilTest(TestCase):
 
         enableTcpKeepAlive(_Transport(), True, None)
         self.assertEquals(s.getsockopt(socket.SOL_TCP, socket.SO_KEEPALIVE), 1)
+
+    def test_sanitizing_name_as_tag_value(self):
+        test_cases = [
+            {
+                'original': "my~.test.abc",
+                'expected': "my.test.abc",
+            }, {
+                'original': "a.b.c",
+                'expected': "a.b.c",
+            }, {
+                'original': "~~a~~.~~~b~~~.~~~c~~~",
+                'expected': "a.b.c",
+            }, {
+                'original': "a.b.c~",
+                'expected': "a.b.c",
+            }, {
+                'original': "~a.b.c",
+                'expected': "a.b.c",
+            }, {
+                'original': "~a~",
+                'expected': "a",
+            },
+        ]
+
+        for test_case in test_cases:
+            result = TaggedSeries.sanitize_name_as_tag_value(test_case['original'])
+            self.assertEquals(result, test_case['expected'])
 
 
 # Destinations have the form:

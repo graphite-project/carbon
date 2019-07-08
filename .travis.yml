@@ -3,15 +3,13 @@ language: python
 python: 2.7
 # sudo is needed to install libboost-python-dev, which is required by pyhash
 sudo: required
+dist: xenial
 
 matrix:
   include:
     - python: pypy
       env:
         - TOXENV=pypy
-    - python: 3.4
-      env:
-        - TOXENV=py34
     - python: 3.5
       env:
         - TOXENV=py35
@@ -19,18 +17,17 @@ matrix:
       env:
         - TOXENV=py36
     - python: 3.7
-      dist: xenial
       sudo: true
       env:
         - TOXENV=py37
-    - python: 3.7
-      dist: xenial
+    - python: "3.8-dev"
       sudo: true
       env:
-        - TOXENV=py37-pyhash
-    - python: 3.7
-      dist: xenial
-      sudo: true
+        - TOXENV=py38-pyhash
+    - python: "3.8-dev"
+      env:
+        - TOXENV=py38
+    - python: "3.8-dev"
       env:
         - TOXENV=lint
 

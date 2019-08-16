@@ -336,6 +336,26 @@ class PluginRegistrar(type):
 
 
 class TaggedSeries(object):
+  prohibitedTagChars = ';!^='
+
+  @classmethod
+  def validateTagAndValue(cls, tag, value):
+    """validate the given tag / value based on the specs in the documentation"""
+    if len(tag) == 0 or len(value) == 0:
+      return False
+
+    for char in cls.prohibitedTagChars:
+      if char in tag:
+        return False
+
+    if ';' in value:
+      return False
+
+    if value[0] == '~':
+      return False
+
+    return True
+
   @classmethod
   def parse(cls, path):
     # if path is in openmetrics format: metric{tag="value",...}
@@ -362,7 +382,13 @@ class TaggedSeries(object):
       if not m:
         raise Exception('Cannot parse path %s, invalid segment %s' % (path, rawtags))
 
-      tags[m.group(1)] = m.group(2).replace(r'\"', '"').replace(r'\\', '\\')
+      tag = m.group(1)
+      value = m.group(2).replace(r'\"', '"').replace(r'\\', '\\')
+
+      if not cls.validateTagAndValue(tag, value):
+        raise Exception('Tag/Value contains invalid characters: %s/%s' % (tag, value))
+
+      tags[tag] = value
       rawtags = rawtags[len(m.group(0)):]
 
     tags['name'] = cls.sanitize_name_as_tag_value(metric)
@@ -383,6 +409,9 @@ class TaggedSeries(object):
       tag = segment.split('=', 1)
       if len(tag) != 2 or not tag[0]:
         raise Exception('Cannot parse path %s, invalid segment %s' % (path, segment))
+
+      if not cls.validateTagAndValue(*tag):
+        raise Exception('Tag/Value contains invalid characters: %s/%s' % (tag[0], tag[1]))
 
       tags[tag[0]] = tag[1]
 

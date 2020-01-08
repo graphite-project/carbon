@@ -30,6 +30,33 @@ matrix:
     - python: "3.8-dev"
       env:
         - TOXENV=lint
+    - env:
+        - TOXENV=py27
+      arch: s390x
+    - env:
+        - TOXENV=lint
+      arch: s390x
+    - python: 3.5
+      env:
+        - TOXENV=py35
+      arch: s390x
+    - python: 3.6
+      env:
+        - TOXENV=py36
+      arch: s390x
+    - python: 3.7
+      sudo: true
+      env:
+        - TOXENV=py37
+      arch: s390x
+    - python: "3.8-dev"
+      env:
+        - TOXENV=py38
+      arch: s390x
+    - python: "3.8-dev"
+      env:
+        - TOXENV=lint
+      arch: s390x
 
 env:
   - TOXENV=py27

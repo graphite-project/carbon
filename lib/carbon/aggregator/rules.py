@@ -128,7 +128,7 @@ class AggregationRule(object):
         pre = input_part[:i]
         post = input_part[j + 2:]
         field_name = input_part[i + 2:j]
-        regex_part = '%s(?P<%s>.+)%s' % (pre, field_name, post)
+        regex_part = '%s(?P<%s>.+?)%s' % (pre, field_name, post)
 
       else:
         i = input_part.find('<')
@@ -137,7 +137,7 @@ class AggregationRule(object):
           pre = input_part[:i]
           post = input_part[j + 1:]
           field_name = input_part[i + 1:j]
-          regex_part = '%s(?P<%s>[^.]+)%s' % (pre, field_name, post)
+          regex_part = '%s(?P<%s>[^.]+?)%s' % (pre, field_name, post)
         elif input_part == '*':
           regex_part = '[^.]+'
         else:

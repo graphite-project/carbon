@@ -64,7 +64,8 @@ env:
   - TOXENV=lint
 
 before_install:
-  - bash -c "if [[ '$TOXENV' == *pyhash* ]]; then pip install --upgrade pip virtualenv; sudo apt-get -qq update; sudo apt-get install -y libboost-python-dev; fi"
+  - bash -c "pip install --upgrade pip virtualenv"
+  - bash -c "if [[ '$TOXENV' == *pyhash* ]]; then sudo apt-get -qq update; sudo apt-get install -y libboost-python-dev; fi"
 
 install:
   - pip install tox

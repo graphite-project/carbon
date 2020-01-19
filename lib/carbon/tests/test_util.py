@@ -4,6 +4,7 @@ from unittest import TestCase
 
 from carbon.util import parseDestinations
 from carbon.util import enableTcpKeepAlive
+from carbon.util import TaggedSeries
 
 
 class UtilTest(TestCase):
@@ -20,6 +21,72 @@ class UtilTest(TestCase):
 
         enableTcpKeepAlive(_Transport(), True, None)
         self.assertEquals(s.getsockopt(socket.SOL_TCP, socket.SO_KEEPALIVE), 1)
+
+    def test_sanitizing_name_as_tag_value(self):
+        test_cases = [
+            {
+                'original': "my~.test.abc",
+                'expected': "my~.test.abc",
+            }, {
+                'original': "a.b.c",
+                'expected': "a.b.c",
+            }, {
+                'original': "~~a~~.~~~b~~~.~~~c~~~",
+                'expected': "a~~.~~~b~~~.~~~c~~~",
+            }, {
+                'original': "a.b.c~",
+                'expected': "a.b.c~",
+            }, {
+                'original': "~a.b.c",
+                'expected': "a.b.c",
+            }, {
+                'original': "~a~",
+                'expected': "a~",
+            }, {
+                'original': "~~~",
+                'raises': True,
+            }, {
+                'original': "~",
+                'raises': True,
+            },
+        ]
+
+        for test_case in test_cases:
+            if test_case.get('raises', False):
+                self.assertRaises(
+                    Exception,
+                    TaggedSeries.sanitize_name_as_tag_value,
+                    test_case['original'],
+                )
+            else:
+                result = TaggedSeries.sanitize_name_as_tag_value(test_case['original'])
+                self.assertEquals(result, test_case['expected'])
+
+    def test_validate_tag_key_and_value(self):
+        # assert that it raises exception when sanitized name is still not valid
+        with self.assertRaises(Exception):
+            # sanitized name is going to be '', which is not a valid tag value
+            TaggedSeries.sanitize_name_as_tag_value('~~~~')
+
+        with self.assertRaises(Exception):
+            # given tag value is invalid because it has length 0
+            TaggedSeries.validateTagAndValue('metric.name;tag=')
+
+        with self.assertRaises(Exception):
+            # given tag key is invalid because it has length 0
+            TaggedSeries.validateTagAndValue('metric.name;=value')
+
+        with self.assertRaises(Exception):
+            # given tag is missing =
+            TaggedSeries.validateTagAndValue('metric.name;tagvalue')
+
+        with self.assertRaises(Exception):
+            # given tag value is invalid because it starts with ~
+            TaggedSeries.validateTagAndValue('metric.name;tag=~value')
+
+        with self.assertRaises(Exception):
+            # given tag key is invalid because it contains !
+            TaggedSeries.validateTagAndValue('metric.name;ta!g=value')
 
 
 # Destinations have the form:

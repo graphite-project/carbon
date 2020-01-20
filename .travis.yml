@@ -1,9 +1,7 @@
 # http://travis-ci.org/#!/graphite-project/carbon
+dist: xenial
 language: python
 python: 2.7
-# sudo is needed to install libboost-python-dev, which is required by pyhash
-sudo: required
-dist: xenial
 
 matrix:
   include:
@@ -17,57 +15,54 @@ matrix:
       env:
         - TOXENV=py36
     - python: 3.7
-      sudo: true
       env:
         - TOXENV=py37
-    - python: "3.8-dev"
-      sudo: true
+    - python: 3.8
       env:
         - TOXENV=py38-pyhash
-    - python: "3.8-dev"
+    - python: 3.8
       env:
         - TOXENV=py38
-    - python: "3.8-dev"
+    - python: 3.8
       env:
         - TOXENV=lint
-    - env:
+    - python: 2.7
+      arch: s390x
+      env:
         - TOXENV=py27
+    - python: 2.7
       arch: s390x
-    - env:
+      env:
         - TOXENV=lint
-      arch: s390x
     - python: 3.5
+      arch: s390x
       env:
         - TOXENV=py35
-      arch: s390x
     - python: 3.6
+      arch: s390x
       env:
         - TOXENV=py36
-      arch: s390x
     - python: 3.7
-      sudo: true
+      arch: s390x
       env:
         - TOXENV=py37
+    - python: 3.8
       arch: s390x
-    - python: "3.8-dev"
       env:
         - TOXENV=py38
+    - python: 3.8
       arch: s390x
-    - python: "3.8-dev"
       env:
         - TOXENV=lint
-      arch: s390x
 
 env:
   - TOXENV=py27
   - TOXENV=py27-pyhash
   - TOXENV=lint
 
-before_install:
-  - bash -c "if [[ '$TOXENV' == py2* ]]; then pip install --upgrade pip virtualenv; fi"
-  - bash -c "if [[ '$TOXENV' == *pyhash* ]]; then sudo apt-get -qq update; sudo apt-get install -y libboost-python-dev; fi"
-
 install:
+  - if echo "$TOXENV" | grep -q 'pyhash' ; then sudo apt-get -q install -y libboost-python-dev; fi
+  - if echo "$TOXENV" | grep -q '^py2'   ; then pip install --upgrade pip virtualenv; fi
   - pip install tox
 
 script:

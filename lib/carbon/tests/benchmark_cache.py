@@ -1,7 +1,8 @@
 import timeit
 
 from carbon.cache import _MetricCache, DrainStrategy, \
-    NaiveStrategy, MaxStrategy, RandomStrategy, SortedStrategy, TimeSortedStrategy
+    NaiveStrategy, MaxStrategy, RandomStrategy, SortedStrategy, \
+    TimeSortedStrategy, BucketMaxStrategy
 
 
 metric_cache = _MetricCache(DrainStrategy)
@@ -12,6 +13,7 @@ strategies = {
     'random': RandomStrategy,
     'sorted': SortedStrategy,
     'timesorted': TimeSortedStrategy,
+    'bucketmax': BucketMaxStrategy,
 }
 
 
@@ -58,6 +60,20 @@ if __name__ == '__main__':
     for n in [1000, 10000, 100000, 1000000]:
         count = 0
         metric_cache = _MetricCache(DrainStrategy)
+        t = timeit.timeit(command_store_foo_n, number=n)
+        print_stats(n, t)
+
+    print("Benchmarking single metric MetricCache store..., BucketMax")
+    for n in [1000, 10000, 100000, 1000000]:
+        count = 0
+        metric_cache = _MetricCache(BucketMaxStrategy)
+        t = timeit.timeit(command_store_foo, number=n)
+        print_stats(n, t)
+
+    print("Benchmarking unique metric MetricCache store..., BucketMax")
+    for n in [1000, 10000, 100000, 1000000]:
+        count = 0
+        metric_cache = _MetricCache(BucketMaxStrategy)
         t = timeit.timeit(command_store_foo_n, number=n)
         print_stats(n, t)
 

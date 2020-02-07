@@ -61,6 +61,7 @@ env:
   - TOXENV=lint
 
 install:
+  - if [[ $(uname -m) == 's390x' ]]; then sudo rm -rf $HOME/.cache/pip; fi
   - if echo "$TOXENV" | grep -q 'pyhash' ; then sudo apt-get -q install -y libboost-python-dev; fi
   - if echo "$TOXENV" | grep -q '^py2'   ; then pip install --upgrade pip virtualenv; fi
   - pip install tox

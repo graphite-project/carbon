@@ -13,7 +13,7 @@ from twisted.internet.task import deferLater
 from twisted.trial.unittest import TestCase
 from twisted.test.proto_helpers import StringTransport
 
-from mock import Mock, patch
+from mock import Mock
 from struct import unpack, calcsize
 
 

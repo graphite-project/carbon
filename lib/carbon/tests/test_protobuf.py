@@ -35,7 +35,7 @@ def decode_sent(data):
   return datapoints
 
 
-@patch('carbon.state.instrumentation', Mock(spec=instrumentation))
+#@patch('carbon.state.instrumentation', Mock(spec=instrumentation))
 class ConnectedCarbonClientProtocolTest(TestCase):
   def setUp(self):
     self.router_mock = Mock(spec=DatapointRouter)

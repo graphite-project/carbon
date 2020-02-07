@@ -44,7 +44,7 @@ class BroadcastRouter(DatapointRouter):
       yield destination
 
 
-@patch('carbon.state.instrumentation', Mock(spec=instrumentation))
+#@patch('carbon.state.instrumentation', Mock(spec=instrumentation))
 class ConnectedCarbonClientProtocolTest(TestCase):
   def setUp(self):
     self.router_mock = Mock(spec=DatapointRouter)
@@ -88,7 +88,7 @@ class CarbonLineClientProtocolTest(TestCase):
       self.protocol.sendLine.assert_called_with(expected_line_to_send)
 
 
-@patch('carbon.state.instrumentation', Mock(spec=instrumentation))
+#@patch('carbon.state.instrumentation', Mock(spec=instrumentation))
 class CarbonClientFactoryTest(TestCase):
   def setUp(self):
     self.router_mock = Mock(spec=DatapointRouter)
@@ -127,7 +127,7 @@ class CarbonClientFactoryTest(TestCase):
     self.protocol_mock.sendQueued.assert_called_once_with()
 
 
-@patch('carbon.state.instrumentation', Mock(spec=instrumentation))
+#@patch('carbon.state.instrumentation', Mock(spec=instrumentation))
 class CarbonClientManagerTest(TestCase):
   timeout = 1.0
 
@@ -190,7 +190,7 @@ class CarbonClientManagerTest(TestCase):
     self.router_mock.removeDestination.assert_called_once_with(dest)
 
 
-@patch('carbon.state.instrumentation', Mock(spec=instrumentation))
+#@patch('carbon.state.instrumentation', Mock(spec=instrumentation))
 class RelayProcessorTest(TestCase):
   timeout = 1.0
 

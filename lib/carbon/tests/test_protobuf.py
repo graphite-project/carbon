@@ -1,7 +1,6 @@
 import carbon.client as carbon_client
 from carbon.routers import DatapointRouter
 from carbon.tests.util import TestSettings
-from carbon import instrumentation
 import carbon.service  # NOQA
 
 from carbon.carbon_pb2 import Payload
@@ -35,7 +34,6 @@ def decode_sent(data):
   return datapoints
 
 
-#@patch('carbon.state.instrumentation', Mock(spec=instrumentation))
 class ConnectedCarbonClientProtocolTest(TestCase):
   def setUp(self):
     self.router_mock = Mock(spec=DatapointRouter)

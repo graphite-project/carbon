@@ -294,11 +294,18 @@ WHISPER_FALLOCATE_CREATE = True
 # you are familiar with the code. If you are not, please don't
 # mess with this, you are asking for trouble :)
 #
+# You need the bcrypt, cryptography and pyasn1 python modules installed for
+# manhole to work.
+#
+# Generate host keys with:
+# `ckeygen -t rsa -f /example/host_keys/ssh_host_key_rsa`
+#
 # ENABLE_MANHOLE = False
 # MANHOLE_INTERFACE = 127.0.0.1
 # MANHOLE_PORT = 7222
 # MANHOLE_USER = admin
 # MANHOLE_PUBLIC_KEY = ssh-rsa AAAAB3NzaC1yc2EAAAABiwAaAIEAoxN0sv/e4eZCPpi3N3KYvyzRaBaMeS2RsOQ/cDuKv11dlNzVeiyc3RFmCv5Rjwn/lQ79y0zyHxw67qLyhQ/kDzINc4cY41ivuQXm2tPmgvexdrBv5nsfEpjs3gLZfJnyvlcVyWK/lId8WUvEWSWHTzsbtmXAF2raJMdgLTbQ8wE=
+# MANHOLE_HOST_KEY_DIR = /example/host_keys
 
 # Patterns for all of the metrics this machine will store. Read more at
 # http://en.wikipedia.org/wiki/Advanced_Message_Queuing_Protocol#Bindings

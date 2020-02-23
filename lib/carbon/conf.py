@@ -277,7 +277,8 @@ class CarbonCacheOptions(usage.Options):
             print("Error: missing required config %s" % storage_schemas)
             sys.exit(1)
 
-        if settings.CACHE_WRITE_STRATEGY not in ('timesorted', 'sorted', 'max', 'naive'):
+        if settings.CACHE_WRITE_STRATEGY not in ('timesorted', 'sorted', 'max',
+                                                 'bucketmax', 'naive'):
             log.err("%s is not a valid value for CACHE_WRITE_STRATEGY, defaulting to %s" %
                     (settings.CACHE_WRITE_STRATEGY, defaults['CACHE_WRITE_STRATEGY']))
         else:

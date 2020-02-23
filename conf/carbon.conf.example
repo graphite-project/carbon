@@ -165,7 +165,7 @@ LOG_CACHE_QUEUE_SORTS = False
 # disk in that order.
 #
 # timesorted - All metrics in the list will be looked at and sorted according
-# to the timestamp of there datapoints. The metric that were the least recently
+# to the timestamp of their datapoints. The metric that were the least recently
 # written will be written first. This is an hybrid strategy between max and
 # sorted which is particularly adapted to sets of metrics with non-uniform
 # resolutions.
@@ -176,6 +176,12 @@ LOG_CACHE_QUEUE_SORTS = False
 # updated metrics may only ever be persisted to disk at daemon shutdown if
 # there are a large number of metrics which receive very frequent updates OR if
 # disk i/o is very slow.
+#
+# bucketmax (experimental) - As 'max' but uses a different algorithm to
+# determine the metric with the most datapoints.
+# Should perform better than 'max' on most loads, could perform worse if the
+# number of metrics is very small while the number of datapoints per metric is
+# very high.
 #
 # naive - Metrics will be flushed from the cache to disk in an unordered
 # fashion. This strategy may be desirable in situations where the storage for

@@ -2,8 +2,8 @@ import time
 from unittest import TestCase
 from mock import Mock, PropertyMock, patch
 from carbon.cache import (
-  MetricCache, _MetricCache, DrainStrategy, MaxStrategy, RandomStrategy, SortedStrategy,
-  TimeSortedStrategy
+  MetricCache, _MetricCache, DrainStrategy, MaxStrategy, RandomStrategy,
+  SortedStrategy, TimeSortedStrategy, BucketMaxStrategy
 )
 
 
@@ -179,6 +179,28 @@ class MetricCacheTest(TestCase):
 class DrainStrategyTest(TestCase):
   def setUp(self):
     self.metric_cache = _MetricCache()
+
+  def test_bucketmax_strategy(self):
+    bucketmax_strategy = BucketMaxStrategy(self.metric_cache)
+    self.metric_cache.strategy = bucketmax_strategy
+
+    self.metric_cache.store('foo', (123456, 1.0))
+    self.metric_cache.store('foo', (123457, 2.0))
+    self.metric_cache.store('foo', (123458, 3.0))
+    self.metric_cache.store('bar', (123459, 4.0))
+    self.metric_cache.store('bar', (123460, 5.0))
+    self.metric_cache.store('baz', (123461, 6.0))
+
+    # foo has 3
+    self.assertEqual('foo', bucketmax_strategy.choose_item())
+    # add 2 more 'bar' for 4 total
+    self.metric_cache.store('bar', (123462, 8.0))
+    self.metric_cache.store('bar', (123463, 9.0))
+    self.assertEqual('bar', bucketmax_strategy.choose_item())
+
+    self.metric_cache.pop('foo')
+    self.metric_cache.pop('bar')
+    self.assertEqual('baz', bucketmax_strategy.choose_item())
 
   def test_max_strategy(self):
     self.metric_cache.store('foo', (123456, 1.0))

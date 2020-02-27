@@ -484,7 +484,8 @@ class CarbonLineClientProtocol(CarbonClientProtocol, LineOnlyReceiver):
         value = ("%.10f" % datapoint[1]).rstrip('0').rstrip('.')
       else:
         value = "%d" % datapoint[1]
-      self.sendLine("%s %s %d" % (metric, value, datapoint[0]))
+      to_send = "%s %s %d" % (metric, value, datapoint[0])
+      self.sendLine(to_send.encode('utf-8'))
 
 
 class CarbonLineClientFactory(CarbonClientFactory):

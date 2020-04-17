@@ -31,6 +31,11 @@ try:
 except ImportError:
     log.msg("Couldn't import signal module")
 
+# Python 2 backwards compatibility
+try:
+    FileNotFoundError
+except NameError:
+    FileNotFoundError = IOError
 
 SCHEMAS = loadStorageSchemas()
 AGGREGATION_SCHEMAS = loadAggregationSchemas()
@@ -144,7 +149,7 @@ def writeCachedDataPoints():
   cache = MetricCache()
   while cache:
     new_metric = cache.pop_new_metric()
-    if not state.database.exists(new_metric):
+    if new_metric and not state.database.exists(new_metric):
       create_database(new_metric)
 
     (metric, datapoints) = cache.drain_metric()
@@ -194,8 +199,8 @@ def writeForever():
   while reactor.running:
     try:
       writeCachedDataPoints()
-    except Exception:
-      log.err()
+    except Exception as e:
+      log.err(e)
       # Back-off on error to give the backend time to recover.
       time.sleep(0.1)
     else:

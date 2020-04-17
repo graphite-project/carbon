@@ -238,8 +238,11 @@ class _MetricCache(defaultdict):
     return sorted(self.get(metric, {}).items(), key=by_timestamp)
 
   def pop_new_metric(self):
-    # return first seen metric
-    return self.new_metrics.pop(0)
+    # return first seen new metric or None if empty
+    try:
+      return self.new_metrics.pop(0)
+    except IndexError:
+      return None
 
   def pop(self, metric):
     with self.lock:

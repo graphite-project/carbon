@@ -237,12 +237,16 @@ class _MetricCache(defaultdict):
     """Return a list of currently cached datapoints sorted by timestamp"""
     return sorted(self.get(metric, {}).items(), key=by_timestamp)
 
+  def get_new_metrics(self):
+    yield self.new_metrics.pop()
+
   def pop_new_metric(self):
     # return first seen new metric or None if empty
-    try:
-      return self.new_metrics.pop(0)
-    except IndexError:
-      return None
+    #try:
+    #  return self.new_metrics.pop(0)
+    #except IndexError:
+    #  return None
+    return next(self.get_new_metrics())
 
   def pop(self, metric):
     with self.lock:

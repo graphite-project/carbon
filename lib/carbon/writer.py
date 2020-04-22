@@ -21,6 +21,7 @@ from carbon.storage import loadStorageSchemas, loadAggregationSchemas
 from carbon.conf import settings
 from carbon import log, instrumentation
 from carbon.util import TokenBucket
+from carbon.exceptions import CarbonCreatesLimiterException
 
 from twisted.internet import reactor
 from twisted.internet.task import LoopingCall
@@ -96,15 +97,6 @@ tagQueue = TagQueue(maxsize=settings.TAG_QUEUE_SIZE, update_interval=settings.TA
 
 
 def create_database(metric):
-    if CREATE_BUCKET and not CREATE_BUCKET.drain(1):
-        # If our tokenbucket doesn't have enough tokens available to create a new metric
-        # file then we'll just drop the metric on the ground and move on to the next
-        # metric.
-        # XXX This behavior should probably be configurable to not drop metrics
-        # when rate limiting unless our cache is too big or some other legit
-        # reason.
-        instrumentation.increment('droppedCreates')
-        return
 
     archiveConfig = None
     xFilesFactor, aggregationMethod = None, None
@@ -144,13 +136,25 @@ def create_database(metric):
 
 
 def writeCachedDataPoints():
-  "Write datapoints until the MetricCache is completely empty"
+  """Write datapoints until the MetricCache is completely empty"""
 
   cache = MetricCache()
   while cache:
-    new_metric = cache.pop_new_metric()
-    if new_metric and not state.database.exists(new_metric):
-      create_database(new_metric)
+
+    # First check if there are new metrics
+    for new_metric in cache.new_metrics:
+      if not state.database.exists(new_metric):
+        if CREATE_BUCKET and not CREATE_BUCKET.drain(1):
+          # If our tokenbucket doesn't have enough tokens available to create a new metric
+          # file then we'll just drop the metric on the ground and move on to the next
+          # metric.
+          # XXX This behavior should probably be configurable to not drop metrics
+          # when rate limiting unless our cache is too big or some other legit
+          # reason.
+          instrumentation.increment('droppedCreates')
+          break
+
+        create_database(new_metric)
 
     (metric, datapoints) = cache.drain_metric()
     if metric is None:

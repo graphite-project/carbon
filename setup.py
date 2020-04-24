@@ -12,17 +12,11 @@ conf_files = [('conf', glob('conf/*.example'))]
 
 install_files = storage_dirs + conf_files
 
-# Let's include redhat init scripts, despite build platform
-# but won't put them in /etc/init.d/ automatically anymore
-init_scripts = [('examples/init.d', ['distro/redhat/init.d/carbon-cache',
-                                     'distro/redhat/init.d/carbon-relay',
-                                     'distro/redhat/init.d/carbon-aggregator'])]
-install_files += init_scripts
-
 
 def read(fname):
     with open(os.path.join(os.path.dirname(__file__), fname)) as f:
         return f.read()
+
 
 setup(
     name='carbon',

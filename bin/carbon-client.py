@@ -17,9 +17,6 @@ import sys
 from os.path import join, exists
 from optparse import OptionParser
 
-CONF_DIR = join(sys.prefix, 'conf')
-default_relayrules = join(CONF_DIR, 'relay-rules.conf')
-
 try:
   from twisted.internet import epollreactor
   epollreactor.install()
@@ -32,6 +29,8 @@ from carbon.routers import ConsistentHashingRouter, RelayRulesRouter  # noqa
 from carbon.client import CarbonClientManager  # noqa
 from carbon import log, events  # noqa
 
+CONF_DIR = join(sys.prefix, 'conf')
+default_relayrules = join('/opt/graphite', 'relay-rules.conf')
 
 option_parser = OptionParser(usage="%prog [options] <host:port:instance> <host:port:instance> ...")
 option_parser.add_option('--debug', action='store_true', help="Log debug info to stdout")

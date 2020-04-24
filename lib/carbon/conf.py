@@ -603,7 +603,7 @@ def read_config(program, options, **kwargs):
     if graphite_root is None:
         graphite_root = os.environ.get('GRAPHITE_ROOT')
     if graphite_root is None:
-        graphite_root = sys.prefix
+        graphite_root = '/opt/graphite'
 
     # Default config directory to root-relative, unless overriden by the
     # 'GRAPHITE_CONF_DIR' environment variable.

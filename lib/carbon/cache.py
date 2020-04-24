@@ -57,6 +57,9 @@ class DrainStrategy(object):
   def choose_item(self):
     raise NotImplementedError()
 
+  def store(self, metric):
+    pass
+
 
 class NaiveStrategy(DrainStrategy):
   """Pop points in an unordered fashion."""
@@ -146,6 +149,41 @@ class TimeSortedStrategy(DrainStrategy):
     return next(self.queue)
 
 
+class BucketMaxStrategy(DrainStrategy):
+    """
+    Same as 'max' strategy but sorts on insertion into buckets instead of at
+    pop().
+    """
+    def __init__(self, cache):
+        self.buckets = list()
+        super(BucketMaxStrategy, self).__init__(cache)
+
+    def choose_item(self):
+        try:
+            # Largest buckets are empty, remove them.
+            while len(self.buckets[-1]) == 0:
+                self.buckets.pop()
+            # return the metric with the most datapoints. If there is
+            # more than one metrics which has the most datapoints the
+            # first seen is returned.
+            return self.buckets[-1].pop(0)
+        except (KeyError, IndexError):  # buckets are empty
+            return None
+
+    def store(self, metric):
+        nr_points = len(self.cache[metric])
+
+        # No bucket of this size exists, create it
+        while nr_points > len(self.buckets):
+            self.buckets.append(list())
+
+        # Remove existing metrics from its bucket
+        if nr_points > 1:
+            self.buckets[nr_points - 2].remove(metric)
+
+        self.buckets[nr_points - 1].append(metric)
+
+
 class _MetricCache(defaultdict):
   """A Singleton dictionary of metric names and lists of their datapoints"""
   def __init__(self, strategy=None):
@@ -217,6 +255,8 @@ class _MetricCache(defaultdict):
         else:
           self.size += 1
           self[metric][timestamp] = value
+          if self.strategy:
+            self.strategy.store(metric)
       else:
         # Updating a duplicate does not increase the cache size
         self[metric][timestamp] = value
@@ -232,7 +272,7 @@ def MetricCache():
 
   # Initialize a singleton cache instance
   # TODO: use plugins.
-  write_strategy = None
+  write_strategy = DrainStrategy
   if settings.CACHE_WRITE_STRATEGY == 'naive':
     write_strategy = NaiveStrategy
   if settings.CACHE_WRITE_STRATEGY == 'max':
@@ -243,6 +283,8 @@ def MetricCache():
     write_strategy = TimeSortedStrategy
   if settings.CACHE_WRITE_STRATEGY == 'random':
     write_strategy = RandomStrategy
+  if settings.CACHE_WRITE_STRATEGY == 'bucketmax':
+    write_strategy = BucketMaxStrategy
 
   _Cache = _MetricCache(write_strategy)
   return _Cache

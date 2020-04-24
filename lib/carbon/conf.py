@@ -88,6 +88,7 @@ defaults = dict(
   MANHOLE_PORT=7222,
   MANHOLE_USER="",
   MANHOLE_PUBLIC_KEY="",
+  MANHOLE_HOST_KEY_DIR="",
   RELAY_METHOD='rules',
   DYNAMIC_ROUTER=False,
   DYNAMIC_ROUTER_MAX_RETRIES=5,
@@ -276,7 +277,8 @@ class CarbonCacheOptions(usage.Options):
             print("Error: missing required config %s" % storage_schemas)
             sys.exit(1)
 
-        if settings.CACHE_WRITE_STRATEGY not in ('timesorted', 'sorted', 'max', 'naive'):
+        if settings.CACHE_WRITE_STRATEGY not in ('timesorted', 'sorted', 'max',
+                                                 'bucketmax', 'naive'):
             log.err("%s is not a valid value for CACHE_WRITE_STRATEGY, defaulting to %s" %
                     (settings.CACHE_WRITE_STRATEGY, defaults['CACHE_WRITE_STRATEGY']))
         else:
@@ -352,6 +354,12 @@ class CarbonCacheOptions(usage.Options):
                 pf.close()
             except ValueError:
                 print("Failed to parse pid from pidfile %s" % pidfile)
+                pf.close()
+                try:
+                    print("removing corrupted pidfile %s" % pidfile)
+                    os.unlink(pidfile)
+                except IOError:
+                    print("Could not remove pidfile %s" % pidfile)
                 raise SystemExit(1)
             except IOError:
                 print("Could not read pidfile %s" % pidfile)
@@ -377,6 +385,12 @@ class CarbonCacheOptions(usage.Options):
                 pf.close()
             except ValueError:
                 print("Failed to parse pid from pidfile %s" % pidfile)
+                pf.close()
+                try:
+                    print("removing corrupted pidfile %s" % pidfile)
+                    os.unlink(pidfile)
+                except IOError:
+                    print("Could not remove pidfile %s" % pidfile)
                 raise SystemExit(1)
             except IOError:
                 print("Failed to read pid from %s" % pidfile)
@@ -398,6 +412,12 @@ class CarbonCacheOptions(usage.Options):
                     pf.close()
                 except ValueError:
                     print("Failed to parse pid from pidfile %s" % pidfile)
+                    pf.close()
+                    try:
+                        print("removing corrupted pidfile %s" % pidfile)
+                        os.unlink(pidfile)
+                    except IOError:
+                        print("Could not remove pidfile %s" % pidfile)
                     raise SystemExit(1)
                 except IOError:
                     print("Could not read pidfile %s" % pidfile)

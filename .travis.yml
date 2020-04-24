@@ -1,17 +1,13 @@
 # http://travis-ci.org/#!/graphite-project/carbon
+dist: xenial
 language: python
 python: 2.7
-# sudo is needed to install libboost-python-dev, which is required by pyhash
-sudo: required
 
 matrix:
   include:
     - python: pypy
       env:
         - TOXENV=pypy
-    - python: 3.4
-      env:
-        - TOXENV=py34
     - python: 3.5
       env:
         - TOXENV=py35
@@ -19,18 +15,43 @@ matrix:
       env:
         - TOXENV=py36
     - python: 3.7
-      dist: xenial
-      sudo: true
       env:
         - TOXENV=py37
-    - python: 3.7
-      dist: xenial
-      sudo: true
+    - python: 3.8
       env:
-        - TOXENV=py37-pyhash
+        - TOXENV=py38-pyhash
+    - python: 3.8
+      env:
+        - TOXENV=py38
+    - python: 3.8
+      env:
+        - TOXENV=lint
+    - python: 2.7
+      arch: s390x
+      env:
+        - TOXENV=py27
+    - python: 2.7
+      arch: s390x
+      env:
+        - TOXENV=lint
+    - python: 3.5
+      arch: s390x
+      env:
+        - TOXENV=py35
+    - python: 3.6
+      arch: s390x
+      env:
+        - TOXENV=py36
     - python: 3.7
-      dist: xenial
-      sudo: true
+      arch: s390x
+      env:
+        - TOXENV=py37
+    - python: 3.8
+      arch: s390x
+      env:
+        - TOXENV=py38
+    - python: 3.8
+      arch: s390x
       env:
         - TOXENV=lint
 
@@ -39,10 +60,10 @@ env:
   - TOXENV=py27-pyhash
   - TOXENV=lint
 
-before_install:
-  - bash -c "if [[ '$TOXENV' == *pyhash* ]]; then sudo apt-get -qq update; sudo apt-get install -y libboost-python-dev; fi"
-
 install:
+  - if [[ $(uname -m) == 's390x' ]]; then sudo rm -rf $HOME/.cache/pip; fi
+  - if echo "$TOXENV" | grep -q 'pyhash' ; then sudo apt-get -q install -y libboost-python-dev; fi
+  - if echo "$TOXENV" | grep -q '^py2'   ; then pip install --upgrade pip virtualenv; fi
   - pip install tox
 
 script:

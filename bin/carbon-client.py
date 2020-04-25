@@ -29,7 +29,6 @@ from carbon.routers import ConsistentHashingRouter, RelayRulesRouter  # noqa
 from carbon.client import CarbonClientManager  # noqa
 from carbon import log, events  # noqa
 
-CONF_DIR = join(sys.prefix, 'conf')
 default_relayrules = join('/opt/graphite', 'relay-rules.conf')
 
 option_parser = OptionParser(usage="%prog [options] <host:port:instance> <host:port:instance> ...")

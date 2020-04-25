@@ -13,18 +13,6 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License."""
 
-import sys
-import os.path
-
-# Figure out where we're installed
-BIN_DIR = os.path.dirname(os.path.abspath(__file__))
-ROOT_DIR = os.path.dirname(BIN_DIR)
-
-# Make sure that carbon's 'lib' dir is in the $PYTHONPATH if we're running from
-# source.
-LIB_DIR = os.path.join(ROOT_DIR, "lib")
-sys.path.insert(0, LIB_DIR)
-
 from carbon.util import run_twistd_plugin  # noqa
 from carbon.exceptions import CarbonConfigException  # noqa
 

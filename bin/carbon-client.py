@@ -13,20 +13,8 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License."""
 
-import sys
-from os.path import dirname, join, abspath, exists
+from os.path import join, exists
 from optparse import OptionParser
-
-# Figure out where we're installed
-BIN_DIR = dirname(abspath(__file__))
-ROOT_DIR = dirname(BIN_DIR)
-CONF_DIR = join(ROOT_DIR, 'conf')
-default_relayrules = join(CONF_DIR, 'relay-rules.conf')
-
-# Make sure that carbon's 'lib' dir is in the $PYTHONPATH if we're running from
-# source.
-LIB_DIR = join(ROOT_DIR, 'lib')
-sys.path.insert(0, LIB_DIR)
 
 try:
   from twisted.internet import epollreactor
@@ -40,6 +28,7 @@ from carbon.routers import ConsistentHashingRouter, RelayRulesRouter  # noqa
 from carbon.client import CarbonClientManager  # noqa
 from carbon import log, events  # noqa
 
+default_relayrules = join('/opt/graphite', 'relay-rules.conf')
 
 option_parser = OptionParser(usage="%prog [options] <host:port:instance> <host:port:instance> ...")
 option_parser.add_option('--debug', action='store_true', help="Log debug info to stdout")

@@ -21,7 +21,6 @@ from carbon.storage import loadStorageSchemas, loadAggregationSchemas
 from carbon.conf import settings
 from carbon import log, instrumentation
 from carbon.util import TokenBucket
-from carbon.exceptions import CarbonCreatesLimiterException
 
 from twisted.internet import reactor
 from twisted.internet.task import LoopingCall

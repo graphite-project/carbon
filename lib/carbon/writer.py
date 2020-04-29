@@ -31,6 +31,11 @@ try:
 except ImportError:
     log.msg("Couldn't import signal module")
 
+# Python 2 backwards compatibility
+try:
+    FileNotFoundError
+except NameError:
+    FileNotFoundError = IOError
 
 SCHEMAS = loadStorageSchemas()
 AGGREGATION_SCHEMAS = loadAggregationSchemas()
@@ -90,64 +95,70 @@ class TagQueue(object):
 tagQueue = TagQueue(maxsize=settings.TAG_QUEUE_SIZE, update_interval=settings.TAG_UPDATE_INTERVAL)
 
 
+def create_database(metric):
+
+    archiveConfig = None
+    xFilesFactor, aggregationMethod = None, None
+
+    for schema in SCHEMAS:
+        if schema.matches(metric):
+            if settings.LOG_CREATES:
+                log.creates('new metric %s matched schema %s' % (metric, schema.name))
+            archiveConfig = [archive.getTuple() for archive in schema.archives]
+            break
+
+    for schema in AGGREGATION_SCHEMAS:
+        if schema.matches(metric):
+            if settings.LOG_CREATES:
+                log.creates('new metric %s matched aggregation schema %s'
+                            % (metric, schema.name))
+            xFilesFactor, aggregationMethod = schema.archives
+            break
+
+    if not archiveConfig:
+        raise Exception(("No storage schema matched the metric '%s',"
+                         " check your storage-schemas.conf file.") % metric)
+
+    if settings.LOG_CREATES:
+        log.creates("creating database metric %s (archive=%s xff=%s agg=%s)" %
+                    (metric, archiveConfig, xFilesFactor, aggregationMethod))
+
+    try:
+        state.database.create(metric, archiveConfig, xFilesFactor, aggregationMethod)
+        if settings.ENABLE_TAGS:
+            tagQueue.add(metric)
+        instrumentation.increment('creates')
+    except Exception as e:
+        log.err()
+        log.msg("Error creating %s: %s" % (metric, e))
+        instrumentation.increment('errors')
+
+
 def writeCachedDataPoints():
-  "Write datapoints until the MetricCache is completely empty"
+  """Write datapoints until the MetricCache is completely empty"""
 
   cache = MetricCache()
   while cache:
+
+    # First check if there are new metrics
+    for new_metric in cache.new_metrics:
+      if not state.database.exists(new_metric):
+        if CREATE_BUCKET and not CREATE_BUCKET.drain(1):
+          # If our tokenbucket doesn't have enough tokens available to create a new metric
+          # file then we'll just drop the metric on the ground and move on to the next
+          # metric.
+          # XXX This behavior should probably be configurable to not drop metrics
+          # when rate limiting unless our cache is too big or some other legit
+          # reason.
+          instrumentation.increment('droppedCreates')
+          break
+
+        create_database(new_metric)
+
     (metric, datapoints) = cache.drain_metric()
     if metric is None:
       # end the loop
       break
-
-    dbFileExists = state.database.exists(metric)
-
-    if not dbFileExists:
-      if CREATE_BUCKET and not CREATE_BUCKET.drain(1):
-        # If our tokenbucket doesn't have enough tokens available to create a new metric
-        # file then we'll just drop the metric on the ground and move on to the next
-        # metric.
-        # XXX This behavior should probably be configurable to no tdrop metrics
-        # when rate limitng unless our cache is too big or some other legit
-        # reason.
-        instrumentation.increment('droppedCreates')
-        continue
-
-      archiveConfig = None
-      xFilesFactor, aggregationMethod = None, None
-
-      for schema in SCHEMAS:
-        if schema.matches(metric):
-          if settings.LOG_CREATES:
-            log.creates('new metric %s matched schema %s' % (metric, schema.name))
-          archiveConfig = [archive.getTuple() for archive in schema.archives]
-          break
-
-      for schema in AGGREGATION_SCHEMAS:
-        if schema.matches(metric):
-          if settings.LOG_CREATES:
-            log.creates('new metric %s matched aggregation schema %s'
-                        % (metric, schema.name))
-          xFilesFactor, aggregationMethod = schema.archives
-          break
-
-      if not archiveConfig:
-        raise Exception(("No storage schema matched the metric '%s',"
-                         " check your storage-schemas.conf file.") % metric)
-
-      if settings.LOG_CREATES:
-        log.creates("creating database metric %s (archive=%s xff=%s agg=%s)" %
-                    (metric, archiveConfig, xFilesFactor, aggregationMethod))
-      try:
-        state.database.create(metric, archiveConfig, xFilesFactor, aggregationMethod)
-        if settings.ENABLE_TAGS:
-          tagQueue.add(metric)
-        instrumentation.increment('creates')
-      except Exception as e:
-        log.err()
-        log.msg("Error creating %s: %s" % (metric, e))
-        instrumentation.increment('errors')
-        continue
 
     # If we've got a rate limit configured lets makes sure we enforce it
     waitTime = 0
@@ -166,6 +177,10 @@ def writeCachedDataPoints():
       if settings.ENABLE_TAGS:
         tagQueue.update(metric)
       updateTime = time.time() - t1
+    except FileNotFoundError:  # don't log full stack trace when the db does not exist.
+      log.msg("Error writing %s: File does not exist (yet). " % metric +
+              "Increase MAX_CREATES_PER_MINUTE")
+      instrumentation.increment('errors')
     except Exception as e:
       log.err()
       log.msg("Error writing to %s: %s" % (metric, e))
@@ -187,8 +202,8 @@ def writeForever():
   while reactor.running:
     try:
       writeCachedDataPoints()
-    except Exception:
-      log.err()
+    except Exception as e:
+      log.err(e)
       # Back-off on error to give the backend time to recover.
       time.sleep(0.1)
     else:

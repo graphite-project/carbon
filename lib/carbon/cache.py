@@ -190,6 +190,7 @@ class _MetricCache(defaultdict):
     self.lock = threading.Lock()
     self.size = 0
     self.strategy = None
+    self.new_metrics = []
     if strategy:
       self.strategy = strategy(self)
     super(_MetricCache, self).__init__(dict)
@@ -247,6 +248,11 @@ class _MetricCache(defaultdict):
   def store(self, metric, datapoint):
     timestamp, value = datapoint
     with self.lock:
+      # Metric not in cache yet, push to new_metrics list so it
+      # can be checked if the db already exists
+      if metric not in self:
+        self.new_metrics.append(metric)
+
       if timestamp not in self[metric]:
         # Not a duplicate, hence process if cache is not full
         if self.is_full:

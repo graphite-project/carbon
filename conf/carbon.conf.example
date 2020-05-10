@@ -536,7 +536,7 @@ USE_RATIO_RESET=False
 MIN_RESET_STAT_FLOW=1000
 
 # When the ratio of stats being sent in a reporting interval is far
-# enough from 1.0, we will disconnect the socket and reconnecto to
+# enough from 1.0, we will disconnect the socket and reconnect to
 # clear out queued stats.  The default ratio of 0.9 indicates that 10%
 # of stats aren't being delivered within one CARBON_METRIC_INTERVAL
 # (default of 60 seconds), which can lead to a queue backup.  Under

@@ -36,7 +36,7 @@ SCHEMAS = loadStorageSchemas()
 AGGREGATION_SCHEMAS = loadAggregationSchemas()
 
 
-# Inititalize token buckets so that we can enforce rate limits on creates and
+# Initialize token buckets so that we can enforce rate limits on creates and
 # updates if the config wants them.
 CREATE_BUCKET = None
 UPDATE_BUCKET = None

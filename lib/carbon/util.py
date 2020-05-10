@@ -167,7 +167,7 @@ def parseDestinations(destination_strings):
 
 # Yes this is duplicated in whisper. Yes, duplication is bad.
 # But the code is needed in both places and we do not want to create
-# a dependency on whisper especiaily as carbon moves toward being a more
+# a dependency on whisper especially as carbon moves toward being a more
 # generic storage service that can use various backends.
 UnitMultipliers = {
   's': 1,
@@ -424,7 +424,7 @@ class TaggedSeries(object):
     sanitized = name.lstrip('~')
 
     if len(sanitized) == 0:
-      raise Exception('Cannot use metric name %s as tag value, results in emptry string' % (name))
+      raise Exception('Cannot use metric name %s as tag value, results in an empty string' % (name))
 
     return sanitized
 

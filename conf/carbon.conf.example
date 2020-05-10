@@ -278,7 +278,7 @@ WHISPER_FALLOCATE_CREATE = True
 # CARBON_METRIC_PREFIX = carbon
 # CARBON_METRIC_INTERVAL = 60
 
-# Enable AMQP if you want to receve metrics using an amqp broker
+# Enable AMQP if you want to receive metrics using an amqp broker
 # ENABLE_AMQP = False
 
 # Verbose means a line will be logged for every metric received
@@ -444,7 +444,7 @@ DESTINATIONS = 127.0.0.1:2004
 
 # This allows to have multiple connections per destinations, this will
 # pool all the replicas of a single host in the same queue and distribute
-# points accross these replicas instead of replicating them.
+# points across these replicas instead of replicating them.
 # The following example will balance the load between :0 and :1.
 ## DESTINATIONS = foo:2001:0, foo:2001:1
 ## RELAY_METHOD = rules
@@ -536,7 +536,7 @@ USE_RATIO_RESET=False
 MIN_RESET_STAT_FLOW=1000
 
 # When the ratio of stats being sent in a reporting interval is far
-# enough from 1.0, we will disconnect the socket and reconnecto to
+# enough from 1.0, we will disconnect the socket and reconnect to
 # clear out queued stats.  The default ratio of 0.9 indicates that 10%
 # of stats aren't being delivered within one CARBON_METRIC_INTERVAL
 # (default of 60 seconds), which can lead to a queue backup.  Under

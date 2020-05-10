@@ -503,7 +503,7 @@ class FakeClientFactory(object):
   """
 
   def __init__(self):
-    # This queue isn't explicitely bounded but will implicitely be. It receives
+    # This queue isn't explicitly bounded but will implicitly be. It receives
     # only metrics when no destinations are available, and as soon as we detect
     # that we don't have any destination we pause the producer: this mean that
     # it will contain only a few seconds of metrics.
@@ -531,7 +531,7 @@ class CarbonClientManager(Service):
   def __init__(self, router):
     if settings.DESTINATION_POOL_REPLICAS:
         # If we decide to open multiple TCP connection to a replica, we probably
-        # want to try to also load-balance accross hosts. In this case we need
+        # want to try to also load-balance across hosts. In this case we need
         # to make sure rfc3484 doesn't get in the way.
         if setUpRandomResolver:
           setUpRandomResolver(reactor)

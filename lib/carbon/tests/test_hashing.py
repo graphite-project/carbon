@@ -4,7 +4,7 @@ from carbon.hashing import ConsistentHashRing
 
 class HashIntegrityTest(unittest.TestCase):
 
-    def test_2_node_positional_itegrity(self):
+    def test_2_node_positional_integrity(self):
         """Make a cluster, verify we don't have positional collisions"""
         ring = ConsistentHashRing([])
         for n in range(2):
@@ -13,7 +13,7 @@ class HashIntegrityTest(unittest.TestCase):
             len([n[0] for n in ring.ring]),
             len(set([n[0] for n in ring.ring])))
 
-    def test_3_node_positional_itegrity(self):
+    def test_3_node_positional_integrity(self):
         """Make a cluster, verify we don't have positional collisions"""
         ring = ConsistentHashRing([])
         for n in range(3):
@@ -22,7 +22,7 @@ class HashIntegrityTest(unittest.TestCase):
             len([n[0] for n in ring.ring]),
             len(set([n[0] for n in ring.ring])))
 
-    def test_4_node_positional_itegrity(self):
+    def test_4_node_positional_integrity(self):
         """Make a cluster, verify we don't have positional collisions"""
         ring = ConsistentHashRing([])
         for n in range(4):
@@ -31,7 +31,7 @@ class HashIntegrityTest(unittest.TestCase):
             len([n[0] for n in ring.ring]),
             len(set([n[0] for n in ring.ring])))
 
-    def test_5_node_positional_itegrity(self):
+    def test_5_node_positional_integrity(self):
         """Make a cluster, verify we don't have positional collisions"""
         ring = ConsistentHashRing([])
         for n in range(5):
@@ -40,7 +40,7 @@ class HashIntegrityTest(unittest.TestCase):
             len([n[0] for n in ring.ring]),
             len(set([n[0] for n in ring.ring])))
 
-    def test_6_node_positional_itegrity(self):
+    def test_6_node_positional_integrity(self):
         """Make a cluster, verify we don't have positional collisions"""
         ring = ConsistentHashRing([])
         for n in range(6):
@@ -49,7 +49,7 @@ class HashIntegrityTest(unittest.TestCase):
             len([n[0] for n in ring.ring]),
             len(set([n[0] for n in ring.ring])))
 
-    def test_7_node_positional_itegrity(self):
+    def test_7_node_positional_integrity(self):
         """Make a cluster, verify we don't have positional collisions"""
         ring = ConsistentHashRing([])
         for n in range(7):
@@ -58,7 +58,7 @@ class HashIntegrityTest(unittest.TestCase):
             len([n[0] for n in ring.ring]),
             len(set([n[0] for n in ring.ring])))
 
-    def test_8_node_positional_itegrity(self):
+    def test_8_node_positional_integrity(self):
         """Make a cluster, verify we don't have positional collisions"""
         ring = ConsistentHashRing([])
         for n in range(8):
@@ -67,7 +67,7 @@ class HashIntegrityTest(unittest.TestCase):
             len([n[0] for n in ring.ring]),
             len(set([n[0] for n in ring.ring])))
 
-    def test_9_node_positional_itegrity(self):
+    def test_9_node_positional_integrity(self):
         """Make a cluster, verify we don't have positional collisions"""
         ring = ConsistentHashRing([])
         for n in range(9):
@@ -93,7 +93,7 @@ class HashIntegrityTest(unittest.TestCase):
 
 class FNVHashIntegrityTest(unittest.TestCase):
 
-    def test_2_node_positional_itegrity(self):
+    def test_2_node_positional_integrity(self):
         """Make a cluster, verify we don't have positional collisions"""
         ring = ConsistentHashRing([], hash_type='fnv1a_ch')
         for n in range(2):
@@ -102,7 +102,7 @@ class FNVHashIntegrityTest(unittest.TestCase):
             len([n[0] for n in ring.ring]),
             len(set([n[0] for n in ring.ring])))
 
-    def test_3_node_positional_itegrity(self):
+    def test_3_node_positional_integrity(self):
         """Make a cluster, verify we don't have positional collisions"""
         ring = ConsistentHashRing([], hash_type='fnv1a_ch')
         for n in range(3):
@@ -111,7 +111,7 @@ class FNVHashIntegrityTest(unittest.TestCase):
             len([n[0] for n in ring.ring]),
             len(set([n[0] for n in ring.ring])))
 
-    def test_4_node_positional_itegrity(self):
+    def test_4_node_positional_integrity(self):
         """Make a cluster, verify we don't have positional collisions"""
         ring = ConsistentHashRing([], hash_type='fnv1a_ch')
         for n in range(4):
@@ -120,7 +120,7 @@ class FNVHashIntegrityTest(unittest.TestCase):
             len([n[0] for n in ring.ring]),
             len(set([n[0] for n in ring.ring])))
 
-    def test_5_node_positional_itegrity(self):
+    def test_5_node_positional_integrity(self):
         """Make a cluster, verify we don't have positional collisions"""
         ring = ConsistentHashRing([], hash_type='fnv1a_ch')
         for n in range(5):
@@ -129,7 +129,7 @@ class FNVHashIntegrityTest(unittest.TestCase):
             len([n[0] for n in ring.ring]),
             len(set([n[0] for n in ring.ring])))
 
-    def test_6_node_positional_itegrity(self):
+    def test_6_node_positional_integrity(self):
         """Make a cluster, verify we don't have positional collisions"""
         ring = ConsistentHashRing([], hash_type='fnv1a_ch')
         for n in range(6):
@@ -138,7 +138,7 @@ class FNVHashIntegrityTest(unittest.TestCase):
             len([n[0] for n in ring.ring]),
             len(set([n[0] for n in ring.ring])))
 
-    def test_7_node_positional_itegrity(self):
+    def test_7_node_positional_integrity(self):
         """Make a cluster, verify we don't have positional collisions"""
         ring = ConsistentHashRing([], hash_type='fnv1a_ch')
         for n in range(7):
@@ -147,7 +147,7 @@ class FNVHashIntegrityTest(unittest.TestCase):
             len([n[0] for n in ring.ring]),
             len(set([n[0] for n in ring.ring])))
 
-    def test_8_node_positional_itegrity(self):
+    def test_8_node_positional_integrity(self):
         """Make a cluster, verify we don't have positional collisions"""
         ring = ConsistentHashRing([], hash_type='fnv1a_ch')
         for n in range(8):
@@ -156,7 +156,7 @@ class FNVHashIntegrityTest(unittest.TestCase):
             len([n[0] for n in ring.ring]),
             len(set([n[0] for n in ring.ring])))
 
-    def test_9_node_positional_itegrity(self):
+    def test_9_node_positional_integrity(self):
         """Make a cluster, verify we don't have positional collisions"""
         ring = ConsistentHashRing([], hash_type='fnv1a_ch')
         for n in range(9):

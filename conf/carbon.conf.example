@@ -444,7 +444,7 @@ DESTINATIONS = 127.0.0.1:2004
 
 # This allows to have multiple connections per destinations, this will
 # pool all the replicas of a single host in the same queue and distribute
-# points accross these replicas instead of replicating them.
+# points across these replicas instead of replicating them.
 # The following example will balance the load between :0 and :1.
 ## DESTINATIONS = foo:2001:0, foo:2001:1
 ## RELAY_METHOD = rules

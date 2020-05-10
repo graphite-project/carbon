@@ -108,7 +108,7 @@ def writeCachedDataPoints():
         # file then we'll just drop the metric on the ground and move on to the next
         # metric.
         # XXX This behavior should probably be configurable to no tdrop metrics
-        # when rate limitng unless our cache is too big or some other legit
+        # when rate limiting unless our cache is too big or some other legit
         # reason.
         instrumentation.increment('droppedCreates')
         continue

@@ -503,7 +503,7 @@ class FakeClientFactory(object):
   """
 
   def __init__(self):
-    # This queue isn't explicitly bounded but will implicitely be. It receives
+    # This queue isn't explicitly bounded but will implicitly be. It receives
     # only metrics when no destinations are available, and as soon as we detect
     # that we don't have any destination we pause the producer: this mean that
     # it will contain only a few seconds of metrics.

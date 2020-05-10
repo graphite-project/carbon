@@ -152,7 +152,7 @@ def recordMetrics():
   record('whitelistRejects', myStats.get('whitelistRejects', 0))
   record('cpuUsage', getCpuUsage())
 
-  # And here preserve count of messages received in the prior periiod
+  # And here preserve count of messages received in the prior period
   myPriorStats['metricsReceived'] = myStats.get('metricsReceived', 0)
   prior_stats.clear()
   prior_stats.update(myPriorStats)

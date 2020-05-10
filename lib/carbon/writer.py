@@ -36,7 +36,7 @@ SCHEMAS = loadStorageSchemas()
 AGGREGATION_SCHEMAS = loadAggregationSchemas()
 
 
-# Inititalize token buckets so that we can enforce rate limits on creates and
+# Initialize token buckets so that we can enforce rate limits on creates and
 # updates if the config wants them.
 CREATE_BUCKET = None
 UPDATE_BUCKET = None
@@ -108,7 +108,7 @@ def writeCachedDataPoints():
         # file then we'll just drop the metric on the ground and move on to the next
         # metric.
         # XXX This behavior should probably be configurable to no tdrop metrics
-        # when rate limitng unless our cache is too big or some other legit
+        # when rate limiting unless our cache is too big or some other legit
         # reason.
         instrumentation.increment('droppedCreates')
         continue
@@ -159,7 +159,7 @@ def writeCachedDataPoints():
     try:
       t1 = time.time()
       # If we have duplicated points, always pick the last. update_many()
-      # has no guaranted behavior for that, and in fact the current implementation
+      # has no guaranteed behavior for that, and in fact the current implementation
       # will keep the first point in the list.
       datapoints = dict(datapoints).items()
       state.database.write(metric, datapoints)

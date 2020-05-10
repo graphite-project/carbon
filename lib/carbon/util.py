@@ -424,7 +424,7 @@ class TaggedSeries(object):
     sanitized = name.lstrip('~')
 
     if len(sanitized) == 0:
-      raise Exception('Cannot use metric name %s as tag value, results in emptry string' % (name))
+      raise Exception('Cannot use metric name %s as tag value, results in an empty string' % (name))
 
     return sanitized
 

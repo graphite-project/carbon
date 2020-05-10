@@ -232,7 +232,7 @@ if USING_CPICKLE:
       mod = sys.modules[module]
       if name not in cls.PICKLE_SAFE[module]:
         raise pickle.UnpicklingError('Attempting to unpickle unsafe class %s' % name)
-      return getattr(mod, name)
+      return getattr(mod, name)  # skipcq: PTC-W0034
 
     @classmethod
     def loads(cls, pickle_string):
@@ -254,7 +254,7 @@ else:
       mod = sys.modules[module]
       if name not in self.PICKLE_SAFE[module]:
         raise pickle.UnpicklingError('Attempting to unpickle unsafe class %s' % name)
-      return getattr(mod, name)
+      return getattr(mod, name)  # skipcq: PTC-W0034
 
     @classmethod
     def loads(cls, pickle_string):

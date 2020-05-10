@@ -159,7 +159,7 @@ def writeCachedDataPoints():
     try:
       t1 = time.time()
       # If we have duplicated points, always pick the last. update_many()
-      # has no guaranted behavior for that, and in fact the current implementation
+      # has no guaranteed behavior for that, and in fact the current implementation
       # will keep the first point in the list.
       datapoints = dict(datapoints).items()
       state.database.write(metric, datapoints)

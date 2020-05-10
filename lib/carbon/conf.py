@@ -606,7 +606,7 @@ def read_config(program, options, **kwargs):
         raise CarbonConfigException("Either ROOT_DIR or GRAPHITE_ROOT "
                                     "needs to be provided.")
 
-    # Default config directory to root-relative, unless overriden by the
+    # Default config directory to root-relative, unless overridden by the
     # 'GRAPHITE_CONF_DIR' environment variable.
     settings.setdefault("CONF_DIR",
                         os.environ.get("GRAPHITE_CONF_DIR",
@@ -618,7 +618,7 @@ def read_config(program, options, **kwargs):
         # file.
         settings["CONF_DIR"] = dirname(normpath(options["config"]))
 
-    # Storage directory can be overriden by the 'GRAPHITE_STORAGE_DIR'
+    # Storage directory can be overridden by the 'GRAPHITE_STORAGE_DIR'
     # environment variable. It defaults to a path relative to GRAPHITE_ROOT
     # for backwards compatibility though.
     settings.setdefault("STORAGE_DIR",

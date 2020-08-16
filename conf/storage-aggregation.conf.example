@@ -24,7 +24,10 @@ aggregationMethod = max
 [sum]
 pattern = \.count$
 xFilesFactor = 0
+# for monotonically increasing counters
 aggregationMethod = max
+# for counters that reset every interval (statsd-style)
+#aggregationMethod = sum
 
 [default_average]
 pattern = .*

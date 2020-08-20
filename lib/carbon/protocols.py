@@ -155,8 +155,9 @@ class MetricReceiver(CarbonServerProtocol, TimeoutMixin):
           "%s connection with %s closed cleanly" % (self.__class__.__name__, self.peerName))
 
     else:
-      log.listener(
-        "%s connection with %s lost: %s" % (self.__class__.__name__, self.peerName, reason.value))
+      if settings.LOG_LISTENER_CONN_LOST:
+        log.listener(
+          "%s connection with %s lost: %s" % (self.__class__.__name__, self.peerName, reason.value))
 
     state.connectedMetricReceiverProtocols.remove(self)
     checkIfAcceptingConnections()

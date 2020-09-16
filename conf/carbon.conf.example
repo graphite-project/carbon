@@ -355,7 +355,7 @@ WHISPER_FALLOCATE_CREATE = True
 #
 # To turn off logging of lost connections for the line receiver set this to
 # False
-# LOG_LISTENER_CONN_LOST = True
+# LOG_LISTENER_CONN_LOST = False
 
 [relay]
 LINE_RECEIVER_INTERFACE = 0.0.0.0
@@ -524,7 +524,7 @@ USE_FLOW_CONTROL = True
 #
 # To turn off logging of lost connections for the line receiver set this to
 # False
-# LOG_LISTENER_CONN_LOST = True
+# LOG_LISTENER_CONN_LOST = False
 
 # If you're connecting from the relay to a destination that's over the
 # internet or similarly iffy connection, a backlog can develop because
@@ -664,7 +664,7 @@ MAX_AGGREGATION_INTERVALS = 5
 #
 # To turn off logging of lost connections for the line receiver set this to
 # False
-# LOG_LISTENER_CONN_LOST = True
+# LOG_LISTENER_CONN_LOST = False
 
 # In order to turn off logging of metrics with no corresponding
 # aggregation rules receiver, set this to False

@@ -41,3 +41,19 @@
 # 'prod.applications.apache.all.requests'.
 #
 # Note that any time this file is modified, it will be re-read automatically.
+#
+# The following aggregation methods are available as defined in lib/carbon/aggregator/rules.py
+#
+#  'sum': sum,
+#  'avg': avg,
+#  'min': min,
+#  'max': max,
+#  'p50': percentile(0.50),
+#  'p75': percentile(0.75),
+#  'p80': percentile(0.80),
+#  'p90': percentile(0.90),
+#  'p95': percentile(0.95),
+#  'p99': percentile(0.99),
+#  'p999': percentile(0.999),
+#  'count': count,
+#

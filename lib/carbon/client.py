@@ -479,6 +479,7 @@ class CarbonPickleClientFactory(CarbonClientFactory):
 class CarbonLineClientProtocol(CarbonClientProtocol, LineOnlyReceiver):
 
   def _sendDatapointsNow(self, datapoints):
+    self.delimiter = b'\r\n'
     for metric, datapoint in datapoints:
       if isinstance(datapoint[1], float):
         value = ("%.10f" % datapoint[1]).rstrip('0').rstrip('.')

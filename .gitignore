@@ -17,3 +17,4 @@ htmlcov
 .eggs/
 *.egg-info/
 lib/twisted/plugins/dropin.cache
+venv

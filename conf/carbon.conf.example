@@ -322,8 +322,8 @@ WHISPER_FALLOCATE_CREATE = True
 # Tag support, when enabled carbon will make HTTP calls to graphite-web to update the tag index
 # ENABLE_TAGS = True
 
-# Skip tagging when metric do not contain tags (by default tagging is still enabled)
-# SKIP_TAGS_FOR_NONTAGGED = False
+# Skip tagging when metric do not contain tags
+# SKIP_TAGS_FOR_NONTAGGED = True
 
 # Tag update interval, this specifies how frequently updates to existing series will trigger
 # an update to the tag index, the default setting is once every 100 updates

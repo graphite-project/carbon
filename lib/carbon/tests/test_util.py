@@ -23,7 +23,6 @@ class UtilTest(unittest.TestCase):
         enableTcpKeepAlive(_Transport(), True, None)
         self.assertEquals(s.getsockopt(socket.SOL_TCP, socket.SO_KEEPALIVE), 1)
 
-
     def test_sanitizing_name_as_tag_value(self):
         test_cases = [
             {

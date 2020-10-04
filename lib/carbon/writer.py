@@ -141,7 +141,8 @@ def writeCachedDataPoints():
       try:
         state.database.create(metric, archiveConfig, xFilesFactor, aggregationMethod)
         if settings.ENABLE_TAGS:
-          tagQueue.add(metric)
+          if not settings.SKIP_TAGS_FOR_NONTAGGED or ';' in metric:
+            tagQueue.add(metric)
         instrumentation.increment('creates')
       except Exception as e:
         log.err()
@@ -164,7 +165,8 @@ def writeCachedDataPoints():
       datapoints = dict(datapoints).items()
       state.database.write(metric, datapoints)
       if settings.ENABLE_TAGS:
-        tagQueue.update(metric)
+        if not settings.SKIP_TAGS_FOR_NONTAGGED or ';' in metric:
+          tagQueue.update(metric)
       updateTime = time.time() - t1
     except Exception as e:
       log.err()

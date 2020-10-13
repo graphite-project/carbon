@@ -1,14 +1,15 @@
+import platform
 import socket
-
-from unittest import TestCase
+import unittest
 
 from carbon.util import parseDestinations
 from carbon.util import enableTcpKeepAlive
 from carbon.util import TaggedSeries
 
 
-class UtilTest(TestCase):
+class UtilTest(unittest.TestCase):
 
+    @unittest.skipIf(platform.system() == 'Darwin', "test_enable_tcp_keep_alive broken on MacOS")
     def test_enable_tcp_keep_alive(self):
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
@@ -95,7 +96,7 @@ class UtilTest(TestCase):
 # <instance> ::= <string>
 # <destination> ::= <host> ":" <port> | <host> ":" <port> ":" <instance>
 
-class ParseDestinationsTest(TestCase):
+class ParseDestinationsTest(unittest.TestCase):
     def test_valid_dest_unbracketed(self):
         # Tests valid destinations in the unbracketed form of <host>.
         dests = [

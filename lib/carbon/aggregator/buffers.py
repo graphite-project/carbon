@@ -85,7 +85,7 @@ class MetricBuffer:
 
   @property
   def size(self):
-    return sum([len(buf.values) for buf in self.interval_buffers.values()])
+    return sum(len(buf.values) for buf in self.interval_buffers.values())
 
 
 class IntervalBuffer:

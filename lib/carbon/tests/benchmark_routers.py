@@ -73,7 +73,8 @@ def benchmark_router(router):
     def router_getDestinations():
         router.__count += 1
         dst = list(router.getDestinations('foo.%d' % router.__count))
-        assert(len(dst) != 0)
+        if len(dst) == 0:
+            raise AssertionError("No Router destinations found!")
 
     n = 100000
     t = timeit.timeit(router_getDestinations, number=n)

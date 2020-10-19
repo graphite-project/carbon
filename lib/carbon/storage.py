@@ -140,7 +140,7 @@ def loadAggregationSchemas():
           raise AssertionError("xFilesFactor value out of [0,1] bounds")
       if aggregationMethod is not None:
         if state.database is not None:
-          if not aggregationMethod in state.database.aggregationMethods:
+          if aggregationMethod not in state.database.aggregationMethods:
             raise AssertionError("aggregationMethod not found in state.database.aggregationMethods")
     except ValueError:
       log.msg("Invalid schemas found in %s." % section)

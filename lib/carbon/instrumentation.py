@@ -126,7 +126,7 @@ def recordMetrics():
     record = aggregator_record
     record('allocatedBuffers', len(BufferManager))
     record('bufferedDatapoints',
-           sum([b.size for b in BufferManager.buffers.values()]))
+           sum(b.size for b in BufferManager.buffers.values()))
     record('aggregateDatapointsSent', myStats.get('aggregateDatapointsSent', 0))
 
   # relay metrics

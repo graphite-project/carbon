@@ -63,6 +63,8 @@ class ConsistentHashRing:
     self.hash_type = hash_type
     for node in nodes:
       self.add_node(node)
+    if not self.ring:
+      raise AssertionError("self.ring is empty")
 
   def compute_ring_position(self, key):
     return carbonHash(key, self.hash_type)
@@ -89,8 +91,6 @@ class ConsistentHashRing:
     self.ring_len = len(self.ring)
 
   def get_node(self, key):
-    if not self.ring:
-      raise AssertionError("self.ring not set")
     position = self.compute_ring_position(key)
     search_entry = (position, ())
     index = bisect.bisect_left(self.ring, search_entry) % self.ring_len

@@ -57,6 +57,27 @@ matrix:
       arch: s390x
       env:
         - TOXENV=lint
+#PPC64LE jobs:-
+    - python: 2.7
+      arch: ppc64le
+      env:
+        - TOXENV=py27
+    - python: 3.5
+      arch: ppc64le
+      env:
+        - TOXENV=py35
+    - python: 3.6
+      arch: ppc64le
+      env:
+        - TOXENV=py36
+    - python: 3.7
+      arch: ppc64le
+      env:
+        - TOXENV=py37
+    - python: 3.8
+      arch: ppc64le
+      env:
+        - TOXENV=py38
 
 env:
   - TOXENV=py38

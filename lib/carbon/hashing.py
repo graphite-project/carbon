@@ -63,8 +63,6 @@ class ConsistentHashRing:
     self.hash_type = hash_type
     for node in nodes:
       self.add_node(node)
-    if not self.ring:
-      raise AssertionError("self.ring is empty")
 
   def compute_ring_position(self, key):
     return carbonHash(key, self.hash_type)

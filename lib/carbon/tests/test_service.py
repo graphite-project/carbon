@@ -36,7 +36,7 @@ class TestSetupPipeline(TestCase):
   @patch('carbon.service.setupRewriterProcessor')
   def test_rewrite_processor_set_up(self, setup_mock):
     setupPipeline(['rewrite:pre'], self.root_service_mock, self.settings)
-    setup_mock.assert_called_once_with(self.root_service_mock, self.settings)
+    setup_mock.assert_called_once_with(self.settings)
 
   @patch('carbon.service.setupRelayProcessor')
   def test_relay_processor_set_up(self, setup_mock):

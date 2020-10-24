@@ -61,7 +61,7 @@ class ComplexResolverSimplifier(object):
         """
         self._nameResolver = nameResolver
 
-    def getHostByName(self, name, timeouts=()):
+    def getHostByName(self, name):
         """
         See L{IResolverSimple.getHostByName}
         @param name: see L{IResolverSimple.getHostByName}

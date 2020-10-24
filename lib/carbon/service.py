@@ -51,7 +51,7 @@ class CarbonRootService(MultiService):
       parent.setComponent(ILogObserver, carbonLogObserver)
 
 
-def createBaseService(config, settings):
+def createBaseService(settings):
     root_service = CarbonRootService()
     root_service.setName(settings.program)
 
@@ -82,7 +82,7 @@ def setupPipeline(pipeline, root_service, settings):
     if processor == 'aggregate':
       setupAggregatorProcessor(root_service, settings)
     elif processor == 'rewrite':
-      setupRewriterProcessor(root_service, settings)
+      setupRewriterProcessor(settings)
     elif processor == 'relay':
       setupRelayProcessor(root_service, settings)
     elif processor == 'write':
@@ -110,9 +110,9 @@ def setupPipeline(pipeline, root_service, settings):
 def createCacheService(config):
   from carbon.conf import settings
 
-  root_service = createBaseService(config, settings)
+  root_service = createBaseService(settings)
   setupPipeline(['write'], root_service, settings)
-  setupReceivers(root_service, settings)
+  setupReceivers(root_service)
 
   return root_service
 
@@ -121,11 +121,11 @@ def createAggregatorService(config):
   from carbon.conf import settings
 
   settings.RELAY_METHOD = 'consistent-hashing'
-  root_service = createBaseService(config, settings)
+  root_service = createBaseService(settings)
   setupPipeline(
     ['rewrite:pre', 'aggregate', 'rewrite:post', 'relay'],
     root_service, settings)
-  setupReceivers(root_service, settings)
+  setupReceivers(root_service)
 
   return root_service
 
@@ -134,11 +134,11 @@ def createAggregatorCacheService(config):
   from carbon.conf import settings
 
   settings.RELAY_METHOD = 'consistent-hashing'
-  root_service = createBaseService(config, settings)
+  root_service = createBaseService(settings)
   setupPipeline(
     ['rewrite:pre', 'aggregate', 'rewrite:post', 'write'],
     root_service, settings)
-  setupReceivers(root_service, settings)
+  setupReceivers(root_service)
 
   return root_service
 
@@ -146,14 +146,14 @@ def createAggregatorCacheService(config):
 def createRelayService(config):
   from carbon.conf import settings
 
-  root_service = createBaseService(config, settings)
+  root_service = createBaseService(settings)
   setupPipeline(['relay'], root_service, settings)
-  setupReceivers(root_service, settings)
+  setupReceivers(root_service)
 
   return root_service
 
 
-def setupReceivers(root_service, settings):
+def setupReceivers(root_service):
   from carbon.protocols import MetricReceiver
 
   for _, plugin_class in MetricReceiver.plugins.items():
@@ -171,7 +171,7 @@ def setupAggregatorProcessor(root_service, settings):
   RuleManager.read_from(aggregation_rules_path)
 
 
-def setupRewriterProcessor(root_service, settings):
+def setupRewriterProcessor(settings):
   from carbon.rewrite import RewriteRuleManager
 
   rewrite_rules_path = settings["rewrite-rules"]

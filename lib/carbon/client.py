@@ -262,7 +262,7 @@ class CarbonClientFactory(with_metaclass(PluginRegistrar, ReconnectingClientFact
     state.events.cacheFull()
     log.clients('%s send queue is full (%d datapoints)' % (self, result))
 
-  def queueSpaceCallback(self, result):
+  def queueSpaceCallback(self):
     if self.queueFull.called:
       log.clients('%s send queue has space available' % self.connectedProtocol)
       self.queueFull = Deferred()

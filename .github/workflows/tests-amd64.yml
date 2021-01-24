@@ -1,0 +1,75 @@
+name: "Run tests for amd64 architecture"
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        include:
+          - name: "Python 2.7"
+            python-version: '2.7'
+            toxenv: "py27"
+          - name: "Pypy 2.7"
+            python-version: 'pypy-2.7'
+            toxenv: 'pypy'
+          - name: "Python 3.6"
+            python-version: '3.6'
+            toxenv: 'py36'
+          - name: "Pypy 3.6"
+            python-version: 'pypy-3.6'
+            toxenv: 'pypy3'
+          - name: "Python 3.7"
+            python-version: '3.7'
+            toxenv: 'py37'
+          - name: "Pypy 3.7"
+            python-version: 'pypy-3.7'
+            toxenv: 'pypy3'
+          - name: "Python 3.8"
+            python-version: '3.8'
+            toxenv: 'py38'
+          - name: "Python 3.9"
+            python-version: '3.9'
+            toxenv: 'py39'
+          - name: "Python 3.9-pyhash"
+            python-version: '3.9'
+            toxenv: 'py39-pyhash'
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install dependencies
+        run: |
+          apt-get -q install -y libboost-python-dev
+          python -m pip install --upgrade pip
+          pip install tox flake8 pytest
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+      - name: Tests with tox
+        env:
+          TOXENV: ${{ matrix.toxenv }}
+        run: |
+          tox
+      - name: Linting
+        if: ${{ matrix.python-version==3.9 }}
+        env:
+          TOXENV: lint
+        run: |
+          tox
+      - name: Run Codecov
+        if: ${{ matrix.python-version==3.9 }}
+        env:
+          TOXENV: lint
+        run: |
+          pip install codecov
+          codecov
+      - name: Upload coverage to Codecov
+        if: ${{ matrix.python-version==3.9 }}
+        uses: codecov/codecov-action@v1

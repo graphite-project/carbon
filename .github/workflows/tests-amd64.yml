@@ -34,12 +34,12 @@ jobs:
           - name: "Python 3.8"
             python-version: '3.8'
             toxenv: 'py38'
-          - name: "Python 3.9"
-            python-version: '3.9'
-            toxenv: 'py39'
           - name: "Python 3.9-pyhash"
             python-version: '3.9'
             toxenv: 'py39-pyhash'
+          - name: "Python 3.9"
+            python-version: '3.9'
+            toxenv: 'py39'
     steps:
       - uses: actions/checkout@v2
       - name: Set up Python ${{ matrix.python-version }}

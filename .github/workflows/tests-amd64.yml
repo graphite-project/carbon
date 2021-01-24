@@ -48,7 +48,6 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - name: Install dependencies
         run: |
-          apt-get -q install -y libboost-python-dev
           python -m pip install --upgrade pip
           pip install tox flake8 pytest
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi

@@ -167,7 +167,7 @@ def parseDestinations(destination_strings):
 
 # Yes this is duplicated in whisper. Yes, duplication is bad.
 # But the code is needed in both places and we do not want to create
-# a dependency on whisper especiaily as carbon moves toward being a more
+# a dependency on whisper especially as carbon moves toward being a more
 # generic storage service that can use various backends.
 UnitMultipliers = {
   's': 1,
@@ -232,7 +232,7 @@ if USING_CPICKLE:
       mod = sys.modules[module]
       if name not in cls.PICKLE_SAFE[module]:
         raise pickle.UnpicklingError('Attempting to unpickle unsafe class %s' % name)
-      return getattr(mod, name)
+      return getattr(mod, name)  # skipcq: PTC-W0034
 
     @classmethod
     def loads(cls, pickle_string):
@@ -254,7 +254,7 @@ else:
       mod = sys.modules[module]
       if name not in self.PICKLE_SAFE[module]:
         raise pickle.UnpicklingError('Attempting to unpickle unsafe class %s' % name)
-      return getattr(mod, name)
+      return getattr(mod, name)  # skipcq: PTC-W0034
 
     @classmethod
     def loads(cls, pickle_string):
@@ -424,7 +424,7 @@ class TaggedSeries(object):
     sanitized = name.lstrip('~')
 
     if len(sanitized) == 0:
-      raise Exception('Cannot use metric name %s as tag value, results in emptry string' % (name))
+      raise Exception('Cannot use metric name %s as tag value, results in an empty string' % (name))
 
     return sanitized
 

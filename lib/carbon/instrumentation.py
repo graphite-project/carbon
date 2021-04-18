@@ -126,7 +126,7 @@ def recordMetrics():
     record = aggregator_record
     record('allocatedBuffers', len(BufferManager))
     record('bufferedDatapoints',
-           sum([b.size for b in BufferManager.buffers.values()]))
+           sum(b.size for b in BufferManager.buffers.values()))
     record('aggregateDatapointsSent', myStats.get('aggregateDatapointsSent', 0))
 
   # relay metrics
@@ -152,7 +152,7 @@ def recordMetrics():
   record('whitelistRejects', myStats.get('whitelistRejects', 0))
   record('cpuUsage', getCpuUsage())
 
-  # And here preserve count of messages received in the prior periiod
+  # And here preserve count of messages received in the prior period
   myPriorStats['metricsReceived'] = myStats.get('metricsReceived', 0)
   prior_stats.clear()
   prior_stats.update(myPriorStats)

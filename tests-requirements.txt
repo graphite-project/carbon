@@ -4,6 +4,7 @@ mocker
 nose
 protobuf
 mmh3
-pyOpenSSL
+cryptography<3.4
 git+git://github.com/graphite-project/ceres.git#egg=ceres
 backports.tempfile
+service_identity

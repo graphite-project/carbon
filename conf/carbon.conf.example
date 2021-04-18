@@ -272,7 +272,7 @@ WHISPER_FALLOCATE_CREATE = True
 # CARBON_METRIC_PREFIX = carbon
 # CARBON_METRIC_INTERVAL = 60
 
-# Enable AMQP if you want to receve metrics using an amqp broker
+# Enable AMQP if you want to receive metrics using an amqp broker
 # ENABLE_AMQP = False
 
 # Verbose means a line will be logged for every metric received
@@ -322,6 +322,9 @@ WHISPER_FALLOCATE_CREATE = True
 # Tag support, when enabled carbon will make HTTP calls to graphite-web to update the tag index
 # ENABLE_TAGS = True
 
+# Skip tagging when metric do not contain tags
+# SKIP_TAGS_FOR_NONTAGGED = True
+
 # Tag update interval, this specifies how frequently updates to existing series will trigger
 # an update to the tag index, the default setting is once every 100 updates
 # TAG_UPDATE_INTERVAL = 100
@@ -352,6 +355,10 @@ WHISPER_FALLOCATE_CREATE = True
 # In order to turn off logging of successful connections for the line
 # receiver, set this to False
 # LOG_LISTENER_CONN_SUCCESS = True
+#
+# To turn off logging of lost connections for the line receiver set this to
+# False
+# LOG_LISTENER_CONN_LOST = False
 
 [relay]
 LINE_RECEIVER_INTERFACE = 0.0.0.0
@@ -438,7 +445,7 @@ DESTINATIONS = 127.0.0.1:2004
 
 # This allows to have multiple connections per destinations, this will
 # pool all the replicas of a single host in the same queue and distribute
-# points accross these replicas instead of replicating them.
+# points across these replicas instead of replicating them.
 # The following example will balance the load between :0 and :1.
 ## DESTINATIONS = foo:2001:0, foo:2001:1
 ## RELAY_METHOD = rules
@@ -517,6 +524,10 @@ USE_FLOW_CONTROL = True
 # In order to turn off logging of successful connections for the line
 # receiver, set this to False
 # LOG_LISTENER_CONN_SUCCESS = True
+#
+# To turn off logging of lost connections for the line receiver set this to
+# False
+# LOG_LISTENER_CONN_LOST = False
 
 # If you're connecting from the relay to a destination that's over the
 # internet or similarly iffy connection, a backlog can develop because
@@ -530,7 +541,7 @@ USE_RATIO_RESET=False
 MIN_RESET_STAT_FLOW=1000
 
 # When the ratio of stats being sent in a reporting interval is far
-# enough from 1.0, we will disconnect the socket and reconnecto to
+# enough from 1.0, we will disconnect the socket and reconnect to
 # clear out queued stats.  The default ratio of 0.9 indicates that 10%
 # of stats aren't being delivered within one CARBON_METRIC_INTERVAL
 # (default of 60 seconds), which can lead to a queue backup.  Under
@@ -653,6 +664,10 @@ MAX_AGGREGATION_INTERVALS = 5
 # In order to turn off logging of successful connections for the line
 # receiver, set this to False
 # LOG_LISTENER_CONN_SUCCESS = True
+#
+# To turn off logging of lost connections for the line receiver set this to
+# False
+# LOG_LISTENER_CONN_LOST = False
 
 # In order to turn off logging of metrics with no corresponding
 # aggregation rules receiver, set this to False

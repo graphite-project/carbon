@@ -78,6 +78,7 @@ defaults = dict(
   BIND_PATTERNS=['#'],
   GRAPHITE_URL='http://127.0.0.1:80',
   ENABLE_TAGS=True,
+  SKIP_TAGS_FOR_NONTAGGED=True,
   TAG_UPDATE_INTERVAL=100,
   TAG_BATCH_SIZE=100,
   TAG_QUEUE_SIZE=10000,
@@ -115,6 +116,7 @@ defaults = dict(
   TCP_KEEPINTVL=30,
   TCP_KEEPCNT=2,
   USE_RATIO_RESET=False,
+  LOG_LISTENER_CONN_LOST=False,
   LOG_LISTENER_CONN_SUCCESS=True,
   LOG_AGGREGATOR_MISSES=True,
   AGGREGATION_RULES='aggregation-rules.conf',
@@ -605,7 +607,7 @@ def read_config(program, options, **kwargs):
         raise CarbonConfigException("Either ROOT_DIR or GRAPHITE_ROOT "
                                     "needs to be provided.")
 
-    # Default config directory to root-relative, unless overriden by the
+    # Default config directory to root-relative, unless overridden by the
     # 'GRAPHITE_CONF_DIR' environment variable.
     settings.setdefault("CONF_DIR",
                         os.environ.get("GRAPHITE_CONF_DIR",
@@ -617,7 +619,7 @@ def read_config(program, options, **kwargs):
         # file.
         settings["CONF_DIR"] = dirname(normpath(options["config"]))
 
-    # Storage directory can be overriden by the 'GRAPHITE_STORAGE_DIR'
+    # Storage directory can be overridden by the 'GRAPHITE_STORAGE_DIR'
     # environment variable. It defaults to a path relative to GRAPHITE_ROOT
     # for backwards compatibility though.
     settings.setdefault("STORAGE_DIR",

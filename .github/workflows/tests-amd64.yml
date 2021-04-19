@@ -2,9 +2,11 @@ name: "Run tests for amd64 architecture"
 
 on:
   push:
-    branches: [ master ]
+    branches: [ 1.1.x ]
   pull_request:
-    branches: [ master ]
+    branches: [ 1.1.x ]
+  schedule:
+    - cron: '17 1 * * 2'
 
 jobs:
   build:

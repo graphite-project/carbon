@@ -5,6 +5,6 @@ nose
 protobuf
 mmh3
 cryptography
-git+git://github.com/graphite-project/ceres.git#egg=ceres
+git+https://github.com/graphite-project/ceres.git#egg=ceres
 backports.tempfile
 service_identity

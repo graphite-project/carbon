@@ -3,8 +3,6 @@
 # description: carbon-cache
 # processname: carbon-cache
 
-export PYTHONPATH="$GRAPHITE_DIR/lib:$PYTHONPATH"
-
 # Source function library.
 if [ -e /etc/rc.d/init.d/functions ]; then
     . /etc/rc.d/init.d/functions;
@@ -13,6 +11,8 @@ fi;
 CARBON_DAEMON="cache"
 GRAPHITE_DIR="/opt/graphite"
 INSTANCES=`grep "^\[${CARBON_DAEMON}" ${GRAPHITE_DIR}/conf/carbon.conf | cut -d \[ -f 2 | cut -d \] -f 1 | cut -d : -f 2`
+
+export PYTHONPATH="$GRAPHITE_DIR/lib:$PYTHONPATH"
 
 function die {
   echo $1

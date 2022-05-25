@@ -15,15 +15,19 @@ limitations under the License."""
 
 import sys
 import whisper
-from os.path import dirname, exists, join, realpath
-from ConfigParser import ConfigParser
+from os.path import dirname, join, realpath
+
+try:
+  from ConfigParser import ConfigParser
+except ImportError:
+  from configparser import ConfigParser
 
 if len(sys.argv) == 2:
   SCHEMAS_FILE = sys.argv[1]
-  print "Loading storage-schemas configuration from: '%s'" % SCHEMAS_FILE
+  print("Loading storage-schemas configuration from: '%s'" % SCHEMAS_FILE)
 else:
   SCHEMAS_FILE = realpath(join(dirname(__file__), '..', 'conf', 'storage-schemas.conf'))
-  print "Loading storage-schemas configuration from default location at: '%s'" % SCHEMAS_FILE
+  print("Loading storage-schemas configuration from default location at: '%s'" % SCHEMAS_FILE)
 
 config_parser = ConfigParser()
 if not config_parser.read(SCHEMAS_FILE):
@@ -32,7 +36,7 @@ if not config_parser.read(SCHEMAS_FILE):
 errors_found = 0
 
 for section in config_parser.sections():
-  print "Section '%s':" % section
+  print("Section '%s':" % section)
   options = dict(config_parser.items(section))
   retentions = options['retentions'].split(',')
 
@@ -41,26 +45,30 @@ for section in config_parser.sections():
   for retention in retentions:
     try:
       archives.append(whisper.parseRetentionDef(retention))
-    except ValueError, e:
-      print "  - Error: Section '%s' contains an invalid item in its retention definition ('%s')" % \
+    except ValueError as e:
+      print(
+        "  - Error: Section '%s' contains an invalid item in its retention definition ('%s')" %
         (section, retention)
-      print "    %s" % e.message
+      )
+      print("    %s" % e)
       section_failed = True
 
   if not section_failed:
     try:
       whisper.validateArchiveList(archives)
-    except whisper.InvalidConfiguration, e:
-      print "  - Error: Section '%s' contains an invalid retention definition ('%s')" % \
+    except whisper.InvalidConfiguration as e:
+      print(
+        "  - Error: Section '%s' contains an invalid retention definition ('%s')" %
         (section, ','.join(retentions))
-      print "    %s" % e.message
+      )
+      print("    %s" % e)
 
   if section_failed:
     errors_found += 1
   else:
-    print "  OK"
+    print("  OK")
 
 if errors_found:
-  raise SystemExit( "Storage-schemas configuration '%s' failed validation" % SCHEMAS_FILE)
+  raise SystemExit("Storage-schemas configuration '%s' failed validation" % SCHEMAS_FILE)
 
-print "Storage-schemas configuration '%s' is valid" % SCHEMAS_FILE
+print("Storage-schemas configuration '%s' is valid" % SCHEMAS_FILE)

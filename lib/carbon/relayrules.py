@@ -11,7 +11,7 @@ class RelayRule:
     self.continue_matching = continue_matching
 
   def matches(self, metric):
-    return bool( self.condition(metric) )
+    return bool(self.condition(metric))
 
 
 def loadRelayRules(path):
@@ -25,7 +25,7 @@ def loadRelayRules(path):
   for section in parser.sections():
     if not parser.has_option(section, 'destinations'):
       raise CarbonConfigException("Rules file %s section %s does not define a "
-                       "'destinations' list" % (path, section))
+                                  "'destinations' list" % (path, section))
 
     destination_strings = parser.get(section, 'destinations').split(',')
     destinations = parseDestinations(destination_strings)
@@ -33,20 +33,21 @@ def loadRelayRules(path):
     if parser.has_option(section, 'pattern'):
       if parser.has_option(section, 'default'):
         raise CarbonConfigException("Section %s contains both 'pattern' and "
-                        "'default'. You must use one or the other." % section)
+                                    "'default'. You must use one or the other." % section)
       pattern = parser.get(section, 'pattern')
       regex = re.compile(pattern, re.I)
 
       continue_matching = False
       if parser.has_option(section, 'continue'):
         continue_matching = parser.getboolean(section, 'continue')
-      rule = RelayRule(condition=regex.search, destinations=destinations, continue_matching=continue_matching)
+      rule = RelayRule(
+        condition=regex.search, destinations=destinations, continue_matching=continue_matching)
       rules.append(rule)
       continue
 
     if parser.has_option(section, 'default'):
       if not parser.getboolean(section, 'default'):
-        continue # just ignore default = false
+        continue  # just ignore default = false
       if defaultRule:
         raise CarbonConfigException("Only one default rule can be specified")
       defaultRule = RelayRule(condition=lambda metric: True,
@@ -54,7 +55,7 @@ def loadRelayRules(path):
 
   if not defaultRule:
     raise CarbonConfigException("No default rule defined. You must specify exactly one "
-                    "rule with 'default = true' instead of a pattern.")
+                                "rule with 'default = true' instead of a pattern.")
 
   rules.append(defaultRule)
   return rules

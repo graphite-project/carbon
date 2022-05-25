@@ -53,14 +53,13 @@ def run(send, delay, use_zlib):
         message = '\n'.join(lines) + '\n' #all lines must end in a newline
         if use_zlib:
             compressed = zlib.compress(message)
-            print "sending compressed message (%sB => %sB)" % (
-                len(message), len(compressed))
-            send(compressed)
+            print("sending compressed message (%sB => %sB)", len(message), len(compressed))
+            sock.sendall(compressed)
         else:
-            print "sending message"
-            print '-' * 80
-            print message
-            send(message)
+            print("sending message")
+            print('-' * 80)
+            print(message)
+            sock.sendall(message)
         time.sleep(delay)
 
 def main():

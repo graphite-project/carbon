@@ -4,7 +4,7 @@ from carbon.conf import settings
 from carbon import log
 
 
-class BufferManager:
+class _BufferManager:
   def __init__(self):
     self.buffers = {}
 
@@ -13,7 +13,7 @@ class BufferManager:
 
   def get_buffer(self, metric_path):
     if metric_path not in self.buffers:
-      log.aggregator("Allocating new metric buffer for %s" % metric_path)
+      log.debug("Allocating new metric buffer for %s" % metric_path)
       self.buffers[metric_path] = MetricBuffer(metric_path)
 
     return self.buffers[metric_path]
@@ -51,15 +51,20 @@ class MetricBuffer:
     self.aggregation_frequency = int(frequency)
     self.aggregation_func = func
     self.compute_task = LoopingCall(self.compute_value)
-    self.compute_task.start(settings['WRITE_BACK_FREQUENCY'] or frequency, now=False)
+    if settings['WRITE_BACK_FREQUENCY'] is not None:
+      compute_frequency = min(settings['WRITE_BACK_FREQUENCY'], frequency)
+    else:
+      compute_frequency = frequency
+    self.compute_task.start(compute_frequency, now=False)
     self.configured = True
 
   def compute_value(self):
-    now = int( time.time() )
+    now = int(time.time())
     current_interval = now - (now % self.aggregation_frequency)
-    age_threshold = current_interval - (settings['MAX_AGGREGATION_INTERVALS'] * self.aggregation_frequency)
+    age_threshold = current_interval - (
+      settings['MAX_AGGREGATION_INTERVALS'] * self.aggregation_frequency)
 
-    for buffer in self.interval_buffers.values():
+    for buffer in list(self.interval_buffers.values()):
       if buffer.active:
         value = self.aggregation_func(buffer.values)
         datapoint = (buffer.interval, value)
@@ -80,7 +85,7 @@ class MetricBuffer:
 
   @property
   def size(self):
-    return sum([len(buf.values) for buf in self.interval_buffers.values()])
+    return sum(len(buf.values) for buf in self.interval_buffers.values())
 
 
 class IntervalBuffer:
@@ -92,7 +97,7 @@ class IntervalBuffer:
     self.active = True
 
   def input(self, datapoint):
-    self.values.append( datapoint[1] )
+    self.values.append(datapoint[1])
     self.active = True
 
   def mark_inactive(self):
@@ -100,7 +105,7 @@ class IntervalBuffer:
 
 
 # Shared importable singleton
-BufferManager = BufferManager()
+BufferManager = _BufferManager()
 
 # Avoid import circularity
-from carbon import state
+from carbon import state  # NOQA

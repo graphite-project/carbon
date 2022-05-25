@@ -25,10 +25,10 @@ ROOT_DIR = os.path.dirname(BIN_DIR)
 LIB_DIR = os.path.join(ROOT_DIR, "lib")
 sys.path.insert(0, LIB_DIR)
 
-from carbon.util import run_twistd_plugin
-from carbon.exceptions import CarbonConfigException
+from carbon.util import run_twistd_plugin  # noqa
+from carbon.exceptions import CarbonConfigException  # noqa
 
 try:
     run_twistd_plugin(__file__)
-except CarbonConfigException, exc:
+except CarbonConfigException as exc:
     raise SystemExit(str(exc))

@@ -15,4 +15,3 @@ for i in $CONFFILES; do
         /bin/cp ${GRAPHITE_PATH}/conf/$i.example ${GRAPHITE_PATH}/conf/$i;
     fi;
 done;
-

@@ -1,10 +1,74 @@
 # http://travis-ci.org/#!/graphite-project/carbon
+dist: bionic
 language: python
-python:
-    - 2.6
-    - 2.7
+python: 3.9
+
+matrix:
+  include:
+    - python: 2.7
+      arch: s390x
+      env:
+        - TOXENV=py27
+    - python: 3.6
+      arch: s390x
+      env:
+        - TOXENV=py36
+    - python: 3.7
+      arch: s390x
+      env:
+        - TOXENV=py37
+    - python: 3.8
+      arch: s390x
+      env:
+        - TOXENV=py38
+    - python: 3.9
+      arch: s390x
+      env:
+        - TOXENV=py39
+    - python: 3.9
+      arch: s390x
+      env:
+        - TOXENV=lint
+#PPC64LE jobs:-
+    - python: 2.7
+      arch: ppc64le
+      env:
+        - TOXENV=py27
+    - python: 3.6
+      arch: ppc64le
+      env:
+        - TOXENV=py36
+    - python: 3.7
+      arch: ppc64le
+      env:
+        - TOXENV=py37
+    - python: 3.8
+      arch: ppc64le
+      env:
+        - TOXENV=py38
+    - python: 3.9
+      arch: ppc64le
+      env:
+        - TOXENV=py39
+    - python: 3.9
+      arch: ppc64le
+      env:
+        - TOXENV=lint
+
+env:
+  - TOXENV=py39
+  - TOXENV=py39-pyhash
+  - TOXENV=lint
+
 install:
-    - pip install -r requirements.txt --use-mirrors
-    - python setup.py install --prefix=$VIRTUAL_ENV --install-lib=$VIRTUAL_ENV/lib/python$TRAVIS_PYTHON_VERSION/site-packages
+  - if [[ $(uname -m) == 's390x' ]]; then sudo rm -rf $HOME/.cache/pip; fi
+  - if echo "$TOXENV" | grep -q 'pyhash' ; then sudo apt-get -q install -y libboost-python-dev; fi
+  - if echo "$TOXENV" | grep -q '^py2'   ; then pip install --upgrade pip virtualenv; fi
+  - pip install tox
+
 script:
-    - PYTHONPATH=lib trial carbon
+  - tox -e $TOXENV
+
+after_success:
+  - pip install codecov
+  - codecov

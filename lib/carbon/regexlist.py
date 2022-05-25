@@ -1,4 +1,3 @@
-import time
 import re
 import os.path
 from carbon import log
@@ -27,7 +26,7 @@ class RegexList:
 
     try:
       mtime = os.path.getmtime(self.list_file)
-    except:
+    except OSError:
       log.err("Failed to get mtime of %s" % self.list_file)
       return
 
@@ -42,7 +41,7 @@ class RegexList:
         continue
       try:
         new_regex_list.append(re.compile(pattern))
-      except:
+      except re.error:
         log.err("Failed to parse '%s' in '%s'. Ignoring line" % (pattern, self.list_file))
 
     self.regex_list = new_regex_list
@@ -56,6 +55,8 @@ class RegexList:
 
   def __nonzero__(self):
     return bool(self.regex_list)
+
+  __bool__ = __nonzero__  # py2/3 compatibility
 
 
 WhiteList = RegexList()

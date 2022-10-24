@@ -1,9 +1,8 @@
-import exceptions
 from mock import Mock, patch
 from unittest import TestCase
 
 from carbon import events, state
-from carbon.pipeline import Processor, run_pipeline
+from carbon.pipeline import Processor, run_pipeline, run_pipeline_generated
 from carbon.service import CarbonRootService, setupPipeline
 from carbon.tests.util import TestSettings
 
@@ -27,7 +26,7 @@ class TestSetupPipeline(TestCase):
 
   def test_run_pipeline_chained_to_metric_generated(self):
     setupPipeline([], self.root_service_mock, self.settings)
-    self.assertTrue(run_pipeline in events.metricGenerated.handlers)
+    self.assertTrue(run_pipeline_generated in events.metricGenerated.handlers)
 
   @patch('carbon.service.setupAggregatorProcessor')
   def test_aggregate_processor_set_up(self, setup_mock):
@@ -51,11 +50,11 @@ class TestSetupPipeline(TestCase):
 
   def test_unknown_processor_raises_value_error(self):
     self.assertRaises(
-        exceptions.ValueError, setupPipeline, ['foo'], self.root_service_mock, self.settings)
+        ValueError, setupPipeline, ['foo'], self.root_service_mock, self.settings)
 
   @patch('carbon.service.setupRewriterProcessor', new=Mock())
   def test_parses_processor_args(self):
-    #XXX Patch doesnt work on this import directly
+    # XXX Patch doesnt work on this import directly
     rewrite_mock = Mock()
     Processor.plugins['rewrite'] = rewrite_mock
     setupPipeline(['rewrite:pre'], self.root_service_mock, self.settings)

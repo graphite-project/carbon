@@ -1,8 +1,8 @@
 import os
 import time
-from sys import stdout, stderr
-from zope.interface import implements
-from twisted.python.log import startLoggingWithObserver, textFromEventDict, msg, err, ILogObserver
+from sys import stdout
+from zope.interface import implementer
+from twisted.python.log import startLoggingWithObserver, textFromEventDict, msg, err, ILogObserver  # NOQA
 from twisted.python.syslog import SyslogObserver
 from twisted.python.logfile import DailyLogFile
 
@@ -19,9 +19,9 @@ class CarbonLogFile(DailyLogFile):
     """
     Fix Umask Issue https://twistedmatrix.com/trac/ticket/7026
     """
-    openMode = self.defaultMode or 0777
+    openMode = self.defaultMode or 0o777
     self._file = os.fdopen(os.open(
-      self.path, os.O_CREAT|os.O_RDWR, openMode), 'r+', 1)
+      self.path, os.O_CREAT | os.O_RDWR, openMode), 'rb+', 1)
     self.closed = False
     # Try our best to update permissions for files which already exist.
     if self.defaultMode:
@@ -48,8 +48,7 @@ class CarbonLogFile(DailyLogFile):
       else:
         path_stat = os.stat(self.path)
         fd_stat = os.fstat(self._file.fileno())
-        if not (path_stat.st_ino == fd_stat.st_ino 
-            and path_stat.st_dev == fd_stat.st_dev):
+        if not (path_stat.st_ino == fd_stat.st_ino and path_stat.st_dev == fd_stat.st_dev):
           self.reopen()
     DailyLogFile.write(self, data)
 
@@ -59,8 +58,38 @@ class CarbonLogFile(DailyLogFile):
     self._openFile()
 
 
+@implementer(ILogObserver)
 class CarbonLogObserver(object):
-  implements(ILogObserver)
+
+  def __init__(self):
+    self._raven_client = None
+
+  def raven_client(self):
+    if self._raven_client is not None:
+      return self._raven_client
+
+    # Import here to avoid dependency hell.
+    try:
+      import raven
+    except ImportError:
+      return None
+    from carbon.conf import settings
+
+    if settings.RAVEN_DSN is None:
+      return None
+    self._raven_client = raven.Client(dsn=settings.RAVEN_DSN)
+    return self._raven_client
+
+  def log_to_raven(self, event):
+    if not event.get('isError') or 'failure' not in event:
+      return
+    client = self.raven_client()
+    if client is None:
+      return
+    f = event['failure']
+    client.captureException(
+      (f.type, f.value, f.getTracebackObject())
+    )
 
   def log_to_dir(self, logdir):
     self.logdir = logdir
@@ -77,9 +106,11 @@ class CarbonLogObserver(object):
     self.observer = syslog_observer
 
   def __call__(self, event):
+    self.log_to_raven(event)
     return self.observer(event)
 
-  def stdout_observer(self, event):
+  @staticmethod
+  def stdout_observer(event):
     stdout.write(formatEvent(event, includeType=True) + '\n')
     stdout.flush()
 
@@ -96,7 +127,7 @@ class CarbonLogObserver(object):
 
   # Default to stdout
   observer = stdout_observer
-   
+
 
 carbonLogObserver = CarbonLogObserver()
 
@@ -166,6 +197,7 @@ def query(message, **context):
 def debug(message, **context):
   if debugEnabled:
     msg(message, **context)
+
 
 debugEnabled = False
 

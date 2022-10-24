@@ -31,6 +31,7 @@ This program can be started standalone for testing or using carbon-cache.py
 (see example config file provided)
 """
 import sys
+
 import os
 import socket
 from optparse import OptionParser
@@ -38,9 +39,15 @@ from optparse import OptionParser
 from twisted.internet.defer import inlineCallbacks
 from twisted.internet import reactor
 from twisted.internet.protocol import ReconnectingClientFactory
-from txamqp.protocol import AMQClient
-from txamqp.client import TwistedDelegate
-import txamqp.spec
+from twisted.application.internet import TCPClient
+
+# txamqp is currently not ported to py3
+try:
+  from txamqp.protocol import AMQClient
+  from txamqp.client import TwistedDelegate
+  import txamqp.spec
+except ImportError:
+  raise ImportError
 
 try:
     import carbon
@@ -49,12 +56,41 @@ except ImportError:
     LIB_DIR = os.path.dirname(os.path.dirname(__file__))
     sys.path.insert(0, LIB_DIR)
 
-import carbon.protocols #satisfy import order requirements
+import carbon.protocols  # NOQA satisfy import order requirements
+from carbon.protocols import CarbonServerProtocol
 from carbon.conf import settings
-from carbon import log, events, instrumentation
+from carbon import log, events
 
 
 HOSTNAME = socket.gethostname().split('.')[0]
+
+
+class AMQPProtocol(CarbonServerProtocol):
+    plugin_name = "amqp"
+
+    @classmethod
+    def build(cls, root_service):
+        if not settings.ENABLE_AMQP:
+            return
+
+        amqp_host = settings.AMQP_HOST
+        amqp_port = settings.AMQP_PORT
+        amqp_user = settings.AMQP_USER
+        amqp_password = settings.AMQP_PASSWORD
+        amqp_verbose = settings.AMQP_VERBOSE
+        amqp_vhost = settings.AMQP_VHOST
+        amqp_spec = settings.AMQP_SPEC
+        amqp_exchange_name = settings.AMQP_EXCHANGE
+
+        factory = createAMQPListener(
+            amqp_user,
+            amqp_password,
+            vhost=amqp_vhost,
+            spec=amqp_spec,
+            exchange_name=amqp_exchange_name,
+            verbose=amqp_verbose)
+        service = TCPClient(amqp_host, amqp_port, factory)
+        service.setServiceParent(root_service)
 
 
 class AMQPGraphiteProtocol(AMQClient):
@@ -87,13 +123,14 @@ class AMQPGraphiteProtocol(AMQClient):
 
         # bind each configured metric pattern
         for bind_pattern in settings.BIND_PATTERNS:
-            log.listener("binding exchange '%s' to queue '%s' with pattern %s" \
+            log.listener("binding exchange '%s' to queue '%s' with pattern %s"
                          % (exchange, my_queue, bind_pattern))
             yield chan.queue_bind(exchange=exchange, queue=my_queue,
                                   routing_key=bind_pattern)
 
         yield chan.basic_consume(queue=my_queue, no_ack=True,
                                  consumer_tag=self.consumer_tag)
+
     @inlineCallbacks
     def receive_loop(self):
         queue = yield self.queue(self.consumer_tag)
@@ -119,7 +156,7 @@ class AMQPGraphiteProtocol(AMQClient):
                     metric, value, timestamp = line.split()
                 else:
                     value, timestamp = line.split()
-                datapoint = ( float(timestamp), float(value) )
+                datapoint = (float(timestamp), float(value))
                 if datapoint[1] != datapoint[1]:  # filter out NaN values
                     continue
             except ValueError:
@@ -218,11 +255,11 @@ def main():
 
     (options, args) = parser.parse_args()
 
-
     startReceiver(options.host, options.port, options.username,
                   options.password, vhost=options.vhost,
                   exchange_name=options.exchange, verbose=options.verbose)
     reactor.run()
+
 
 if __name__ == "__main__":
     main()

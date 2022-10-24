@@ -30,8 +30,15 @@
 #
 #LOCAL_DATA_DIR = /opt/graphite/storage/whisper/
 
-# Specify the database library used to store metric data on disk. Currently
-# only the whisper database is supported, but ceres support is coming soon.
+# Specify the database library used to store metric data on disk. Each database
+# may have configurable options to change the behaviour of how it writes to
+# persistent storage.
+#
+# whisper - Fixed-size database, similar in design and purpose to RRD. This is
+# the default storage backend for carbon and the most rigorously tested.
+#
+# ceres - Experimental alternative database that supports storing data in sparse
+# files of arbitrary fixed-size resolutions.
 DATABASE = whisper
 
 # Enable daily log rotation. If disabled, a new file will be opened whenever the log file path no
@@ -72,6 +79,18 @@ MAX_UPDATES_PER_SECOND = 500
 # cause carbon to create the files quickly but at the risk of increased I/O.
 MAX_CREATES_PER_MINUTE = 50
 
+# Set the minimum timestamp resolution supported by this instance. This allows
+# internal optimisations by overwriting points with equal truncated timestamps
+# in order to limit the number of updates to the database. It defaults to one
+# second.
+MIN_TIMESTAMP_RESOLUTION = 1
+
+# Set the minimum lag in seconds for a point to be written to the database
+# in order to optimize batching. This means that each point will wait at least
+# the duration of this lag before being written. Setting this to 0 disable the feature.
+# This currently only works when using the timesorted write strategy.
+# MIN_TIMESTAMP_LAG = 0
+
 # Set the interface and port for the line (plain text) listener.  Setting the
 # interface to 0.0.0.0 listens on all interfaces.  Port can be set to 0 to
 # disable this listener if it is not required.
@@ -90,6 +109,18 @@ UDP_RECEIVER_PORT = 2003
 # listener if it is not required.
 PICKLE_RECEIVER_INTERFACE = 0.0.0.0
 PICKLE_RECEIVER_PORT = 2004
+
+# Set the maximum length for a received pickle string (in bytes).
+# If the string length is bigger, the receiver will silently close connection.
+# Useful for big metric batches.
+# Default value is 1 Mb
+PICKLE_RECEIVER_MAX_LENGTH = 1048576
+
+# Set the interface and port for the protobuf listener.  Setting the interface to
+# 0.0.0.0 listens on all interfaces.  Port can be set to 0 to disable this
+# listener if it is not required.
+# PROTOBUF_RECEIVER_INTERFACE = 0.0.0.0
+# PROTOBUF_RECEIVER_PORT = 2005
 
 # Limit the number of open connections the receiver can handle as any time.
 # Default is no limit. Setting up a limit for sites handling high volume
@@ -119,6 +150,7 @@ USE_FLOW_CONTROL = True
 # This can be excessive and degrade performance if logging on the same
 # volume as the whisper data is stored.
 LOG_UPDATES = False
+LOG_CREATES = False
 LOG_CACHE_HITS = False
 LOG_CACHE_QUEUE_SORTS = False
 
@@ -132,12 +164,24 @@ LOG_CACHE_QUEUE_SORTS = False
 # moment of the list's creation. Metrics will then be flushed from the cache to
 # disk in that order.
 #
+# timesorted - All metrics in the list will be looked at and sorted according
+# to the timestamp of their datapoints. The metric that were the least recently
+# written will be written first. This is an hybrid strategy between max and
+# sorted which is particularly adapted to sets of metrics with non-uniform
+# resolutions.
+#
 # max - The writer thread will always pop and flush the metric from cache
 # that has the most datapoints. This will give a strong flush preference to
 # frequently updated metrics and will also reduce random file-io. Infrequently
 # updated metrics may only ever be persisted to disk at daemon shutdown if
 # there are a large number of metrics which receive very frequent updates OR if
 # disk i/o is very slow.
+#
+# bucketmax (experimental) - As 'max' but uses a different algorithm to
+# determine the metric with the most datapoints.
+# Should perform better than 'max' on most loads, could perform worse if the
+# number of metrics is very small while the number of datapoints per metric is
+# very high.
 #
 # naive - Metrics will be flushed from the cache to disk in an unordered
 # fashion. This strategy may be desirable in situations where the storage for
@@ -166,11 +210,12 @@ WHISPER_AUTOFLUSH = False
 # allocation and zero-ing. Enabling this option may allow a large increase of
 # MAX_CREATES_PER_MINUTE. If enabled on an OS or filesystem that is unsupported
 # this option will gracefully fallback to standard POSIX file access methods.
+# If enabled, disables WHISPER_SPARSE_CREATE regardless of the value.
 WHISPER_FALLOCATE_CREATE = True
 
 # Enabling this option will cause Whisper to lock each Whisper file it writes
 # to with an exclusive lock (LOCK_EX, see: man 2 flock). This is useful when
-# multiple carbon-cache daemons are writing to the same files
+# multiple carbon-cache daemons are writing to the same files.
 # WHISPER_LOCK_WRITES = False
 
 # On systems which has a large number of metrics, an amount of Whisper write(2)'s
@@ -184,13 +229,56 @@ WHISPER_FALLOCATE_CREATE = True
 # all metrics will pass through.
 # USE_METRIC_FILTERS = False
 
+# By default all nodes stored in Ceres are cached in memory to improve the
+# throughput of reads and writes to underlying slices. Turning this off will
+# greatly reduce memory consumption for databases with millions of metrics, at
+# the cost of a steep increase in disk i/o, approximately an extra two os.stat
+# calls for every read and write. Reasons to do this are if the underlying
+# storage can handle stat() with practically zero cost (SSD, NVMe, zRAM).
+# Valid values are:
+#       all - all nodes are cached
+#      none - node caching is disabled
+# CERES_NODE_CACHING_BEHAVIOR = all
+
+# Ceres nodes can have many slices and caching the right ones can improve
+# performance dramatically. Note that there are many trade-offs to tinkering
+# with this, and unless you are a ceres developer you *really* should not
+# mess with this. Valid values are:
+#    latest - only the most recent slice is cached
+#       all - all slices are cached
+#      none - slice caching is disabled
+# CERES_SLICE_CACHING_BEHAVIOR = latest
+
+# If a Ceres node accumulates too many slices, performance can suffer.
+# This can be caused by intermittently reported data. To mitigate
+# slice fragmentation there is a tolerance for how much space can be
+# wasted within a slice file to avoid creating a new one. That tolerance
+# level is determined by MAX_SLICE_GAP, which is the number of consecutive
+# null datapoints allowed in a slice file.
+# If you set this very low, you will waste less of the *tiny* bit disk space
+# that this feature wastes, and you will be prone to performance problems
+# caused by slice fragmentation, which can be pretty severe.
+# If you set this really high, you will waste a bit more disk space (each
+# null datapoint wastes 8 bytes, but keep in mind your filesystem's block
+# size). If you suffer slice fragmentation issues, you should increase this or
+# run the ceres-maintenance defrag plugin more often. However you should not
+# set it to be huge because then if a large but allowed gap occurs it has to
+# get filled in, which means instead of a simple 8-byte write to a new file we
+# could end up doing an (8 * MAX_SLICE_GAP)-byte write to the latest slice.
+# CERES_MAX_SLICE_GAP = 80
+
+# Enabling this option will cause Ceres to lock each Ceres file it writes to
+# to with an exclusive lock (LOCK_EX, see: man 2 flock). This is useful when
+# multiple carbon-cache daemons are writing to the same files.
+# CERES_LOCK_WRITES = False
+
 # By default, carbon itself will log statistics (such as a count,
 # metricsReceived) with the top level prefix of 'carbon' at an interval of 60
 # seconds. Set CARBON_METRIC_INTERVAL to 0 to disable instrumentation
 # CARBON_METRIC_PREFIX = carbon
 # CARBON_METRIC_INTERVAL = 60
 
-# Enable AMQP if you want to receve metrics using an amqp broker
+# Enable AMQP if you want to receive metrics using an amqp broker
 # ENABLE_AMQP = False
 
 # Verbose means a line will be logged for every metric received
@@ -212,11 +300,18 @@ WHISPER_FALLOCATE_CREATE = True
 # you are familiar with the code. If you are not, please don't
 # mess with this, you are asking for trouble :)
 #
+# You need the bcrypt, cryptography and pyasn1 python modules installed for
+# manhole to work.
+#
+# Generate host keys with:
+# `ckeygen -t rsa -f /example/host_keys/ssh_host_key_rsa`
+#
 # ENABLE_MANHOLE = False
 # MANHOLE_INTERFACE = 127.0.0.1
 # MANHOLE_PORT = 7222
 # MANHOLE_USER = admin
 # MANHOLE_PUBLIC_KEY = ssh-rsa AAAAB3NzaC1yc2EAAAABiwAaAIEAoxN0sv/e4eZCPpi3N3KYvyzRaBaMeS2RsOQ/cDuKv11dlNzVeiyc3RFmCv5Rjwn/lQ79y0zyHxw67qLyhQ/kDzINc4cY41ivuQXm2tPmgvexdrBv5nsfEpjs3gLZfJnyvlcVyWK/lId8WUvEWSWHTzsbtmXAF2raJMdgLTbQ8wE=
+# MANHOLE_HOST_KEY_DIR = /example/host_keys
 
 # Patterns for all of the metrics this machine will store. Read more at
 # http://en.wikipedia.org/wiki/Advanced_Message_Queuing_Protocol#Bindings
@@ -226,6 +321,33 @@ WHISPER_FALLOCATE_CREATE = True
 #
 # Example: store everything
 # BIND_PATTERNS = #
+
+# URL of graphite-web instance, this is used to add incoming series to the tag database
+# GRAPHITE_URL = http://127.0.0.1:80
+
+# Tag support, when enabled carbon will make HTTP calls to graphite-web to update the tag index
+# ENABLE_TAGS = True
+
+# Skip tagging when metric do not contain tags
+# SKIP_TAGS_FOR_NONTAGGED = True
+
+# Tag update interval, this specifies how frequently updates to existing series will trigger
+# an update to the tag index, the default setting is once every 100 updates
+# TAG_UPDATE_INTERVAL = 100
+
+# Tag hash filenames, this specifies whether tagged metric filenames should use the hash of the metric name
+# or a human-readable name, using hashed names avoids issues with path length when using a large number of tags
+# TAG_HASH_FILENAMES = True
+
+# Tag batch size, this specifies the maximum number of series to be sent to graphite-web in a single batch
+# TAG_BATCH_SIZE = 100
+
+# Tag queue size, this specifies the maximum number of series to be queued for sending to graphite-web
+# There are separate queues for new series and for updates to existing series
+# TAG_QUEUE_SIZE = 10000
+
+# Set to enable Sentry.io exception monitoring.
+# RAVEN_DSN='YOUR_DSN_HERE'.
 
 # To configure special settings for the carbon-cache instance 'b', uncomment this:
 #[cache:b]
@@ -239,12 +361,17 @@ WHISPER_FALLOCATE_CREATE = True
 # In order to turn off logging of successful connections for the line
 # receiver, set this to False
 # LOG_LISTENER_CONN_SUCCESS = True
+#
+# To turn off logging of lost connections for the line receiver set this to
+# False
+# LOG_LISTENER_CONN_LOST = False
 
 [relay]
 LINE_RECEIVER_INTERFACE = 0.0.0.0
 LINE_RECEIVER_PORT = 2013
 PICKLE_RECEIVER_INTERFACE = 0.0.0.0
 PICKLE_RECEIVER_PORT = 2014
+PICKLE_RECEIVER_MAX_LENGTH = 1048576
 
 # Carbon-relay has several options for metric routing controlled by RELAY_METHOD
 #
@@ -260,11 +387,27 @@ PICKLE_RECEIVER_PORT = 2014
 # instance.
 # Enable this for carbon-relays that send to a group of carbon-aggregators
 #RELAY_METHOD = aggregated-consistent-hashing
+#
+# You can also use fast-hashing and fast-aggregated-hashing which are in O(1)
+# and will always redirect the metrics to the same destination but do not try
+# to minimize rebalancing when the list of destinations is changing.
 RELAY_METHOD = rules
 
 # If you use consistent-hashing you can add redundancy by replicating every
 # datapoint to more than one machine.
 REPLICATION_FACTOR = 1
+
+# When relaying tagged metrics, you should consider setting TAG_RELAY_NORMALIZED
+# to True so that metrics are normalized before they are relayed. Without
+# normalization, there might be inconsistencies between the destination selected
+# by the consistent-hashing method and where graphite-web actually expects the
+# metrics to end up (carbon-cache and thus graphite-web always normalize). In
+# this case, graphite-web query results will be missing some of the data that
+# hasn't been written to disk yet by carbon-cache. This increases CPU usage
+# though, so you might leave this off if you know that only normalized metrics
+# will be received by your relay, for example because an upstream relay already
+# does normalization.
+#TAG_RELAY_NORMALIZED = False
 
 # For REPLICATION_FACTOR >=2, set DIVERSE_REPLICAS to True to guarantee replicas
 # across distributed hosts. With this setting disabled, it's possible that replicas
@@ -291,6 +434,41 @@ REPLICATION_FACTOR = 1
 # If using RELAY_METHOD = rules, all destinations used in relay-rules.conf
 # must be defined in this list
 DESTINATIONS = 127.0.0.1:2004
+
+# This define the protocol to use to contact the destination. It can be
+# set to one of "line", "pickle", "udp" and "protobuf". This list can be
+# extended with CarbonClientFactory plugins and defaults to "pickle".
+# DESTINATION_PROTOCOL = pickle
+
+# This defines the wire transport, either none or ssl.
+# If SSL is used any TCP connection will be upgraded to TLS1.  The system's
+# trust authority will be used unless DESTINATION_SSL_CA is specified in
+# which case an alternative certificate authority chain will be used for
+# verifying the remote certificate.
+# To use SSL you'll need the cryptography, service_identity, and twisted >= 14
+# DESTINATION_TRANSPORT = none
+# DESTINATION_SSL_CA=/path/to/private-ca.crt
+
+# This allows to have multiple connections per destinations, this will
+# pool all the replicas of a single host in the same queue and distribute
+# points across these replicas instead of replicating them.
+# The following example will balance the load between :0 and :1.
+## DESTINATIONS = foo:2001:0, foo:2001:1
+## RELAY_METHOD = rules
+# Note: this is currently incompatible with USE_RATIO_RESET which gets
+# disabled if  this option is enabled.
+# DESTINATIONS_POOL_REPLICAS = False
+
+# When using consistent hashing it sometime makes sense to make
+# the ring dynamic when you don't want to loose points when a
+# single destination is down. Replication is an answer to that
+# but it can be quite expensive.
+# DYNAMIC_ROUTER = False
+
+# Controls the number of connection attempts before marking a
+# destination as down. We usually do one connection attempt per
+# second.
+# DYNAMIC_ROUTER_MAX_RETRIES = 5
 
 # This is the maximum number of datapoints that can be queued up
 # for a single destination. Once this limit is hit, we will
@@ -352,6 +530,10 @@ USE_FLOW_CONTROL = True
 # In order to turn off logging of successful connections for the line
 # receiver, set this to False
 # LOG_LISTENER_CONN_SUCCESS = True
+#
+# To turn off logging of lost connections for the line receiver set this to
+# False
+# LOG_LISTENER_CONN_LOST = False
 
 # If you're connecting from the relay to a destination that's over the
 # internet or similarly iffy connection, a backlog can develop because
@@ -365,7 +547,7 @@ USE_RATIO_RESET=False
 MIN_RESET_STAT_FLOW=1000
 
 # When the ratio of stats being sent in a reporting interval is far
-# enough from 1.0, we will disconnect the socket and reconnecto to
+# enough from 1.0, we will disconnect the socket and reconnect to
 # clear out queued stats.  The default ratio of 0.9 indicates that 10%
 # of stats aren't being delivered within one CARBON_METRIC_INTERVAL
 # (default of 60 seconds), which can lead to a queue backup.  Under
@@ -382,6 +564,21 @@ MIN_RESET_RATIO=0.9
 # below (2*CARBON_METRIC_INTERVAL) + 1 second will result in a lot of
 # reset connections for no good reason.
 MIN_RESET_INTERVAL=121
+
+# Enable TCP Keep Alive (http://tldp.org/HOWTO/TCP-Keepalive-HOWTO/overview.html).
+# Default settings will send a probe every 30s. Default is False.
+# TCP_KEEPALIVE=True
+# The interval between the last data packet sent (simple ACKs are not
+# considered data) and the first keepalive probe; after the connection is marked
+# to need keepalive, this counter is not used any further.
+# TCP_KEEPIDLE=10
+# The interval between subsequential keepalive probes, regardless of what
+# the connection has exchanged in the meantime.
+# TCP_KEEPINTVL=30
+# The number of unacknowledged probes to send before considering the connection
+# dead and notifying the application layer.
+# TCP_KEEPCNT=2
+
 
 [aggregator]
 LINE_RECEIVER_INTERFACE = 0.0.0.0
@@ -473,6 +670,10 @@ MAX_AGGREGATION_INTERVALS = 5
 # In order to turn off logging of successful connections for the line
 # receiver, set this to False
 # LOG_LISTENER_CONN_SUCCESS = True
+#
+# To turn off logging of lost connections for the line receiver set this to
+# False
+# LOG_LISTENER_CONN_LOST = False
 
 # In order to turn off logging of metrics with no corresponding
 # aggregation rules receiver, set this to False
@@ -481,3 +682,12 @@ MAX_AGGREGATION_INTERVALS = 5
 # Specify the user to drop privileges to
 # If this is blank carbon-aggregator runs as the user that invokes it
 # USER =
+
+# Part of the code, and particularly aggregator rules, need
+# to cache metric names. To avoid leaking too much memory you
+# can tweak the size of this cache. The default allow for 1M
+# different metrics per rule (~200MiB).
+# CACHE_METRIC_NAMES_MAX=1000000
+
+# You can optionally set a ttl to this cache.
+# CACHE_METRIC_NAMES_TTL=600

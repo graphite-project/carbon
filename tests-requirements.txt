@@ -1,0 +1,10 @@
+coverage
+mock
+mocker
+nose
+protobuf
+mmh3
+cryptography
+git+https://github.com/graphite-project/ceres.git#egg=ceres
+backports.tempfile
+service_identity

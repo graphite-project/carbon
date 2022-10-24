@@ -1,8 +1,11 @@
 import carbon.client as carbon_client
-from carbon.client import CarbonClientFactory, CarbonClientProtocol, CarbonClientManager
+from carbon.client import (
+  CarbonPickleClientFactory, CarbonPickleClientProtocol, CarbonLineClientProtocol,
+  CarbonClientManager, RelayProcessor
+)
 from carbon.routers import DatapointRouter
 from carbon.tests.util import TestSettings
-from carbon import instrumentation
+import carbon.service  # NOQA
 
 from twisted.internet import reactor
 from twisted.internet.defer import Deferred
@@ -40,11 +43,11 @@ class BroadcastRouter(DatapointRouter):
       yield destination
 
 
-@patch('carbon.state.instrumentation', Mock(spec=instrumentation))
 class ConnectedCarbonClientProtocolTest(TestCase):
   def setUp(self):
+    self.router_mock = Mock(spec=DatapointRouter)
     carbon_client.settings = TestSettings()  # reset to defaults
-    factory = CarbonClientFactory(('127.0.0.1', 2003, 'a'))
+    factory = CarbonPickleClientFactory(('127.0.0.1', 2003, 'a'), self.router_mock)
     self.protocol = factory.buildProtocol(('127.0.0.1', 2003))
     self.transport = StringTransport()
     self.protocol.makeConnection(self.transport)
@@ -60,15 +63,39 @@ class ConnectedCarbonClientProtocolTest(TestCase):
     return deferLater(reactor, 0.1, assert_sent)
 
 
-@patch('carbon.state.instrumentation', Mock(spec=instrumentation))
+class CarbonLineClientProtocolTest(TestCase):
+  def setUp(self):
+    self.protocol = CarbonLineClientProtocol()
+    self.protocol.sendLine = Mock()
+
+  def test_send_datapoints(self):
+    calls = [
+      (('foo.bar', (1000000000, 1.0)), b'foo.bar 1 1000000000'),
+      (('foo.bar', (1000000000, 1.1)), b'foo.bar 1.1 1000000000'),
+      (('foo.bar', (1000000000, 1.123456789123)), b'foo.bar 1.1234567891 1000000000'),
+      (('foo.bar', (1000000000, 1)), b'foo.bar 1 1000000000'),
+      (('foo.bar', (1000000000, 1.498566361088E12)), b'foo.bar 1498566361088 1000000000'),
+    ]
+
+    i = 0
+    for (datapoint, expected_line_to_send) in calls:
+      i += 1
+
+      self.protocol._sendDatapointsNow([datapoint])
+      self.assertEqual(self.protocol.sendLine.call_count, i)
+      self.protocol.sendLine.assert_called_with(expected_line_to_send)
+
+
 class CarbonClientFactoryTest(TestCase):
   def setUp(self):
-    self.protocol_mock = Mock(spec=CarbonClientProtocol)
-    self.protocol_patch = patch('carbon.client.CarbonClientProtocol', new=Mock(return_value=self.protocol_mock))
+    self.router_mock = Mock(spec=DatapointRouter)
+    self.protocol_mock = Mock(spec=CarbonPickleClientProtocol)
+    self.protocol_patch = patch(
+      'carbon.client.CarbonPickleClientProtocol', new=Mock(return_value=self.protocol_mock))
     self.protocol_patch.start()
     carbon_client.settings = TestSettings()
-    self.factory = CarbonClientFactory(('127.0.0.1', 2003, 'a'))
-    self.connected_factory = CarbonClientFactory(('127.0.0.1', 2003, 'a'))
+    self.factory = CarbonPickleClientFactory(('127.0.0.1', 2003, 'a'), self.router_mock)
+    self.connected_factory = CarbonPickleClientFactory(('127.0.0.1', 2003, 'a'), self.router_mock)
     self.connected_factory.buildProtocol(None)
     self.connected_factory.started = True
 
@@ -97,28 +124,24 @@ class CarbonClientFactoryTest(TestCase):
     self.protocol_mock.sendQueued.assert_called_once_with()
 
 
-@patch('carbon.state.instrumentation', Mock(spec=instrumentation))
 class CarbonClientManagerTest(TestCase):
   timeout = 1.0
+
   def setUp(self):
     self.router_mock = Mock(spec=DatapointRouter)
-    self.factory_mock = Mock(spec=CarbonClientFactory)
-    self.factory_patch = patch('carbon.client.CarbonClientFactory', new=self.factory_mock)
-    self.factory_patch.start()
+    self.factory_mock = Mock(spec=CarbonPickleClientFactory)
     self.client_mgr = CarbonClientManager(self.router_mock)
+    self.client_mgr.createFactory = lambda dest: self.factory_mock(dest, self.router_mock)
 
-  def tearDown(self):
-    self.factory_patch.stop()
-
-  @patch('signal.signal', new=Mock())
-  def test_start_service_installs_sig_ignore(self, signal_mock):
+  def test_start_service_installs_sig_ignore(self):
     from signal import SIGHUP, SIG_IGN
 
-    self.client_mgr.startService()
-    signal_mock.assert_called_once_with(SIGHUP, SIG_IGN)
+    with patch('signal.signal', new=Mock()) as signal_mock:
+      self.client_mgr.startService()
+      signal_mock.assert_called_once_with(SIGHUP, SIG_IGN)
 
   def test_start_service_starts_factory_connect(self):
-    factory_mock = Mock(spec=CarbonClientFactory)
+    factory_mock = Mock(spec=CarbonPickleClientFactory)
     factory_mock.started = False
     self.client_mgr.client_factories[('127.0.0.1', 2003, 'a')] = factory_mock
     self.client_mgr.startService()
@@ -137,13 +160,13 @@ class CarbonClientManagerTest(TestCase):
   def test_start_client_instantiates_client_factory(self):
     dest = ('127.0.0.1', 2003, 'a')
     self.client_mgr.startClient(dest)
-    self.factory_mock.assert_called_once_with(dest)
+    self.factory_mock.assert_called_once_with(dest, self.router_mock)
 
   def test_start_client_ignores_duplicate(self):
     dest = ('127.0.0.1', 2003, 'a')
     self.client_mgr.startClient(dest)
     self.client_mgr.startClient(dest)
-    self.factory_mock.assert_called_once_with(dest)
+    self.factory_mock.assert_called_once_with(dest, self.router_mock)
 
   def test_start_client_starts_factory_if_running(self):
     dest = ('127.0.0.1', 2003, 'a')
@@ -162,3 +185,28 @@ class CarbonClientManagerTest(TestCase):
     self.client_mgr.stopClient(dest)
     self.router_mock.removeDestination.assert_called_once_with(dest)
 
+
+class RelayProcessorTest(TestCase):
+  timeout = 1.0
+
+  def setUp(self):
+    carbon_client.settings = TestSettings()  # reset to defaults
+    self.client_mgr_mock = Mock(spec=CarbonClientManager)
+    self.client_mgr_patch = patch(
+      'carbon.state.client_manager', new=self.client_mgr_mock)
+    self.client_mgr_patch.start()
+
+  def tearDown(self):
+    self.client_mgr_patch.stop()
+
+  def test_relay_normalized(self):
+    carbon_client.settings.TAG_RELAY_NORMALIZED = True
+    relayProcessor = RelayProcessor()
+    relayProcessor.process('my.metric;foo=a;bar=b', (0.0, 0.0))
+    self.client_mgr_mock.sendDatapoint.assert_called_once_with('my.metric;bar=b;foo=a', (0.0, 0.0))
+
+  def test_relay_unnormalized(self):
+    carbon_client.settings.TAG_RELAY_NORMALIZED = False
+    relayProcessor = RelayProcessor()
+    relayProcessor.process('my.metric;foo=a;bar=b', (0.0, 0.0))
+    self.client_mgr_mock.sendDatapoint.assert_called_once_with('my.metric;foo=a;bar=b', (0.0, 0.0))

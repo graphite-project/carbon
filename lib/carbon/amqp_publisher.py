@@ -21,7 +21,7 @@ import time
 from optparse import OptionParser
 
 from twisted.internet.defer import inlineCallbacks
-from twisted.internet import reactor, task
+from twisted.internet import reactor
 from twisted.internet.protocol import ClientCreator
 from txamqp.protocol import AMQClient
 from txamqp.client import TwistedDelegate
@@ -54,7 +54,7 @@ def writeMetric(metric_path, value, timestamp, host, port, username, password,
     yield channel.exchange_declare(exchange=exchange, type="topic",
                                    durable=True, auto_delete=False)
 
-    message = Content( "%f %d" % (value, timestamp) )
+    message = Content("%f %d" % (value, timestamp))
     message["delivery mode"] = 2
 
     channel.basic_publish(exchange=exchange, content=message, routing_key=metric_path)
@@ -111,6 +111,7 @@ def main():
     d.addErrback(lambda f: f.printTraceback())
     d.addBoth(lambda _: reactor.stop())
     reactor.run()
+
 
 if __name__ == "__main__":
     main()

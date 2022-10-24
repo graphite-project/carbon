@@ -1,12 +1,28 @@
-import time
 import re
+
+from math import floor, ceil
+
 from os.path import exists, getmtime
 from twisted.internet.task import LoopingCall
+from cachetools import TTLCache, LRUCache
+
 from carbon import log
+from carbon.conf import settings
 from carbon.aggregator.buffers import BufferManager
 
 
-class RuleManager:
+def get_cache():
+  ttl = settings.CACHE_METRIC_NAMES_TTL
+  size = settings.CACHE_METRIC_NAMES_MAX
+  if ttl > 0 and size > 0:
+    return TTLCache(size, ttl)
+  elif size > 0:
+    return LRUCache(size)
+  else:
+    return dict()
+
+
+class RuleManager(object):
   def __init__(self):
     self.rules = []
     self.rules_file = None
@@ -56,15 +72,15 @@ class RuleManager:
       left_side, right_side = line.split('=', 1)
       output_pattern, frequency = left_side.split()
       method, input_pattern = right_side.split()
-      frequency = int( frequency.lstrip('(').rstrip(')') )
+      frequency = int(frequency.lstrip('(').rstrip(')'))
       return AggregationRule(input_pattern, output_pattern, method, frequency)
 
     except ValueError:
-      log.err("Failed to parse line: %s" % line)
+      log.err("Failed to parse rule in %s, line: %s" % (self.rules_file, line))
       raise
 
 
-class AggregationRule:
+class AggregationRule(object):
   def __init__(self, input_pattern, output_pattern, method, frequency):
     self.input_pattern = input_pattern
     self.output_pattern = output_pattern
@@ -77,11 +93,15 @@ class AggregationRule:
     self.aggregation_func = AGGREGATION_METHODS[method]
     self.build_regex()
     self.build_template()
-    self.cache = {}
+    self.cache = get_cache()
 
   def get_aggregate_metric(self, metric_path):
     if metric_path in self.cache:
-      return self.cache[metric_path]
+      try:
+        return self.cache[metric_path]
+      except KeyError:
+        # The value can expire at any time, so we need to catch this.
+        pass
 
     match = self.regex.match(metric_path)
     result = None
@@ -91,10 +111,10 @@ class AggregationRule:
       try:
         result = self.output_template % extracted_fields
       except TypeError:
-        log.err("Failed to interpolate template %s with fields %s" % (self.output_template, extracted_fields))
+        log.err("Failed to interpolate template %s with fields %s" % (
+          self.output_template, extracted_fields))
 
-    if result:
-      self.cache[metric_path] = result
+    self.cache[metric_path] = result
     return result
 
   def build_regex(self):
@@ -106,18 +126,18 @@ class AggregationRule:
         i = input_part.find('<<')
         j = input_part.find('>>')
         pre = input_part[:i]
-        post = input_part[j+2:]
-        field_name = input_part[i+2:j]
-        regex_part = '%s(?P<%s>.+)%s' % (pre, field_name, post)
+        post = input_part[j + 2:]
+        field_name = input_part[i + 2:j]
+        regex_part = '%s(?P<%s>.+?)%s' % (pre, field_name, post)
 
       else:
         i = input_part.find('<')
         j = input_part.find('>')
         if i > -1 and j > i:
           pre = input_part[:i]
-          post = input_part[j+1:]
-          field_name = input_part[i+1:j]
-          regex_part = '%s(?P<%s>[^.]+)%s' % (pre, field_name, post)
+          post = input_part[j + 1:]
+          field_name = input_part[i + 1:j]
+          regex_part = '%s(?P<%s>[^.]+?)%s' % (pre, field_name, post)
         elif input_part == '*':
           regex_part = '[^.]+'
         else:
@@ -134,18 +154,43 @@ class AggregationRule:
 
 def avg(values):
   if values:
-    return float( sum(values) ) / len(values)
+    return float(sum(values)) / len(values)
+
 
 def count(values):
   if values:
     return len(values)
 
+
+def percentile(factor):
+  def func(values):
+    if values:
+      values = sorted(values)
+      rank = factor * (len(values) - 1)
+      rank_left = int(floor(rank))
+      rank_right = int(ceil(rank))
+
+      if rank_left == rank_right:
+        return values[rank_left]
+      else:
+        return values[rank_left] * (rank_right - rank) + values[rank_right] * (rank - rank_left)
+
+  return func
+
+
 AGGREGATION_METHODS = {
-  'sum'   : sum,
-  'avg'   : avg,
-  'min'   : min,
-  'max'   : max,
-  'count' : count
+  'sum': sum,
+  'avg': avg,
+  'min': min,
+  'max': max,
+  'p50': percentile(0.50),
+  'p75': percentile(0.75),
+  'p80': percentile(0.80),
+  'p90': percentile(0.90),
+  'p95': percentile(0.95),
+  'p99': percentile(0.99),
+  'p999': percentile(0.999),
+  'count': count,
 }
 
 # Importable singleton

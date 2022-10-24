@@ -15,7 +15,7 @@ limitations under the License."""
 from os.path import exists
 
 from twisted.application.service import MultiService
-from twisted.application.internet import TCPServer, TCPClient, UDPServer
+from twisted.application.internet import TCPServer
 from twisted.internet.protocol import ServerFactory
 from twisted.python.components import Componentized
 from twisted.python.log import ILogObserver
@@ -23,20 +23,23 @@ from twisted.python.log import ILogObserver
 from carbon import state, events, instrumentation, util
 from carbon.exceptions import CarbonConfigException
 from carbon.log import carbonLogObserver
-from carbon.pipeline import Processor, run_pipeline
+from carbon.pipeline import Processor, run_pipeline, run_pipeline_generated
 state.events = events
 state.instrumentation = instrumentation
 
-
-class CarbonReceiverFactory(ServerFactory):
-  def buildProtocol(self, addr):
-    from carbon.conf import settings
-
-    # Don't establish the connection if we have reached the limit.
-    if len(state.connectedMetricReceiverProtocols) < settings.MAX_RECEIVER_CONNECTIONS:
-      return ServerFactory.buildProtocol(self, addr)
-    else:
-      return None
+# Import plugins.
+try:
+  import carbon.manhole
+except ImportError:
+  pass
+try:
+  import carbon.amqp_listener
+except ImportError:
+  pass
+try:
+  import carbon.protobuf  # NOQA
+except ImportError:
+  pass
 
 
 class CarbonRootService(MultiService):
@@ -80,6 +83,7 @@ def createBaseService(config, settings):
 
 def setupPipeline(pipeline, root_service, settings):
   state.pipeline_processors = []
+
   for processor in pipeline:
     args = []
     if ':' in processor:
@@ -100,13 +104,11 @@ def setupPipeline(pipeline, root_service, settings):
     plugin_class = Processor.plugins[processor]
     state.pipeline_processors.append(plugin_class(*args))
 
-  events.metricReceived.addHandler(run_pipeline)
-  events.metricGenerated.addHandler(run_pipeline)
+    if processor in ['relay', 'write']:
+      state.pipeline_processors_generated.append(plugin_class(*args))
 
-  #XXX This effectively reverts the desired behavior in b1a2aecb as I dont see a clear route to
-  # port to pipelines. Perhaps a use case for passing a metric metadata dict along the pipeline?
-  events.specialMetricReceived.addHandler(run_pipeline)
-  events.specialMetricGenerated.addHandler(run_pipeline)
+  events.metricReceived.addHandler(run_pipeline)
+  events.metricGenerated.addHandler(run_pipeline_generated)
 
   def activate_processors():
     for processor in state.pipeline_processors:
@@ -131,7 +133,22 @@ def createAggregatorService(config):
 
   settings.RELAY_METHOD = 'consistent-hashing'
   root_service = createBaseService(config, settings)
-  setupPipeline(['rewrite:pre', 'aggregate', 'rewrite:post', 'relay'], root_service, settings)
+  setupPipeline(
+    ['rewrite:pre', 'aggregate', 'rewrite:post', 'relay'],
+    root_service, settings)
+  setupReceivers(root_service, settings)
+
+  return root_service
+
+
+def createAggregatorCacheService(config):
+  from carbon.conf import settings
+
+  settings.RELAY_METHOD = 'consistent-hashing'
+  root_service = createBaseService(config, settings)
+  setupPipeline(
+    ['rewrite:pre', 'aggregate', 'rewrite:post', 'write'],
+    root_service, settings)
   setupReceivers(root_service, settings)
 
   return root_service
@@ -148,63 +165,20 @@ def createRelayService(config):
 
 
 def setupReceivers(root_service, settings):
-  from carbon.protocols import MetricLineReceiver, MetricPickleReceiver, MetricDatagramReceiver
+  from carbon.protocols import MetricReceiver
 
-  for protocol, interface, port in [
-      (MetricLineReceiver, settings.LINE_RECEIVER_INTERFACE, settings.LINE_RECEIVER_PORT),
-      (MetricPickleReceiver, settings.PICKLE_RECEIVER_INTERFACE, settings.PICKLE_RECEIVER_PORT)
-    ]:
-    if port:
-      factory = CarbonReceiverFactory()
-      factory.protocol = protocol
-      service = TCPServer(port, factory, interface=interface)
-      service.setServiceParent(root_service)
-
-  if settings.ENABLE_UDP_LISTENER:
-      service = UDPServer(int(settings.UDP_RECEIVER_PORT),
-                          MetricDatagramReceiver(),
-                          interface=settings.UDP_RECEIVER_INTERFACE)
-      service.setServiceParent(root_service)
-
-  if settings.ENABLE_AMQP:
-    from carbon import amqp_listener
-    amqp_host = settings.AMQP_HOST
-    amqp_port = settings.AMQP_PORT
-    amqp_user = settings.AMQP_USER
-    amqp_password = settings.AMQP_PASSWORD
-    amqp_verbose = settings.AMQP_VERBOSE
-    amqp_vhost = settings.AMQP_VHOST
-    amqp_spec = settings.AMQP_SPEC
-    amqp_exchange_name = settings.AMQP_EXCHANGE
-
-    factory = amqp_listener.createAMQPListener(
-      amqp_user,
-      amqp_password,
-      vhost=amqp_vhost,
-      spec=amqp_spec,
-      exchange_name=amqp_exchange_name,
-      verbose=amqp_verbose)
-    service = TCPClient(amqp_host, amqp_port, factory)
-    service.setServiceParent(root_service)
-
-  if settings.ENABLE_MANHOLE:
-    from carbon import manhole
-
-    factory = manhole.createManholeListener()
-    service = TCPServer(
-      settings.MANHOLE_PORT,
-      factory,
-      interface=settings.MANHOLE_INTERFACE)
-    service.setServiceParent(root_service)
+  for _, plugin_class in MetricReceiver.plugins.items():
+    plugin_class.build(root_service)
 
 
 def setupAggregatorProcessor(root_service, settings):
-  from carbon.aggregator.processor import AggregationProcessor  # Register the plugin class
+  from carbon.aggregator.processor import AggregationProcessor  # NOQA Register the plugin class
   from carbon.aggregator.rules import RuleManager
 
   aggregation_rules_path = settings["aggregation-rules"]
   if not exists(aggregation_rules_path):
-    raise CarbonConfigException("aggregation processor: file does not exist {0}".format(aggregation_rules_path))
+    raise CarbonConfigException(
+      "aggregation processor: file does not exist {0}".format(aggregation_rules_path))
   RuleManager.read_from(aggregation_rules_path)
 
 
@@ -216,19 +190,11 @@ def setupRewriterProcessor(root_service, settings):
 
 
 def setupRelayProcessor(root_service, settings):
-  from carbon.routers import AggregatedConsistentHashingRouter, \
-      ConsistentHashingRouter, RelayRulesRouter
+  from carbon.routers import DatapointRouter
   from carbon.client import CarbonClientManager
 
-  if settings.RELAY_METHOD == 'consistent-hashing':
-    router = ConsistentHashingRouter(settings.REPLICATION_FACTOR, diverse_replicas=settings.DIVERSE_REPLICAS)
-  elif settings.RELAY_METHOD == 'aggregated-consistent-hashing':
-    from carbon.aggregator.rules import RuleManager
-    aggregation_rules_path = settings["aggregation-rules"]
-    RuleManager.read_from(aggregation_rules_path)
-    router = AggregatedConsistentHashingRouter(RuleManager, settings.REPLICATION_FACTOR, diverse_replicas=settings.DIVERSE_REPLICAS)
-  elif settings.RELAY_METHOD == 'rules':
-    router = RelayRulesRouter(settings["relay-rules"])
+  router_class = DatapointRouter.plugins[settings.RELAY_METHOD]
+  router = router_class(settings)
 
   state.client_manager = CarbonClientManager(router)
   state.client_manager.setServiceParent(root_service)
@@ -238,10 +204,9 @@ def setupRelayProcessor(root_service, settings):
 
 
 def setupWriterProcessor(root_service, settings):
-  from carbon import cache  # Register CacheFeedingProcessor
+  from carbon import cache  # NOQA Register CacheFeedingProcessor
   from carbon.protocols import CacheManagementHandler
   from carbon.writer import WriterService
-  from carbon import events
 
   factory = ServerFactory()
   factory.protocol = CacheManagementHandler

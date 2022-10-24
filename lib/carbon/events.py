@@ -1,6 +1,3 @@
-from twisted.python.failure import Failure
-
-
 class Event:
   def __init__(self, name):
     self.name = name
@@ -19,21 +16,20 @@ class Event:
       try:
         handler(*args, **kwargs)
       except Exception:
-        log.err(None, "Exception in %s event handler: args=%s kwargs=%s" % (self.name, args, kwargs))
+        log.err(
+          None, "Exception in %s event handler: args=%s kwargs=%s" % (self.name, args, kwargs))
 
 
 metricReceived = Event('metricReceived')
 metricGenerated = Event('metricGenerated')
-specialMetricReceived = Event('specialMetricReceived')
-specialMetricGenerated = Event('specialMetricGenerated')
 cacheFull = Event('cacheFull')
 cacheSpaceAvailable = Event('cacheSpaceAvailable')
 pauseReceivingMetrics = Event('pauseReceivingMetrics')
 resumeReceivingMetrics = Event('resumeReceivingMetrics')
 
 # Default handlers
-metricReceived.addHandler(lambda metric, datapoint: state.instrumentation.increment('metricsReceived'))
-specialMetricReceived.addHandler(lambda metric, datapoint: state.instrumentation.increment('metricsReceived'))
+metricReceived.addHandler(
+  lambda metric, datapoint: state.instrumentation.increment('metricsReceived'))
 
 
 cacheFull.addHandler(lambda: state.instrumentation.increment('cache.overflow'))
@@ -45,4 +41,4 @@ resumeReceivingMetrics.addHandler(lambda: setattr(state, 'metricReceiversPaused'
 
 
 # Avoid import circularities
-from carbon import log, state
+from carbon import log, state  # NOQA

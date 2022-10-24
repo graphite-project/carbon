@@ -13,39 +13,66 @@ See the License for the specific language governing permissions and
 limitations under the License."""
 
 import os
+import time
+
 from os.path import exists, dirname, join, sep
-from carbon.util import PluginRegistrar
+from carbon.util import PluginRegistrar, TaggedSeries
 from carbon import log
+from six import with_metaclass
 
 
-class TimeSeriesDatabase(object):
+class TimeSeriesDatabase(with_metaclass(PluginRegistrar, object)):
   "Abstract base class for Carbon database backends."
-  __metaclass__ = PluginRegistrar
   plugins = {}
+
+  "List of supported aggregation methods for the database."
+  aggregationMethods = []
+
+  def __init__(self, settings):
+    self.graphite_url = settings.GRAPHITE_URL
 
   def write(self, metric, datapoints):
     "Persist datapoints in the database for metric."
-    raise NotImplemented()
+    raise NotImplementedError()
 
   def exists(self, metric):
     "Return True if the given metric path exists, False otherwise."
-    raise NotImplemented()
+    raise NotImplementedError()
 
   def create(self, metric, retentions, xfilesfactor, aggregation_method):
     "Create an entry in the database for metric using options."
-    raise NotImplemented()
+    raise NotImplementedError()
 
   def getMetadata(self, metric, key):
     "Lookup metric metadata."
-    raise NotImplemented()
+    raise NotImplementedError()
 
   def setMetadata(self, metric, key, value):
     "Modify metric metadata."
-    raise NotImplemented()
+    raise NotImplementedError()
 
   def getFilesystemPath(self, metric):
     "Return filesystem path for metric, defaults to None."
     pass
+
+  def validateArchiveList(self, archiveList):
+    "Validate that the database can handle the given archiveList."
+    pass
+
+  def tag(self, *metrics):
+    from carbon.http import httpRequest
+
+    log.debug("Tagging %s" % ', '.join(metrics), type='tagdb')
+    t = time.time()
+
+    try:
+      httpRequest(
+        self.graphite_url + '/tags/tagMultiSeries',
+        [('path', metric) for metric in metrics]
+      )
+      log.debug("Tagged %s in %s" % (', '.join(metrics), time.time() - t), type='tagdb')
+    except Exception as err:
+      log.msg("Error tagging %s: %s" % (', '.join(metrics), err), type='tagdb')
 
 
 try:
@@ -55,9 +82,13 @@ except ImportError:
 else:
   class WhisperDatabase(TimeSeriesDatabase):
     plugin_name = 'whisper'
+    aggregationMethods = whisper.aggregationMethods
 
     def __init__(self, settings):
+      super(WhisperDatabase, self).__init__(settings)
+
       self.data_dir = settings.LOCAL_DATA_DIR
+      self.tag_hash_filenames = settings.TAG_HASH_FILENAMES
       self.sparse_create = settings.WHISPER_SPARSE_CREATE
       self.fallocate_create = settings.WHISPER_FALLOCATE_CREATE
       if settings.WHISPER_AUTOFLUSH:
@@ -85,14 +116,21 @@ else:
           else:
             log.err("WHISPER_FADVISE_RANDOM is enabled but import of ftools module failed.")
         except AttributeError:
-          log.err("WHISPER_FADVISE_RANDOM is enabled but skipped because it is not compatible with the version of Whisper.")
+          log.err("WHISPER_FADVISE_RANDOM is enabled but skipped because it is not compatible " +
+                  "with the version of Whisper.")
 
     def write(self, metric, datapoints):
       path = self.getFilesystemPath(metric)
       whisper.update_many(path, datapoints)
 
     def exists(self, metric):
-      return exists(self.getFilesystemPath(metric))
+      if exists(self.getFilesystemPath(metric)):
+        return True
+      # if we're using hashed filenames and a non-hashed file exists then move it to the new name
+      if self.tag_hash_filenames and exists(self._getFilesystemPath(metric, False)):
+        os.rename(self._getFilesystemPath(metric, False), self.getFilesystemPath(metric))
+        return True
+      return False
 
     def create(self, metric, retentions, xfilesfactor, aggregation_method):
       path = self.getFilesystemPath(metric)
@@ -100,7 +138,7 @@ else:
       try:
         if not exists(directory):
           os.makedirs(directory)
-      except OSError, e:
+      except OSError as e:
         log.err("%s" % e)
 
       whisper.create(path, retentions, xfilesfactor, aggregation_method,
@@ -121,5 +159,83 @@ else:
       return whisper.setAggregationMethod(wsp_path, value)
 
     def getFilesystemPath(self, metric):
-      metric_path = metric.replace('.', sep).lstrip(sep) + '.wsp'
-      return join(self.data_dir, metric_path)
+      return self._getFilesystemPath(metric, self.tag_hash_filenames)
+
+    def _getFilesystemPath(self, metric, tag_hash_filenames):
+      return join(
+        self.data_dir,
+        TaggedSeries.encode(metric, sep, hash_only=tag_hash_filenames) + '.wsp'
+      )
+
+    def validateArchiveList(self, archiveList):
+      try:
+        whisper.validateArchiveList(archiveList)
+      except whisper.InvalidConfiguration as e:
+        raise ValueError("%s" % e)
+
+
+try:
+  import ceres
+except ImportError:
+  pass
+else:
+  class CeresDatabase(TimeSeriesDatabase):
+    plugin_name = 'ceres'
+    aggregationMethods = ['average', 'sum', 'last', 'max', 'min']
+
+    def __init__(self, settings):
+      super(CeresDatabase, self).__init__(settings)
+
+      self.data_dir = settings.LOCAL_DATA_DIR
+      self.tag_hash_filenames = settings.TAG_HASH_FILENAMES
+      ceres.setDefaultNodeCachingBehavior(settings.CERES_NODE_CACHING_BEHAVIOR)
+      ceres.setDefaultSliceCachingBehavior(settings.CERES_SLICE_CACHING_BEHAVIOR)
+      ceres.MAX_SLICE_GAP = int(settings.CERES_MAX_SLICE_GAP)
+
+      if settings.CERES_LOCK_WRITES:
+        if ceres.CAN_LOCK:
+          log.msg("Enabling Ceres file locking")
+          ceres.LOCK_WRITES = True
+        else:
+          log.err("CERES_LOCK_WRITES is enabled but import of fcntl module failed.")
+
+      self.tree = ceres.CeresTree(self.data_dir)
+
+    def encode(self, metric, tag_hash_filenames=None):
+      if tag_hash_filenames is None:
+        tag_hash_filenames = self.tag_hash_filenames
+      return TaggedSeries.encode(metric, hash_only=tag_hash_filenames)
+
+    def write(self, metric, datapoints):
+      self.tree.store(self.encode(metric), datapoints)
+
+    def exists(self, metric):
+      if self.tree.hasNode(self.encode(metric)):
+        return True
+      # if we're using hashed filenames and a non-hashed file exists then move it to the new name
+      if self.tag_hash_filenames and self.tree.hasNode(self.encode(metric, False)):
+        os.rename(self._getFilesystemPath(metric, False), self.getFilesystemPath(metric))
+        return True
+      return False
+
+    def create(self, metric, retentions, xfilesfactor, aggregation_method):
+      self.tree.createNode(self.encode(metric),
+                           retentions=retentions,
+                           timeStep=retentions[0][0],
+                           xFilesFactor=xfilesfactor,
+                           aggregationMethod=aggregation_method)
+
+    def getMetadata(self, metric, key):
+      return self.tree.getNode(self.encode(metric)).readMetadata()[key]
+
+    def setMetadata(self, metric, key, value):
+      node = self.tree.getNode(self.encode(metric))
+      metadata = node.readMetadata()
+      metadata[key] = value
+      node.writeMetadata(metadata)
+
+    def getFilesystemPath(self, metric):
+      return self._getFilesystemPath(metric, self.tag_hash_filenames)
+
+    def _getFilesystemPath(self, metric, tag_hash_filenames):
+      return self.tree.getFilesystemPath(self.encode(metric, tag_hash_filenames))

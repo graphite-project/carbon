@@ -21,7 +21,7 @@ lastUsageTime = time.time()
 
 # TODO(chrismd) refactor the graphite metrics hierarchy to be cleaner,
 # more consistent, and make room for frontend metrics.
-#metric_prefix = "Graphite.backend.%(program)s.%(instance)s." % settings
+# metric_prefix = "Graphite.backend.%(program)s.%(instance)s." % settings
 
 
 def increment(stat, increase=1):
@@ -30,12 +30,14 @@ def increment(stat, increase=1):
   except KeyError:
     stats[stat] = increase
 
+
 def max(stat, newval):
   try:
     if stats[stat] < newval:
       stats[stat] = newval
   except KeyError:
     stats[stat] = newval
+
 
 def append(stat, value):
   try:
@@ -66,7 +68,8 @@ def getCpuUsage():
 
 
 def getMemUsage():
-  rss_pages = int(open('/proc/self/statm').read().split()[1])
+  with open('/proc/self/statm') as statm:
+    rss_pages = int(statm.read().split()[1])
   return rss_pages * PAGESIZE
 
 
@@ -78,7 +81,7 @@ def recordMetrics():
   stats.clear()
 
   # cache metrics
-  if settings.program == 'carbon-cache':
+  if 'cache' in settings.program:
     record = cache_record
     updateTimes = myStats.get('updateTimes', [])
     committedPoints = myStats.get('committedPoints', 0)
@@ -92,8 +95,8 @@ def recordMetrics():
 
     # Calculate cache-data-structure-derived metrics prior to storing anything
     # in the cache itself -- which would otherwise affect said metrics.
-    cache_size = cache.MetricCache.size
-    cache_queues = len(cache.MetricCache)
+    cache_size = cache.MetricCache().size
+    cache_queues = len(cache.MetricCache())
     record('cache.size', cache_size)
     record('cache.queues', cache_queues)
 
@@ -119,24 +122,27 @@ def recordMetrics():
     record('cache.overflow', cacheOverflow)
 
   # aggregator metrics
-  elif settings.program == 'carbon-aggregator':
+  elif 'aggregator' in settings.program:
     record = aggregator_record
     record('allocatedBuffers', len(BufferManager))
     record('bufferedDatapoints',
-           sum([b.size for b in BufferManager.buffers.values()]))
+           sum(b.size for b in BufferManager.buffers.values()))
     record('aggregateDatapointsSent', myStats.get('aggregateDatapointsSent', 0))
 
   # relay metrics
   else:
     record = relay_record
+
+  # shared relay stats for relays & aggregators
+  if settings.program in ['carbon-aggregator', 'carbon-relay']:
     prefix = 'destinations.'
-    relay_stats =  [(k,v) for (k,v) in myStats.items() if k.startswith(prefix)]
+    relay_stats = [(k, v) for (k, v) in myStats.items() if k.startswith(prefix)]
     for stat_name, stat_value in relay_stats:
       record(stat_name, stat_value)
       # Preserve the count of sent metrics so that the ratio of
       # received : sent can be checked per-relay to determine the
       # health of the destination.
-      if stat_name.endswith('.sent'):
+      if stat_name.endswith('.sent') or stat_name.endswith('.attemptedRelays'):
         myPriorStats[stat_name] = stat_value
 
   # common metrics
@@ -146,7 +152,7 @@ def recordMetrics():
   record('allowed_metricsRejects', myStats.get('allowed_metricsRejects', 0))
   record('cpuUsage', getCpuUsage())
 
-  # And here preserve count of messages received in the prior periiod
+  # And here preserve count of messages received in the prior period
   myPriorStats['metricsReceived'] = myStats.get('metricsReceived', 0)
   prior_stats.clear()
   prior_stats.update(myPriorStats)
@@ -164,7 +170,7 @@ def cache_record(metric, value):
     else:
       fullMetric = '%s.agents.%s-%s.%s' % (prefix, HOSTNAME, settings.instance, metric)
     datapoint = (time.time(), value)
-    cache.MetricCache.store(fullMetric, datapoint)
+    cache.MetricCache().store(fullMetric, datapoint)
 
 
 def relay_record(metric, value):
@@ -203,5 +209,5 @@ class InstrumentationService(Service):
 
 
 # Avoid import circularities
-from carbon import state, events, cache
-from carbon.aggregator.buffers import BufferManager
+from carbon import state, events, cache  # NOQA
+from carbon.aggregator.buffers import BufferManager  # NOQA

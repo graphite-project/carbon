@@ -36,7 +36,7 @@ class TestRelayRulesRouter(unittest.TestCase):
         router = routers.RelayRulesRouter(createSettings())
         for destination in DESTINATIONS:
             router.addDestination(parseDestination(destination))
-        self.assertEquals(len(list(router.getDestinations('foo.bar'))), 1)
+        self.assertEqual(len(list(router.getDestinations('foo.bar'))), 1)
 
 
 class TestOtherRouters(unittest.TestCase):
@@ -48,9 +48,9 @@ class TestOtherRouters(unittest.TestCase):
                 continue
 
             router = routers.DatapointRouter.plugins[plugin](settings)
-            self.assertEquals(len(list(router.getDestinations('foo.bar'))), 0)
+            self.assertEqual(len(list(router.getDestinations('foo.bar'))), 0)
 
             for destination in DESTINATIONS:
                 router.addDestination(parseDestination(destination))
-            self.assertEquals(len(list(router.getDestinations('foo.bar'))),
+            self.assertEqual(len(list(router.getDestinations('foo.bar'))),
                               settings['REPLICATION_FACTOR'])

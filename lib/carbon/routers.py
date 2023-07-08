@@ -1,4 +1,3 @@
-import imp
 from carbon.hashing import ConsistentHashRing, carbonHash
 from carbon.util import PluginRegistrar
 from six import with_metaclass
@@ -124,17 +123,6 @@ class ConsistentHashingRouter(DatapointRouter):
 
   def getKey(self, metric):
     return metric
-
-  def setKeyFunction(self, func):
-    self.getKey = func
-
-  def setKeyFunctionFromModule(self, keyfunc_spec):
-    module_path, func_name = keyfunc_spec.rsplit(':', 1)
-    module_file = open(module_path, 'U')
-    description = ('.py', 'U', imp.PY_SOURCE)
-    module = imp.load_module('keyfunc_module', module_file, module_path, description)
-    keyfunc = getattr(module, func_name)
-    self.setKeyFunction(keyfunc)
 
 
 class AggregatedConsistentHashingRouter(DatapointRouter):

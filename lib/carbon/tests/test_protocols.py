@@ -244,19 +244,19 @@ class TestMetricPickleReceiver(TestCase):
         self.receiver.stringReceived(b"i")
         # ImportError
         self.receiver.stringReceived(b"iii")
-        MetricReceiver.metricReceived.not_called()
+        MetricReceiver.metricReceived.assert_not_called()
 
     def test_decode_pickle(self):
         """ Missing timestamp/value should not call metricReceived """
         metrics = [('foo.bar', 1)]
         self.receiver.stringReceived(pickle.dumps(metrics))
-        MetricReceiver.metricReceived.not_called()
+        MetricReceiver.metricReceived.assert_not_called()
 
     def test_invalid_types(self):
         """ Timestamp/value in wrong type should not call metricReceived """
         metrics = [('foo.bar', ('a', 'b'))]
         self.receiver.stringReceived(pickle.dumps(metrics))
-        MetricReceiver.metricReceived.not_called()
+        MetricReceiver.metricReceived.assert_not_called()
 
     def test_py2_unicode_to_string_conversion(self):
         """ Metricname in python2 unicode type should be transformed to str """

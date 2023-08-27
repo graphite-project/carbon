@@ -6,6 +6,8 @@ from twisted.conch.manhole_ssh import TerminalRealm, ConchFactory
 from twisted.conch.openssh_compat.factory import OpenSSHFactory
 from twisted.internet import reactor
 from twisted.application.internet import TCPServer
+import twisted
+from twisted.python import versions
 
 from carbon.protocols import CarbonServerProtocol
 from carbon.conf import settings
@@ -32,7 +34,8 @@ def createManholeListener():
   sshRealm = TerminalRealm()
   sshRealm.chainedProtocolFactory.protocolFactory = lambda _: Manhole(namespace)
 
-  if settings.MANHOLE_PUBLIC_KEY == 'None':
+  if (settings.MANHOLE_PUBLIC_KEY == 'None' or
+          twisted.version >= versions.Version('twisted', 16, 1, 0)):
     credChecker = checkers.InMemoryUsernamePasswordDatabaseDontUse()
     credChecker.addUser(settings.MANHOLE_USER.encode('utf-8'),
                         ''.encode('utf-8'))

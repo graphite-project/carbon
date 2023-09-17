@@ -28,12 +28,12 @@ jobs:
           - name: "Python 3.11"
             python-version: '3.11'
             toxenv: 'py311'
-          - name: "Pypy 3.12"
-            python-version: 'pypy-3.12'
+          - name: "Pypy 3.11"
+            python-version: 'pypy-3.11'
             toxenv: 'pypy3'
-          - name: "Python 3.12"
-            python-version: '3.12'
-            toxenv: 'py312'
+#          - name: "Python 3.12"
+#            python-version: '3.12'
+#            toxenv: 'py312'
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python ${{ matrix.python-version }}
@@ -51,18 +51,18 @@ jobs:
         run: |
           tox
       - name: Linting
-        if: ${{ matrix.python-version==3.12 }}
+        if: ${{ matrix.python-version==3.11 }}
         env:
           TOXENV: lint
         run: |
           tox
       - name: Run Codecov
-        if: ${{ matrix.python-version==3.12 }}
+        if: ${{ matrix.python-version==3.11 }}
         env:
           TOXENV: lint
         run: |
           pip install codecov
           codecov
       - name: Upload coverage to Codecov
-        if: ${{ matrix.python-version==3.12 }}
+        if: ${{ matrix.python-version==3.11 }}
         uses: codecov/codecov-action@v3

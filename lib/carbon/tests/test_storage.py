@@ -21,9 +21,9 @@ from carbon.database import WhisperDatabase
 #     def test_loadAggregationSchemas_load_default_schema(self):
 #         from carbon.storage import loadAggregationSchemas, defaultAggregation
 #         schema_list = loadAggregationSchemas()
-#         self.assertEquals(len(schema_list), 1)
+#         self.assertEqual(len(schema_list), 1)
 #         schema = schema_list[0]
-#         self.assertEquals(schema, defaultAggregation)
+#         self.assertEqual(schema, defaultAggregation)
 
 #     def test_loadStorageSchemas_raise_CarbonConfigException(self):
 #         from carbon.storage import loadStorageSchemas
@@ -51,28 +51,28 @@ class ExistingConfigSchemaLoadingTest(TestCase):
     def test_loadStorageSchemas_return_schemas(self):
         from carbon.storage import loadStorageSchemas, PatternSchema, Archive
         schema_list = loadStorageSchemas()
-        self.assertEquals(len(schema_list), 3)
+        self.assertEqual(len(schema_list), 3)
         expected = [
             PatternSchema('carbon', r'^carbon\.', [Archive.fromString('60:90d')]),
             PatternSchema('default_1min_for_1day', '.*', [Archive.fromString('60s:1d')])
         ]
         for schema, expected_schema in zip(schema_list[:-1], expected):
-            self.assertEquals(schema.name, expected_schema.name)
-            self.assertEquals(schema.pattern, expected_schema.pattern)
+            self.assertEqual(schema.name, expected_schema.name)
+            self.assertEqual(schema.pattern, expected_schema.pattern)
             for (archive, expected_archive) in zip(schema.archives, expected_schema.archives):
-                self.assertEquals(archive.getTuple(), expected_archive.getTuple())
+                self.assertEqual(archive.getTuple(), expected_archive.getTuple())
 
     def test_loadStorageSchemas_return_the_default_schema_last(self):
         from carbon.storage import loadStorageSchemas, defaultSchema
         schema_list = loadStorageSchemas()
         last_schema = schema_list[-1]
-        self.assertEquals(last_schema.name, defaultSchema.name)
-        self.assertEquals(last_schema.archives, defaultSchema.archives)
+        self.assertEqual(last_schema.name, defaultSchema.name)
+        self.assertEqual(last_schema.archives, defaultSchema.archives)
 
     def test_loadAggregationSchemas_return_schemas(self):
         from carbon.storage import loadAggregationSchemas, PatternSchema
         schema_list = loadAggregationSchemas()
-        self.assertEquals(len(schema_list), 5)
+        self.assertEqual(len(schema_list), 5)
         expected = [
             PatternSchema('min', r'\.min$', (0.1, 'min')),
             PatternSchema('max', r'\.max$', (0.1, 'max')),
@@ -80,12 +80,12 @@ class ExistingConfigSchemaLoadingTest(TestCase):
             PatternSchema('default_average', '.*', (0.5, 'average'))
         ]
         for schema, expected_schema in zip(schema_list[:-1], expected):
-            self.assertEquals(schema.name, expected_schema.name)
-            self.assertEquals(schema.pattern, expected_schema.pattern)
-            self.assertEquals(schema.archives, expected_schema.archives)
+            self.assertEqual(schema.name, expected_schema.name)
+            self.assertEqual(schema.pattern, expected_schema.pattern)
+            self.assertEqual(schema.archives, expected_schema.archives)
 
     def test_loadAggregationSchema_return_the_default_schema_last(self):
         from carbon.storage import loadAggregationSchemas, defaultAggregation
         schema_list = loadAggregationSchemas()
         last_schema = schema_list[-1]
-        self.assertEquals(last_schema, defaultAggregation)
+        self.assertEqual(last_schema, defaultAggregation)

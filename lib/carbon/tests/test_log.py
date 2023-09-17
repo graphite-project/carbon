@@ -23,4 +23,4 @@ class CarbonLogFileTest(TestCase):
 
             with open(path.join(tmpdir, 'creates.log')) as logfile:
                 read_line = logfile.readline()
-                self.assertRegexpMatches(read_line, '.*😀😀😀😀 test !!!!')
+                self.assertRegex(read_line, '.*😀😀😀😀 test !!!!')

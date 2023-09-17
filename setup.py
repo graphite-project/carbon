@@ -24,7 +24,7 @@ cf = ConfigParser()
 with open('setup.cfg', 'r') as f:
     orig_setup_cfg = f.read()
     f.seek(0)
-    cf.readfp(f, 'setup.cfg')
+    cf.read_file(f, 'setup.cfg')
 
 if os.environ.get('GRAPHITE_NO_PREFIX'):
     cf.remove_section('install')

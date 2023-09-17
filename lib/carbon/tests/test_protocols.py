@@ -34,7 +34,7 @@ class TestMetricReceiversHandler(TestCase):
 
     expected_plugins = sorted(expected_plugins)
     plugins = sorted(MetricReceiver.plugins.keys())
-    self.assertEquals(expected_plugins, plugins)
+    self.assertEqual(expected_plugins, plugins)
 
     class _FakeService(object):
       def addService(_, __):
@@ -339,7 +339,7 @@ class TestCacheManagementHandler(TestCase):
 
   def test_cache_query_returns_empty_if_no_match(self):
     self.send_request('cache-query', metric='carbon.foo')
-    self.assertEquals({'datapoints': []}, self.response)
+    self.assertEqual({'datapoints': []}, self.response)
 
   def test_cache_query_returns_cached_datapoints_if_matches(self):
     self.cache.store('carbon.foo', (600, 1.0))
@@ -356,7 +356,7 @@ class TestCacheManagementHandler(TestCase):
 
   def test_cache_bulk_query_response_returns_empty_if_no_match(self):
     self.send_request('cache-query-bulk', metrics=[])
-    self.assertEquals({'datapointsByMetric': {}}, self.response)
+    self.assertEqual({'datapointsByMetric': {}}, self.response)
 
   def test_cache_bulk_query_response(self):
     self.cache.store('carbon.foo', (600, 1.0))
@@ -364,4 +364,4 @@ class TestCacheManagementHandler(TestCase):
 
     expected_response = {'carbon.foo': [(600, 1.0)], 'carbon.bar': [(600, 2.0)]}
     self.send_request('cache-query-bulk', metrics=['carbon.foo', 'carbon.bar'])
-    self.assertEquals({'datapointsByMetric': expected_response}, self.response)
+    self.assertEqual({'datapointsByMetric': expected_response}, self.response)

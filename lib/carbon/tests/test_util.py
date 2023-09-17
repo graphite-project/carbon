@@ -21,7 +21,7 @@ class UtilTest(unittest.TestCase):
                 s.setsockopt(socket.SOL_TCP, socket.SO_KEEPALIVE, value)
 
         enableTcpKeepAlive(_Transport(), True, None)
-        self.assertEquals(s.getsockopt(socket.SOL_TCP, socket.SO_KEEPALIVE), 1)
+        self.assertEqual(s.getsockopt(socket.SOL_TCP, socket.SO_KEEPALIVE), 1)
 
     def test_sanitizing_name_as_tag_value(self):
         test_cases = [
@@ -61,7 +61,7 @@ class UtilTest(unittest.TestCase):
                 )
             else:
                 result = TaggedSeries.sanitize_name_as_tag_value(test_case['original'])
-                self.assertEquals(result, test_case['expected'])
+                self.assertEqual(result, test_case['expected'])
 
     def test_validate_tag_key_and_value(self):
         # assert that it raises exception when sanitized name is still not valid
@@ -114,10 +114,10 @@ class ParseDestinationsTest(unittest.TestCase):
         ]
 
         actual = parseDestinations(dests)
-        self.assertEquals(len(expected), len(actual))
+        self.assertEqual(len(expected), len(actual))
 
         for exp, act in zip(expected, actual):
-            self.assertEquals(exp, act)
+            self.assertEqual(exp, act)
 
     def test_valid_dest_bracketed(self):
         # Tests valid destinations in the bracketed form of <host>.
@@ -136,10 +136,10 @@ class ParseDestinationsTest(unittest.TestCase):
         ]
 
         actual = parseDestinations(dests)
-        self.assertEquals(len(expected), len(actual))
+        self.assertEqual(len(expected), len(actual))
 
         for exp, act in zip(expected, actual):
-            self.assertEquals(exp, act)
+            self.assertEqual(exp, act)
 
     def test_valid_dest_without_instance(self):
         # Tests destinations without instance specified.
@@ -160,10 +160,10 @@ class ParseDestinationsTest(unittest.TestCase):
         ]
 
         actual = parseDestinations(dests)
-        self.assertEquals(len(expected), len(actual))
+        self.assertEqual(len(expected), len(actual))
 
         for exp, act in zip(expected, actual):
-            self.assertEquals(exp, act)
+            self.assertEqual(exp, act)
 
     def test_wrong_dest(self):
         # Some cases of invalid input, e.g. invalid/missing port.

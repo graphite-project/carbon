@@ -52,5 +52,4 @@ class TestOtherRouters(unittest.TestCase):
 
             for destination in DESTINATIONS:
                 router.addDestination(parseDestination(destination))
-            self.assertEqual(len(list(router.getDestinations('foo.bar'))),
-                              settings['REPLICATION_FACTOR'])
+            self.assertEqual(len(list(router.getDestinations('foo.bar'))), settings['REPLICATION_FACTOR'])

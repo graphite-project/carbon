@@ -20,7 +20,7 @@ class CarbonLogFile(DailyLogFile):
     Fix Umask Issue https://twistedmatrix.com/trac/ticket/7026
     """
     openMode = self.defaultMode or 0o777
-    # Fix >= Python3.8 raises RuntimeWarning: line buffering (buffering=1) isn't supported in binary mode
+    # Fix >= Python3.8 raises RuntimeWarning: line buffering (buffering=1) isn't supported in binary mode  # NOQA
     python_version = '%s.%s.%s' % (str(version_info[0]), str(version_info[1]), str(version_info[2]))
     use_buffering = 0
     if python_version < '3.8.0':

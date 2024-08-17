@@ -1,8 +1,9 @@
-# This file defines regular expression patterns that can be used to
+# This file defines regular expression patterns that can be used by
+# carbon-aggregator (as per [aggregator] section of carbon.conf) to
 # rewrite metric names in a search & replace fashion. It consists of two
 # sections, [pre] and [post]. The rules in the pre section are applied to
-# metric names as soon as they are received. The post rules are applied
-# after aggregation has taken place.
+# metric names as soon as they are received by aggregator. The post rules
+# are applied after aggregation has taken place.
 #
 # The general form of each rule is as follows:
 #

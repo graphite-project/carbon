@@ -287,7 +287,7 @@ class TokenBucket(object):
     '''Given a number of tokens (or fractions) drain will return True and
     drain the number of tokens from the bucket if the capacity allows,
     otherwise we return false and leave the contents of the bucket.'''
-    if cost <= self.tokens:
+    if self.peek(cost):
       self._tokens -= cost
       return True
 
@@ -310,16 +310,16 @@ class TokenBucket(object):
     self.fill_rate = float(new_fill_rate)
     self._tokens = delta + self._tokens
 
-  @property
-  def tokens(self):
-    '''The tokens property will return the current number of tokens in the
-    bucket.'''
-    if self._tokens < self.capacity:
+  def peek(self, cost):
+    '''Return true if the bucket can drain cost without blocking.'''
+    if self._tokens >= cost:
+      return True
+    else:
       now = time()
       delta = self.fill_rate * (now - self.timestamp)
       self._tokens = min(self.capacity, self._tokens + delta)
       self.timestamp = now
-    return self._tokens
+      return self._tokens >= cost
 
 
 class PluginRegistrar(type):

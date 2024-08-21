@@ -87,6 +87,8 @@ def setupPipeline(pipeline, root_service, settings):
       setupRelayProcessor(root_service, settings)
     elif processor == 'write':
       setupWriterProcessor(root_service, settings)
+      if settings.RELAY_CACHE_METRICS:
+        setupRelayProcessor(root_service, settings)
     else:
       raise ValueError("Invalid pipeline processor '%s'" % processor)
 

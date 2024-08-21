@@ -297,6 +297,10 @@ class CarbonCacheOptions(usage.Options):
         state.database = database_class(settings)
 
         settings.CACHE_SIZE_LOW_WATERMARK = settings.MAX_CACHE_SIZE * 0.95
+        if settings.USE_FLOW_CONTROL:
+            settings.CACHE_SIZE_HARD_MAX = settings.MAX_CACHE_SIZE * 1.05
+        else:
+            settings.CACHE_SIZE_HARD_MAX = settings.MAX_CACHE_SIZE
 
         if "action" not in self:
             self["action"] = "start"

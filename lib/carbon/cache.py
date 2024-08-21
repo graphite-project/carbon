@@ -208,6 +208,13 @@ class _MetricCache(defaultdict):
 
   @property
   def is_full(self):
+    if settings.CACHE_SIZE_HARD_MAX == float('inf'):
+      return False
+    else:
+      return self.size >= settings.CACHE_SIZE_HARD_MAX
+
+  @property
+  def is_nearly_full(self):
     if settings.MAX_CACHE_SIZE == float('inf'):
       return False
     else:
@@ -252,8 +259,12 @@ class _MetricCache(defaultdict):
         # Not a duplicate, hence process if cache is not full
         if self.is_full:
           log.msg("MetricCache is full: self.size=%d" % self.size)
-          events.cacheFull()
+          events.cacheOverflow()
         else:
+          if self.is_nearly_full:
+            # This will disable reading when flow control is enabled
+            log.msg("MetricCache is nearly full: self.size=%d" % self.size)
+            events.cacheFull()
           if not self[metric]:
             self.new_metrics.append(metric)
           self.size += 1

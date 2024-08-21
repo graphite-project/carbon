@@ -31,6 +31,29 @@ class DatapointRouter(with_metaclass(PluginRegistrar, object)):
     raise NotImplementedError()
 
 
+class ConstantRouter(DatapointRouter):
+  plugin_name = 'constant'
+
+  def __init__(self, settings):
+    self.destinations = set()
+
+  def addDestination(self, destination):
+    self.destinations.add(destination)
+
+  def removeDestination(self, destination):
+    self.destinations.discard(destination)
+
+  def hasDestination(self, destination):
+    return destination in self.destinations
+
+  def countDestinations(self):
+    return len(self.destinations)
+
+  def getDestinations(self, key):
+    for destination in self.destinations:
+      yield destination
+
+
 class RelayRulesRouter(DatapointRouter):
   plugin_name = 'rules'
 

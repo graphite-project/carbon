@@ -54,5 +54,5 @@ class TestOtherRouters(unittest.TestCase):
                 router.addDestination(parseDestination(destination))
             self.assertEqual(
                 len(list(router.getDestinations('foo.bar'))),
-                settings['REPLICATION_FACTOR']
+                len(DESTINATIONS) if plugin == 'constant' else settings['REPLICATION_FACTOR']
             )

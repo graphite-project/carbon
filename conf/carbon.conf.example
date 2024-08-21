@@ -472,8 +472,11 @@ DESTINATIONS = 127.0.0.1:2004
 
 # This is the maximum number of datapoints that can be queued up
 # for a single destination. Once this limit is hit, we will
-# stop accepting new data if USE_FLOW_CONTROL is True, otherwise
-# we will drop any subsequently received datapoints.
+# stop accepting new data if USE_FLOW_CONTROL is True. In-flight and
+# internally-generated datapoints will still be processed, and data
+# will still be dropped if MAX_QUEUE_SIZE_HARD_PCT * MAX_QUEUE_SIZE
+# is hit. If USE_FLOW_CONTROL is False, metrics are immediately dropped
+# after MAX_QUEUE_SIZE, and MAX_QUEUE_SIZE_HARD_PCT is unused.
 MAX_QUEUE_SIZE = 10000
 
 # This is the factor that the queue must be empty before it will accept
@@ -484,6 +487,11 @@ MAX_QUEUE_SIZE = 10000
 # you should have space to accommodate the next minute's worth of stats
 # even before the relay incrementally clears more of the queue
 QUEUE_LOW_WATERMARK_PCT = 0.8
+
+# This is the factor of the max length of a queue before data will be dropped
+# with USE_FLOW_CONTROL enabled. When incoming data is paused, in-flight data
+# is still processed, which can send a queue slightly over the configured max.
+MAX_QUEUE_SIZE_HARD_PCT = 1.25
 
 # Set this to False to drop datapoints when any send queue (sending datapoints
 # to a downstream carbon daemon) hits MAX_QUEUE_SIZE. If this is True (the
@@ -619,8 +627,11 @@ REPLICATION_FACTOR = 1
 
 # This is the maximum number of datapoints that can be queued up
 # for a single destination. Once this limit is hit, we will
-# stop accepting new data if USE_FLOW_CONTROL is True, otherwise
-# we will drop any subsequently received datapoints.
+# stop accepting new data if USE_FLOW_CONTROL is True. In-flight and
+# internally-generated datapoints will still be processed, and data
+# will still be dropped if MAX_QUEUE_SIZE_HARD_PCT * MAX_QUEUE_SIZE
+# is hit. If USE_FLOW_CONTROL is False, metrics are immediately dropped
+# after MAX_QUEUE_SIZE, and MAX_QUEUE_SIZE_HARD_PCT is unused.
 MAX_QUEUE_SIZE = 10000
 
 # This is the factor that the queue must be empty before it will accept
@@ -631,6 +642,11 @@ MAX_QUEUE_SIZE = 10000
 # you should have space to accommodate the next minute's worth of stats
 # even before the relay incrementally clears more of the queue
 QUEUE_LOW_WATERMARK_PCT = 0.8
+
+# This is the factor of the max length of a queue before data will be dropped
+# with USE_FLOW_CONTROL enabled. When incoming data is paused, in-flight data
+# is still processed, which can send a queue slightly over the configured max.
+MAX_QUEUE_SIZE_HARD_PCT = 1.25
 
 # Set this to False to drop datapoints when any send queue (sending datapoints
 # to a downstream carbon daemon) hits MAX_QUEUE_SIZE. If this is True (the

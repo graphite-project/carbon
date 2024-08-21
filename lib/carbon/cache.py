@@ -16,7 +16,7 @@ import time
 import threading
 from operator import itemgetter
 from random import choice
-from collections import defaultdict
+from collections import defaultdict, deque
 
 from carbon.conf import settings
 from carbon import events, log
@@ -189,6 +189,7 @@ class _MetricCache(defaultdict):
   def __init__(self, strategy=None):
     self.lock = threading.Lock()
     self.size = 0
+    self.new_metrics = deque()
     self.strategy = None
     if strategy:
       self.strategy = strategy(self)
@@ -253,6 +254,8 @@ class _MetricCache(defaultdict):
           log.msg("MetricCache is full: self.size=%d" % self.size)
           events.cacheFull()
         else:
+          if not self[metric]:
+            self.new_metrics.append(metric)
           self.size += 1
           self[metric][timestamp] = value
           if self.strategy:

@@ -95,23 +95,24 @@ def writeCachedDataPoints():
 
   cache = MetricCache()
   while cache:
-    (metric, datapoints) = cache.drain_metric()
-    if metric is None:
-      # end the loop
-      break
+    # First, create new metrics files, which is helpful for graphite-web
+    while cache.new_metrics and (not CREATE_BUCKET or CREATE_BUCKET.peek(1)):
+      metric = cache.new_metrics.popleft()
 
-    dbFileExists = state.database.exists(metric)
-
-    if not dbFileExists:
-      if CREATE_BUCKET and not CREATE_BUCKET.drain(1):
-        # If our tokenbucket doesn't have enough tokens available to create a new metric
-        # file then we'll just drop the metric on the ground and move on to the next
-        # metric.
-        # XXX This behavior should probably be configurable to no tdrop metrics
-        # when rate limiting unless our cache is too big or some other legit
-        # reason.
-        instrumentation.increment('droppedCreates')
+      if metric not in cache:
+        # This metric has already been drained. There's no sense in creating it.
         continue
+
+      if state.database.exists(metric):
+        continue
+
+      if CREATE_BUCKET and not CREATE_BUCKET.drain(1):
+        # This should never actually happen as no other thread should be
+        # draining our tokens, and we just checked for a token.
+        # Just put the new metric back in the create list and we'll try again
+        # after writing an update.
+        cache.new_metrics.appendleft(metric)
+        break
 
       archiveConfig = None
       xFilesFactor, aggregationMethod = None, None
@@ -149,6 +150,18 @@ def writeCachedDataPoints():
         log.msg("Error creating %s: %s" % (metric, e))
         instrumentation.increment('errors')
         continue
+
+    # now drain and persist some data
+    (metric, datapoints) = cache.drain_metric()
+    if metric is None:
+      # end the loop
+      break
+
+    if not state.database.exists(metric):
+      # If we get here, the metric must still be in new_metrics. We're
+      # creating too fast, and we'll drop this data.
+      instrumentation.increment('droppedCreates')
+      continue
 
     # If we've got a rate limit configured lets makes sure we enforce it
     waitTime = 0

@@ -109,7 +109,7 @@ class AggregationMetricBufferTest(TestCase):
 
     with patch.object(IntervalBuffer, 'mark_inactive') as mark_inactive_mock:
       self.metric_buffer.compute_value()
-      mark_inactive_mock.assert_called_once_with()
+      mark_inactive_mock.assert_called_once_with(600)
 
   @patch("time.time", new=Mock(return_value=600))
   @patch("carbon.state.events.metricGenerated", new=Mock())
@@ -129,7 +129,7 @@ class AggregationMetricBufferTest(TestCase):
   def test_compute_value_skips_inactive_buffers(self, metric_generated_mock):
     interval_buffer = IntervalBuffer(600)
     interval_buffer.input((600, 1.0))
-    interval_buffer.mark_inactive()
+    interval_buffer.mark_inactive(600)
     self.metric_buffer.interval_buffers[600] = interval_buffer
 
     self.metric_buffer.compute_value()
@@ -177,18 +177,38 @@ class AggregationMetricBufferTest(TestCase):
 
     interval_buffer = IntervalBuffer(600)
     interval_buffer.input((600, 1.0))
-    interval_buffer.mark_inactive()
+    interval_buffer.mark_inactive(600)
     self.metric_buffer.interval_buffers[600] = interval_buffer
 
     # 2nd interval for current time
     interval_buffer = IntervalBuffer(current_interval)
     interval_buffer.input((current_interval, 1.0))
-    interval_buffer.mark_inactive()
+    interval_buffer.mark_inactive(current_interval)
     self.metric_buffer.interval_buffers[current_interval] = interval_buffer
 
     with patch("time.time", new=Mock(return_value=current_interval + 60)):
       self.metric_buffer.compute_value()
       self.assertFalse(600 in self.metric_buffer.interval_buffers)
+
+  @patch("carbon.state.events.metricGenerated")
+  def test_compute_value_deletes_too_many_buffers(self, metric_generated_mock):
+    from carbon.conf import settings
+
+    # We should keep 2 more than MAX_AGGREGATION_INTERVALS.
+    calls = []
+    for i in range(settings['MAX_AGGREGATION_INTERVALS'] + 4):
+        interval = 600 + i * 60
+        interval_buffer = IntervalBuffer(interval)
+        interval_buffer.input((interval, 1.0))
+        self.metric_buffer.interval_buffers[interval] = interval_buffer
+        calls = [call("carbon.foo.bar", (interval, 1.0))]
+
+    with patch("time.time", new=Mock(return_value=600)):
+      self.metric_buffer.compute_value()
+    metric_generated_mock.assert_has_calls(calls)
+    self.assertFalse(600 in self.metric_buffer.interval_buffers)
+    self.assertFalse(660 in self.metric_buffer.interval_buffers)
+    self.assertTrue(720 in self.metric_buffer.interval_buffers)
 
   def test_compute_value_closes_metric_if_last_buffer_deleted(self):
     from carbon.conf import settings
@@ -196,7 +216,7 @@ class AggregationMetricBufferTest(TestCase):
 
     interval_buffer = IntervalBuffer(600)
     interval_buffer.input((600, 1.0))
-    interval_buffer.mark_inactive()
+    interval_buffer.mark_inactive(600)
     self.metric_buffer.interval_buffers[600] = interval_buffer
     BufferManager.buffers['carbon.foo.bar'] = self.metric_buffer
 
@@ -211,7 +231,7 @@ class AggregationMetricBufferTest(TestCase):
 
     interval_buffer = IntervalBuffer(600)
     interval_buffer.input((600, 1.0))
-    interval_buffer.mark_inactive()
+    interval_buffer.mark_inactive(600)
     self.metric_buffer.interval_buffers[600] = interval_buffer
     BufferManager.buffers['carbon.foo.bar'] = self.metric_buffer
 

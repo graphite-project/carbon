@@ -61,23 +61,30 @@ class MetricBuffer:
   def compute_value(self):
     now = int(time.time())
     current_interval = now - (now % self.aggregation_frequency)
+    max_aggregation_intervals = settings['MAX_AGGREGATION_INTERVALS']
     age_threshold = current_interval - (
-      settings['MAX_AGGREGATION_INTERVALS'] * self.aggregation_frequency)
+      max_aggregation_intervals * self.aggregation_frequency)
 
     for buffer in list(self.interval_buffers.values()):
-      if buffer.active:
+      if buffer.inactive_since is None:
         value = self.aggregation_func(buffer.values)
         datapoint = (buffer.interval, value)
         state.events.metricGenerated(self.metric_path, datapoint)
         state.instrumentation.increment('aggregateDatapointsSent')
-        buffer.mark_inactive()
+        buffer.mark_inactive(current_interval)
 
-      if buffer.interval < age_threshold:
+      elif buffer.inactive_since < age_threshold:
         del self.interval_buffers[buffer.interval]
-        if not self.interval_buffers:
-          self.close()
-          self.configured = False
-          del BufferManager.buffers[self.metric_path]
+
+    if len(self.interval_buffers) > max_aggregation_intervals + 2:
+      ordered_intervals = sorted(self.interval_buffers)
+      for interval in ordered_intervals[:-max_aggregation_intervals - 2]:
+        del self.interval_buffers[interval]
+
+    if not self.interval_buffers:
+      self.close()
+      self.configured = False
+      del BufferManager.buffers[self.metric_path]
 
   def close(self):
     if self.compute_task and self.compute_task.running:
@@ -89,19 +96,19 @@ class MetricBuffer:
 
 
 class IntervalBuffer:
-  __slots__ = ('interval', 'values', 'active')
+  __slots__ = ('interval', 'values', 'inactive_since')
 
   def __init__(self, interval):
     self.interval = interval
     self.values = []
-    self.active = True
+    self.inactive_since = None
 
   def input(self, datapoint):
     self.values.append(datapoint[1])
-    self.active = True
+    self.inactive_since = None
 
-  def mark_inactive(self):
-    self.active = False
+  def mark_inactive(self, interval):
+    self.inactive_since = interval
 
 
 # Shared importable singleton

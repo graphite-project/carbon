@@ -1,6 +1,6 @@
 import os
 import time
-from sys import stdout
+from sys import stdout, version_info
 from zope.interface import implementer
 from twisted.python.log import startLoggingWithObserver, textFromEventDict, msg, err, ILogObserver  # NOQA
 from twisted.python.syslog import SyslogObserver
@@ -20,8 +20,13 @@ class CarbonLogFile(DailyLogFile):
     Fix Umask Issue https://twistedmatrix.com/trac/ticket/7026
     """
     openMode = self.defaultMode or 0o777
+    # Fix >= Python3.8 raises RuntimeWarning: line buffering (buffering=1) isn't supported in binary mode  # NOQA
+    python_version = '%s.%s.%s' % (str(version_info[0]), str(version_info[1]), str(version_info[2]))
+    use_buffering = 0
+    if python_version < '3.8.0':
+      use_buffering = 1
     self._file = os.fdopen(os.open(
-      self.path, os.O_CREAT | os.O_RDWR, openMode), 'rb+', 1)
+      self.path, os.O_CREAT | os.O_RDWR, openMode), 'rb+', use_buffering)
     self.closed = False
     # Try our best to update permissions for files which already exist.
     if self.defaultMode:

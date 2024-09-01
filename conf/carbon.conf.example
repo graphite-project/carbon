@@ -14,12 +14,12 @@
 # To change other directory paths, add settings to this file. The following
 # configuration variables are available with these default values:
 #
-#   STORAGE_DIR    = $GRAPHITE_STORAGE_DIR
-#   LOCAL_DATA_DIR = %(STORAGE_DIR)s/whisper/
-#   WHITELISTS_DIR = %(STORAGE_DIR)s/lists/
-#   CONF_DIR       = %(STORAGE_DIR)s/conf/
-#   LOG_DIR        = %(STORAGE_DIR)s/log/
-#   PID_DIR        = %(STORAGE_DIR)s/
+#   STORAGE_DIR        = $GRAPHITE_STORAGE_DIR
+#   LOCAL_DATA_DIR     = %(STORAGE_DIR)s/whisper/
+#   METRIC_FILTERS_DIR = %(STORAGE_DIR)s/lists/
+#   CONF_DIR           = %(STORAGE_DIR)s/conf/
+#   LOG_DIR            = %(STORAGE_DIR)s/log/
+#   PID_DIR            = %(STORAGE_DIR)s/
 #
 # For FHS style directory structures, use:
 #
@@ -224,6 +224,11 @@ WHISPER_FALLOCATE_CREATE = True
 # page cache memory by posix_fadvise(2) with POSIX_FADVISE_RANDOM option.
 # WHISPER_FADVISE_RANDOM = False
 
+# Set this to True to enable metric filters with CONF_DIR/allowed_metrics.conf
+# and CONF_DIR/blocked_metrics.conf. If the allowed list is missing or empty,
+# all metrics will pass through.
+# USE_METRIC_FILTERS = False
+
 # By default all nodes stored in Ceres are cached in memory to improve the
 # throughput of reads and writes to underlying slices. Turning this off will
 # greatly reduce memory consumption for databases with millions of metrics, at
@@ -266,11 +271,6 @@ WHISPER_FALLOCATE_CREATE = True
 # to with an exclusive lock (LOCK_EX, see: man 2 flock). This is useful when
 # multiple carbon-cache daemons are writing to the same files.
 # CERES_LOCK_WRITES = False
-
-# Set this to True to enable whitelisting and blacklisting of metrics in
-# CONF_DIR/whitelist.conf and CONF_DIR/blacklist.conf. If the whitelist is
-# missing or empty, all metrics will pass through
-# USE_WHITELIST = False
 
 # By default, carbon itself will log statistics (such as a count,
 # metricsReceived) with the top level prefix of 'carbon' at an interval of 60
@@ -516,10 +516,10 @@ USE_FLOW_CONTROL = True
 # metrics have been sent in specified time in seconds
 #METRIC_CLIENT_IDLE_TIMEOUT = None
 
-# Set this to True to enable whitelisting and blacklisting of metrics in
-# CONF_DIR/whitelist.conf and CONF_DIR/blacklist.conf. If the whitelist is
-# missing or empty, all metrics will pass through
-# USE_WHITELIST = False
+# Set this to True to enable metric filters with CONF_DIR/allowed_metrics.conf
+# and CONF_DIR/blocked_metrics.conf. If the allowed list is missing or empty,
+# all metrics will pass through.
+# USE_METRIC_FILTERS = False
 
 # By default, carbon itself will log statistics (such as a count,
 # metricsReceived) with the top level prefix of 'carbon' at an interval of 60
@@ -656,10 +656,10 @@ MAX_AGGREGATION_INTERVALS = 5
 # having to first wait rule.frequency seconds.
 # WRITE_BACK_FREQUENCY = 0
 
-# Set this to True to enable whitelisting and blacklisting of metrics in
-# CONF_DIR/whitelist.conf and CONF_DIR/blacklist.conf. If the whitelist is
-# missing or empty, all metrics will pass through
-# USE_WHITELIST = False
+# Set this to True to enable metric filters with CONF_DIR/allowed_metrics.conf
+# and CONF_DIR/blocked_metrics.conf. If the allowed list is missing or empty,
+# all metrics will pass through.
+# USE_METRIC_FILTERS = False
 
 # By default, carbon itself will log statistics (such as a count,
 # metricsReceived) with the top level prefix of 'carbon' at an interval of 60

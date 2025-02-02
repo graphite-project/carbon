@@ -3,7 +3,6 @@ import time
 
 from carbon.aggregator.processor import AggregationProcessor, RuleManager
 from carbon.aggregator.buffers import BufferManager
-from carbon.tests.util import print_stats
 from carbon.conf import settings
 from carbon import state
 
@@ -43,21 +42,23 @@ def _bench_aggregator(name):
     buf = None
     for n in [1, 1000, 10000, 100000, 1000000, 10000000]:
         processor = AggregationProcessor()
-        processor.process(METRIC, (now, 1))
+        for x in processor.process(METRIC, (now, 1)):
+            pass
 
         def _process():
             processor.process(METRIC, (now + _process.i, 1))
             if (_process.i % FREQUENCY) == 0 and buf is not None:
-                buf.compute_values()
+                buf.compute_value()
             _process.i += 1
         _process.i = 0
 
         if buf is None:
-            buf = BufferManager.get_buffer(METRIC_AGGR, 1, None)
-
+            buf = BufferManager.buffers.get(METRIC_AGGR)
         t = timeit.timeit(_process, number=n)
-        buf.close()
-        print_stats(n, t)
+
+        if buf:
+            buf.close()
+        print(n, t)
     print("")
 
 

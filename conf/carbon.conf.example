@@ -658,9 +658,16 @@ USE_FLOW_CONTROL = True
 # You shouldn't need to tune this unless you really know what you're doing.
 MAX_DATAPOINTS_PER_MESSAGE = 500
 
-# This defines how many datapoints the aggregator remembers for
-# each metric. Aggregation only happens for datapoints that fall in
-# the past MAX_AGGREGATION_INTERVALS * intervalSize seconds.
+# This defines how many intervals behind the current one the aggregator
+# remembers for each metric. Intervals are expired when either:
+#   * They have seen no new datapoints in the last
+#   (MAX_AGGREGATION_INTERVALS * configured_frequency) seconds, or
+#   * There are more than (MAX_AGGREGATION_INTERVALS + 2) intervals with
+#   datapoints in them. (This allows an application to replay past metrics with
+#   sensible behaviour.)
+# Intervals are expired only when they are aggregated.
+# Expired intervals will be treated as empty if new datapoints arrive.
+# See WRITE_BACK_FREQUENCY to control the aggregation frequency.
 MAX_AGGREGATION_INTERVALS = 5
 
 # Limit the number of open connections the receiver can handle as any time.

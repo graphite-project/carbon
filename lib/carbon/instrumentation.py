@@ -170,7 +170,10 @@ def cache_record(metric, value):
     else:
       fullMetric = '%s.agents.%s-%s.%s' % (prefix, HOSTNAME, settings.instance, metric)
     datapoint = (time.time(), value)
-    cache.MetricCache().store(fullMetric, datapoint)
+    if settings.RELAY_CACHE_METRICS:
+      state.client_manager.sendDatapoint(fullMetric, datapoint)
+    else:
+      cache.MetricCache().store(fullMetric, datapoint)
 
 
 def relay_record(metric, value):

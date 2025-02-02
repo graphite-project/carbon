@@ -274,9 +274,26 @@ WHISPER_FALLOCATE_CREATE = True
 
 # By default, carbon itself will log statistics (such as a count,
 # metricsReceived) with the top level prefix of 'carbon' at an interval of 60
-# seconds. Set CARBON_METRIC_INTERVAL to 0 to disable instrumentation
+# seconds. Set CARBON_METRIC_INTERVAL to 0 to disable instrumentation. See
+# also: RELAY_CACHE_METRICS.
 # CARBON_METRIC_PREFIX = carbon
 # CARBON_METRIC_INTERVAL = 60
+
+# By default (RELAY_CACHE_METRICS = False), each cache will keep its internal
+# metrics locally. If you run multiple instances, this is likely to violate
+# your RELAY_METHOD, which means the webapp will query the wrong cache to find
+# recent data, and if the caches don't share storage, it will become impossible
+# to query many metrics at all. In order to get metrics to the right place,
+# instead configure the cache to forward its internal metrics to an external
+# instance (RELAY_CACHE_METRICS = True). RELAY_METHOD, REPLICATION_FACTOR,
+# DESTINATIONS and DESTINATION_PROTOCOL will be used to determine the endpoint
+# for each datapoint -- either make them consistent with a relay, or set up a
+# relay as the sole destination.
+# RELAY_METHOD = constant
+# REPLICATION_FACTOR = 1
+# DESTINATIONS = 127.0.0.1:2014
+# DESTINATION_PROTOCOL = pickle
+RELAY_CACHE_METRICS = False
 
 # Enable AMQP if you want to receive metrics using an amqp broker
 # ENABLE_AMQP = False
@@ -611,6 +628,10 @@ FORWARD_ALL = True
 # Note that if the destinations are all carbon-caches then this should
 # exactly match the webapp's CARBONLINK_HOSTS setting in terms of
 # instances listed (order matters!).
+#
+# Also note that if there are multiple DESTINATIONS, it's likely that
+# RELAY_CACHE_METRICS will need to be set on the caches for correct webapp
+# behaviour.
 DESTINATIONS = 127.0.0.1:2004
 
 # If you want to add redundancy to your data by replicating every

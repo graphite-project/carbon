@@ -68,8 +68,9 @@ defaults = dict(
   MAX_DATAPOINTS_PER_MESSAGE=500,
   MAX_AGGREGATION_INTERVALS=5,
   FORWARD_ALL=True,
-  MAX_QUEUE_SIZE=1000,
+  MAX_QUEUE_SIZE=10000,
   QUEUE_LOW_WATERMARK_PCT=0.8,
+  MAX_QUEUE_SIZE_HARD_PCT=1.25,
   TIME_TO_DEFER_SENDING=0.0001,
   ENABLE_AMQP=False,
   AMQP_METRIC_NAME_IN_BODY=False,
@@ -297,6 +298,10 @@ class CarbonCacheOptions(usage.Options):
         state.database = database_class(settings)
 
         settings.CACHE_SIZE_LOW_WATERMARK = settings.MAX_CACHE_SIZE * 0.95
+        if settings.USE_FLOW_CONTROL:
+            settings.CACHE_SIZE_HARD_MAX = settings.MAX_CACHE_SIZE * 1.05
+        else:
+            settings.CACHE_SIZE_HARD_MAX = settings.MAX_CACHE_SIZE
 
         if "action" not in self:
             self["action"] = "start"

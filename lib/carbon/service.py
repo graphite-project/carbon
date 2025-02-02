@@ -172,12 +172,20 @@ def setupAggregatorProcessor(root_service, settings):
       "aggregation processor: file does not exist {0}".format(aggregation_rules_path))
   RuleManager.read_from(aggregation_rules_path)
 
+  if settings.USE_FLOW_CONTROL:
+    events.cacheFull.addHandler(events.pauseReceivingMetrics)
+    events.cacheSpaceAvailable.addHandler(events.resumeReceivingMetrics)
+
 
 def setupRewriterProcessor(root_service, settings):
   from carbon.rewrite import RewriteRuleManager
 
   rewrite_rules_path = settings["rewrite-rules"]
   RewriteRuleManager.read_from(rewrite_rules_path)
+
+  if settings.USE_FLOW_CONTROL:
+    events.cacheFull.addHandler(events.pauseReceivingMetrics)
+    events.cacheSpaceAvailable.addHandler(events.resumeReceivingMetrics)
 
 
 def setupRelayProcessor(root_service, settings):
@@ -192,6 +200,10 @@ def setupRelayProcessor(root_service, settings):
 
   for destination in util.parseDestinations(settings.DESTINATIONS):
     state.client_manager.startClient(destination)
+
+  if settings.USE_FLOW_CONTROL:
+    events.cacheFull.addHandler(events.pauseReceivingMetrics)
+    events.cacheSpaceAvailable.addHandler(events.resumeReceivingMetrics)
 
 
 def setupWriterProcessor(root_service, settings):

@@ -22,6 +22,7 @@ class Event:
 
 metricReceived = Event('metricReceived')
 metricGenerated = Event('metricGenerated')
+cacheOverflow = Event('cacheOverflow')
 cacheFull = Event('cacheFull')
 cacheSpaceAvailable = Event('cacheSpaceAvailable')
 pauseReceivingMetrics = Event('pauseReceivingMetrics')
@@ -32,7 +33,7 @@ metricReceived.addHandler(
   lambda metric, datapoint: state.instrumentation.increment('metricsReceived'))
 
 
-cacheFull.addHandler(lambda: state.instrumentation.increment('cache.overflow'))
+cacheOverflow.addHandler(lambda: state.instrumentation.increment('cache.overflow'))
 cacheFull.addHandler(lambda: setattr(state, 'cacheTooFull', True))
 cacheSpaceAvailable.addHandler(lambda: setattr(state, 'cacheTooFull', False))
 

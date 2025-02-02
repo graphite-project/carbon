@@ -4,6 +4,10 @@ from carbon.cache import _MetricCache, DrainStrategy, \
     NaiveStrategy, MaxStrategy, RandomStrategy, SortedStrategy, \
     TimeSortedStrategy, BucketMaxStrategy
 
+from carbon.conf import settings
+
+settings.CACHE_SIZE_LOW_WATERMARK = settings.MAX_CACHE_SIZE * 0.95
+settings.CACHE_SIZE_HARD_MAX = settings.MAX_CACHE_SIZE * 1.05
 
 metric_cache = _MetricCache(DrainStrategy)
 count = 0

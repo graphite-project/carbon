@@ -35,6 +35,10 @@ except ImportError:
 
 
 SEND_QUEUE_LOW_WATERMARK = settings.MAX_QUEUE_SIZE * settings.QUEUE_LOW_WATERMARK_PCT
+if settings.USE_FLOW_CONTROL:
+    SEND_QUEUE_HARD_MAX = settings.MAX_QUEUE_SIZE * settings.MAX_QUEUE_SIZE_HARD_PCT
+else:
+    SEND_QUEUE_HARD_MAX = settings.MAX_QUEUE_SIZE
 
 
 class CarbonClientProtocol(object):
@@ -350,7 +354,10 @@ class CarbonClientFactory(with_metaclass(PluginRegistrar, ReconnectingClientFact
     if self.queueSize >= settings.MAX_QUEUE_SIZE:
       if not self.queueFull.called:
         self.queueFull.callback(self.queueSize)
-      instrumentation.increment(self.fullQueueDrops)
+      if self.queueSize < SEND_QUEUE_HARD_MAX:
+        self.enqueue(metric, datapoint)
+      else:
+        instrumentation.increment(self.fullQueueDrops)
     else:
       self.enqueue(metric, datapoint)
 

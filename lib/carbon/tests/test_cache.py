@@ -11,6 +11,7 @@ class MetricCacheTest(TestCase):
   def setUp(self):
     settings = {
       'MAX_CACHE_SIZE': float('inf'),
+      'CACHE_SIZE_HARD_MAX': float('inf'),
       'CACHE_SIZE_LOW_WATERMARK': float('inf')
     }
     self._settings_patch = patch.dict('carbon.conf.settings', settings)
@@ -67,6 +68,13 @@ class MetricCacheTest(TestCase):
   def test_store_on_full_triggers_events(self):
     is_full_mock = PropertyMock(return_value=True)
     with patch.object(_MetricCache, 'is_full', is_full_mock):
+      with patch('carbon.cache.events') as events_mock:
+        self.metric_cache.store('foo', (123456, 1.0))
+        events_mock.cacheOverflow.assert_called_with()
+
+  def test_store_on_nearly_full_triggers_events(self):
+    is_nearly_full_mock = PropertyMock(return_value=True)
+    with patch.object(_MetricCache, 'is_nearly_full', is_nearly_full_mock):
       with patch('carbon.cache.events') as events_mock:
         self.metric_cache.store('foo', (123456, 1.0))
         events_mock.cacheFull.assert_called_with()
@@ -150,7 +158,7 @@ class MetricCacheTest(TestCase):
       size_mock.assert_not_called()
 
   def test_is_full(self):
-    self._settings_patch.values['MAX_CACHE_SIZE'] = 2.0
+    self._settings_patch.values['CACHE_SIZE_HARD_MAX'] = 2.0
     self._settings_patch.start()
     with patch('carbon.cache.events'):
       self.assertFalse(self.metric_cache.is_full)
@@ -178,7 +186,17 @@ class MetricCacheTest(TestCase):
 
 class DrainStrategyTest(TestCase):
   def setUp(self):
+    settings = {
+      'MAX_CACHE_SIZE': float('inf'),
+      'CACHE_SIZE_HARD_MAX': float('inf'),
+      'CACHE_SIZE_LOW_WATERMARK': float('inf')
+    }
+    self._settings_patch = patch.dict('carbon.conf.settings', settings)
+    self._settings_patch.start()
     self.metric_cache = _MetricCache()
+
+  def tearDown(self):
+    self._settings_patch.stop()
 
   def test_bucketmax_strategy(self):
     bucketmax_strategy = BucketMaxStrategy(self.metric_cache)
@@ -303,7 +321,17 @@ class DrainStrategyTest(TestCase):
 
 class RandomStrategyTest(TestCase):
   def setUp(self):
+    settings = {
+      'MAX_CACHE_SIZE': float('inf'),
+      'CACHE_SIZE_HARD_MAX': float('inf'),
+      'CACHE_SIZE_LOW_WATERMARK': float('inf')
+    }
+    self._settings_patch = patch.dict('carbon.conf.settings', settings)
+    self._settings_patch.start()
     self.metric_cache = _MetricCache()
+
+  def tearDown(self):
+    self._settings_patch.stop()
 
   def test_random_strategy(self):
     self.metric_cache.store('foo', (123456, 1.0))

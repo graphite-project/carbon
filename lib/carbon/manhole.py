@@ -34,7 +34,7 @@ def createManholeListener():
   sshRealm = TerminalRealm()
   sshRealm.chainedProtocolFactory.protocolFactory = lambda _: Manhole(namespace)
 
-  if (settings.MANHOLE_PUBLIC_KEY == 'None' or
+  if (settings.MANHOLE_PUBLIC_KEY == 'None' and
           twisted.version >= versions.Version('twisted', 16, 1, 0)):
     credChecker = checkers.InMemoryUsernamePasswordDatabaseDontUse()
     credChecker.addUser(settings.MANHOLE_USER.encode('utf-8'),

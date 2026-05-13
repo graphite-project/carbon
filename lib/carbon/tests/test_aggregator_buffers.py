@@ -6,6 +6,7 @@ from twisted.internet.task import LoopingCall
 from carbon import instrumentation
 from carbon.aggregator.buffers import BufferManager, IntervalBuffer, MetricBuffer
 from carbon.tests.util import TestSettings
+import carbon.service  # creates carbon.state.events
 
 
 class AggregationBufferManagerTest(TestCase):
@@ -201,7 +202,7 @@ class AggregationMetricBufferTest(TestCase):
         interval_buffer = IntervalBuffer(interval)
         interval_buffer.input((interval, 1.0))
         self.metric_buffer.interval_buffers[interval] = interval_buffer
-        calls = [call("carbon.foo.bar", (interval, 1.0))]
+        calls.append(call("carbon.foo.bar", (interval, 1.0)))
 
     with patch("time.time", new=Mock(return_value=600)):
       self.metric_buffer.compute_value()

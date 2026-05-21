@@ -100,7 +100,7 @@ class TestMetricReceiver(TestCase):
                    ('osioł.الاغ.नितंब$', (5, 6)),
                    ('жопа.驢.γάιδαρος', (7, 8))]
 
-        with patch('carbon.regexlist.WhiteList.regex_list', regexes):
+        with patch('carbon.regexlist.allowed_metrics.regex_list', regexes):
             for m in metrics:
                 self.receiver.metricReceived(*m)
 
@@ -117,7 +117,7 @@ class TestMetricReceiver(TestCase):
                    ('osioł.الاغ.नितंब', (5, 6)),
                    ('жопа.驢.γάιδαρος', (7, 8))]
 
-        with patch('carbon.regexlist.BlackList.regex_list', regexes):
+        with patch('carbon.regexlist.blocked_metrics.regex_list', regexes):
             for m in metrics:
                 self.receiver.metricReceived(*m)
 

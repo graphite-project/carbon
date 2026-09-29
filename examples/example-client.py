@@ -33,8 +33,9 @@ def get_loadavg():
         return open('/proc/loadavg').read().split()[:3]
     else:
         command = "uptime"
-        process = subprocess.Popen(command, stdout=subprocess.PIPE, shell=True)
-        stdout = process.communicate()[0].decode('utf-8').strip()
+        process = subprocess.Popen(command, stdout=subprocess.PIPE, shell=True,
+                                   universal_newlines=True)
+        stdout = process.communicate()[0].strip()
         # Split on whitespace and commas
         output = re.split(r"[\s,]+", stdout)
         return output[-3:]

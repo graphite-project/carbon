@@ -34,5 +34,7 @@ class ExampleClientTest(unittest.TestCase):
         with mock.patch.object(self.client.platform, 'system', return_value='Darwin'), \
                 mock.patch.object(self.client.subprocess, 'Popen') as popen:
             popen.return_value.communicate.return_value = (
-                b'12:00 up 1 day, 2 users, load averages: 1.2 2.3 3.4\n', None)
+                '12:00 d\u00e9marr\u00e9, 2 users, load averages: 1.2 2.3 3.4\n', None)
             self.assertEqual(self.client.get_loadavg(), ['1.2', '2.3', '3.4'])
+            popen.assert_called_once_with('uptime', stdout=self.client.subprocess.PIPE,
+                                          shell=True, universal_newlines=True)

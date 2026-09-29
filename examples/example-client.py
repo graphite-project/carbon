@@ -34,9 +34,9 @@ def get_loadavg():
     else:
         command = "uptime"
         process = subprocess.Popen(command, stdout=subprocess.PIPE, shell=True)
-        stdout = process.communicate()[0].strip()
+        stdout = process.communicate()[0].decode('utf-8').strip()
         # Split on whitespace and commas
-        output = re.split("[\s,]+", stdout)
+        output = re.split(r"[\s,]+", stdout)
         return output[-3:]
 
 def run(sock, delay):
@@ -53,7 +53,7 @@ def run(sock, delay):
         print("sending message")
         print('-' * 80)
         print(message)
-        sock.sendall(message)
+        sock.sendall(message.encode('utf-8'))
         time.sleep(delay)
 
 def main():

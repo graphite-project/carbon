@@ -22,10 +22,12 @@ class ExampleClientTest(unittest.TestCase):
         self.addCleanup(receiver.close)
         receiver.settimeout(1)
         loadavg = ['1.2', '2.3', '3.4']
-        stop = mock.patch.object(self.client.time, 'sleep', side_effect=KeyboardInterrupt)
+        stop = mock.patch.object(
+            self.client.time, 'sleep', side_effect=KeyboardInterrupt)
         with mock.patch.object(self.client, 'get_loadavg', return_value=loadavg), \
                 mock.patch.object(self.client.time, 'time', return_value=1234567890), \
-                stop, mock.patch('builtins.print'), self.assertRaises(KeyboardInterrupt):
+                stop, mock.patch('builtins.print'), \
+                self.assertRaises(KeyboardInterrupt):
             self.client.run(sender, 60)
         sender.shutdown(socket.SHUT_WR)
         with receiver.makefile('rb') as stream:
@@ -41,5 +43,5 @@ class ExampleClientTest(unittest.TestCase):
             popen.return_value.communicate.return_value = (
                 '12:00 d\u00e9marr\u00e9, 2 users, load averages: 1.2 2.3 3.4\n', None)
             self.assertEqual(self.client.get_loadavg(), ['1.2', '2.3', '3.4'])
-            popen.assert_called_once_with(['uptime'], stdout=self.client.subprocess.PIPE,
-                                          universal_newlines=True)
+            popen.assert_called_once_with(
+                ['uptime'], stdout=self.client.subprocess.PIPE, universal_newlines=True)

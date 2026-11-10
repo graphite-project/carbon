@@ -62,6 +62,7 @@ for section in config_parser.sections():
         (section, ','.join(retentions))
       )
       print("    %s" % e)
+      section_failed = True
 
   if section_failed:
     errors_found += 1

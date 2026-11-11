@@ -13,8 +13,8 @@ jobs:
     strategy:
       matrix:
         include:
-          - name: "Pypy 3.10"
-            python-version: 'pypy-3.10'
+          - name: "Pypy 3.11"
+            python-version: 'pypy-3.11'
             toxenv: 'pypy3'
           - name: "Python 3.11"
             python-version: '3.11'

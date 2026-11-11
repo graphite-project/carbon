@@ -50,12 +50,8 @@ with open('setup.cfg', 'w') as f:
     cf.write(f)
 
 
-if os.environ.get('USE_SETUPTOOLS'):
-  from setuptools import setup
-  setup_kwargs = dict(zip_safe=0)
-else:
-  from distutils.core import setup
-  setup_kwargs = dict()
+from setuptools import setup
+setup_kwargs = dict(zip_safe=0)
 
 
 storage_dirs = [ ('storage/ceres/dummy.txt', []), ('storage/whisper/dummy.txt',[]),

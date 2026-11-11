@@ -235,8 +235,6 @@ class CarbonCacheOptions(usage.Options):
     ]
 
     def postOptions(self):
-        global settings
-
         program = self.parent.subCommand
 
         # Use provided pidfile (if any) as default for configuration. If it's

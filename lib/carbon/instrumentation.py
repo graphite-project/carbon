@@ -74,8 +74,6 @@ def getMemUsage():
 
 
 def recordMetrics():
-  global lastUsage
-  global prior_stats
   myStats = stats.copy()
   myPriorStats = {}
   stats.clear()

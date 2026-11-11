@@ -11,7 +11,7 @@ from twisted.protocols.basic import LineOnlyReceiver, Int32StringReceiver
 from twisted.protocols.policies import TimeoutMixin
 from carbon import log, events, state, management
 from carbon.conf import settings
-from carbon.regexlist import WhiteList, BlackList
+from carbon.regexlist import allowed_metrics, blocked_metrics
 from carbon.util import pickle, get_unpickler
 from carbon.util import PluginRegistrar
 from six import with_metaclass
@@ -166,17 +166,18 @@ class MetricReceiver(CarbonServerProtocol, TimeoutMixin):
       events.resumeReceivingMetrics.removeHandler(self.resumeReceiving)
 
   def metricReceived(self, metric, datapoint):
-    if BlackList and metric in BlackList:
-      instrumentation.increment('blacklistMatches')
+    if blocked_metrics and metric in blocked_metrics:
+      instrumentation.increment('blocked_metricsMatches')
       return
-    if WhiteList and metric not in WhiteList:
-      instrumentation.increment('whitelistRejects')
+    if allowed_metrics and metric not in allowed_metrics:
+      instrumentation.increment('allowed_metricsRejects')
       return
     if datapoint[1] != datapoint[1]:  # filter out NaN values
       return
     # use current time if none given: https://github.com/graphite-project/carbon/issues/54
     if int(datapoint[0]) == -1:
       datapoint = (time.time(), datapoint[1])
+
     res = settings.MIN_TIMESTAMP_RESOLUTION
     if res:
       datapoint = (int(datapoint[0]) // res * res, datapoint[1])

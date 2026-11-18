@@ -2,7 +2,7 @@ coverage
 mock
 mocker
 nose
-protobuf
+protobuf<4
 mmh3
 cryptography
 git+https://github.com/graphite-project/ceres.git#egg=ceres
